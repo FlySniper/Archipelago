@@ -19,27 +19,26 @@ class SpaceEngineersLogic(LogicMixin):
 
 
 def set_rules(world: MultiWorld, player: int):
-    # set_rule(world.get_location("Built Gravity Blocks", player),
-    #         lambda state: state._space_engineers_has_item(player, "Gravity Blocks") and
-    #                       state._space_engineers_has_region("Space: World Size 2"))
-
     for item_name in item_table.keys():
         item_data = item_table[item_name]
         if item_data.type == "Block":
             location_data = location_table[f"Built {item_name}"]
             if any(component in location_data.component_list for component in SPACE_COMPONENTS):
                 set_rule(world.get_location(f"Built {item_name}", player),
-                         lambda state: state._space_engineers_has_region(player, "Space: World Size 2") and
-                                       state._space_engineers_has_item(player, "Progressive Space Size") and
-                                       state._space_engineers_has_item(player, item_name))
+                         lambda state, item_name=item_name, player=player:
+                         state._space_engineers_has_region(player, "Space: World Size 2") and
+                         state._space_engineers_has_item(player, "Progressive Space Size") and
+                         state._space_engineers_has_item(player, item_name))
             elif any(component in location_data.component_list for component in MANUFACTURING_UPGRADE_COMPONENTS):
                 set_rule(world.get_location(f"Built {item_name}", player),
-                         lambda state: state._space_engineers_has_region(player,
-                                                                         "Starting Planet: No Flight Full Refinery and Assembler") and
-                                       state._space_engineers_has_item(player, item_name))
+                         lambda state, item_name=item_name, player=player:
+                         state._space_engineers_has_region(player,
+                                                           "Starting Planet: No Flight Full Refinery and Assembler") and state._space_engineers_has_item(
+                             player, item_name))
             elif any(component in location_data.component_list for component in STARTING_COMPONENTS):
                 set_rule(world.get_location(f"Built {item_name}", player),
-                         lambda state: state._space_engineers_has_item(player, item_name))
+                         lambda state, item_name=item_name, player=player: state._space_engineers_has_item(player,
+                                                                                                           item_name))
 
     set_rule(world.get_location("Stone", player),
              lambda state: True)
@@ -295,30 +294,16 @@ def set_rules(world: MultiWorld, player: int):
                  lambda state: state._space_engineers_has_region(player, "Space: World Size 2") and
                                state._space_engineers_has_item(player, "Jump Drive") and
                                state._space_engineers_has_item(player, "Progressive Space Size", 1))
+    if world.goal[player].value == 1:  # Visit every Planet
+        set_rule(world.get_location('Space Engineers: Victory', player),
+                 lambda state: state._space_engineers_has_region(player, "Space: World Size 4") and
+                               state._space_engineers_has_item(player, "Progressive Space Size", 3))
     # Start
-
-    # set_rule(world.get_entrance('Starting Planet: No Flight Full Refinery and Assembler', player), lambda state:
-    # state._space_engineers_has_item(player, "Refinery") and
-    # state._space_engineers_has_item(player, "Assembler") and
-    # state._space_engineers_has_item(player, "Renewable Energy Sources"))
-    # set_region_exit_rules(world.get_region('Starting Planet: No Materials', player),
-    #                       [], operator='and')
-
-    debug = world.get_region('Starting Planet: No Flight Survival Kit', player)
     set_region_exit_rules(world.get_region('Starting Planet: No Flight Survival Kit', player),
                           [], items=[("Refinery", 1), ("Assembler", 1), ("Renewable Energy Sources", 1)],
                           player=player, operator='and')
 
     # Has flight
-    # set_rule(world.get_entrance('Starting Planet: Has Flight', player), lambda state:
-    # state._space_engineers_has_item(player, "Atmospheric Thrusters") and
-    # state._space_engineers_has_item(player, "Gyroscope") and
-    # state._space_engineers_has_item(player, "Control Seat") and
-    # state._space_engineers_has_item(player, "Cargo Containers") and
-    # state._space_engineers_has_item(player, "Small Conveyor Tube") and
-    # state._space_engineers_has_item(player, "Large Conveyor Tube") and
-    # state._space_engineers_has_item(player, "Connector") and
-    # state._space_engineers_has_item(player, "Turreted Weapons"))
     set_region_exit_rules(world.get_region('Starting Planet: No Flight Full Refinery and Assembler', player),
                           [],
                           items=[("Atmospheric Thrusters", 1), ("Gyroscope", 1), ("Control Seat", 1),
@@ -327,29 +312,17 @@ def set_rules(world: MultiWorld, player: int):
                           player=player, operator='and')
 
     # Can reach space
-    #    set_rule(world.get_entrance('Space: World Size 2', player), lambda state:
-    #    state._space_engineers_has_item(player, "Hydrogen Thrusters") and
-    #    state._space_engineers_has_item(player, "O2/H2 Generator") and
-    #    state._space_engineers_has_item(player, "Medical Blocks") and
-    #    state._space_engineers_has_item(player, "Gas Tanks") and
-    #    state._space_engineers_has_item(player, "Progressive Space Size", 1))
     set_region_exit_rules(world.get_region('Starting Planet: Has Flight', player),
                           [], items=[("Progressive Space Size", 1), ("Hydrogen Thrusters", 1), ("O2/H2 Generator", 1),
                                      ("Medical Blocks", 1), ("Gas Tanks", 1)],
                           player=player, operator='and')
 
     # Space is larger
-    # set_rule(world.get_entrance('Space: World Size 3', player), lambda state:
-    # state._space_engineers_has_item(player, "Ion Thrusters") and
-    # state._space_engineers_has_item(player, "Jump Drive") and
-    # state._space_engineers_has_item(player, "Progressive Space Size", 2))
     set_region_exit_rules(world.get_region('Space: World Size 2', player),
                           [], items=[("Progressive Space Size", 2)],
                           player=player, operator='and')
 
     # Space is even larger
-    # set_rule(world.get_entrance('Space: World Size 4', player), lambda state:
-    # state._space_engineers_has_item(player, "Progressive Space Size", 3))
     set_region_exit_rules(world.get_region('Space: World Size 3', player), [],
                           items=[("Progressive Space Size", 3)], player=player, operator="and")
     set_region_exit_rules(world.get_region('Space: World Size 4', player),

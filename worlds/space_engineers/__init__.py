@@ -78,6 +78,7 @@ class SpaceEngineersWorld(World):
             "refinery_speed": self.multiworld.refinery_speed[self.player],
             "welding_speed": self.multiworld.welding_speed[self.player],
             "grinding_speed": self.multiworld.grinding_speed[self.player],
+            "se_item_names": ",".join(name + "\\" + item.se_item_name for name, item in item_table.items())
         }
 
     def generate_early(self):
@@ -95,7 +96,7 @@ class SpaceEngineersWorld(World):
 
         pool.extend(SpaceEngineersItem("Progressive Space Size", self.player) for _ in range(0, 2))
         # Matching number of unfilled locations with filler items
-        locations_remaining = len(location_table) - 1 - len(pool)
+        locations_remaining = len(location_table) - 2 - len(pool)
         while locations_remaining > 0:
             # Filling the pool equally with both types of filler items
             pool.append(SpaceEngineersItem("Oxygen Bottle", self.player))
@@ -173,7 +174,7 @@ class SpaceEngineersLocation(Location):
 
 
 class SpaceEngineersItem(Item):
-    game = "Space Engineers"
+    game: str = "Space Engineers"
 
     def __init__(self, name, player: int = None):
         item_data = item_table[name]
