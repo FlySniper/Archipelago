@@ -78,7 +78,6 @@ class SpaceEngineersWorld(World):
             "refinery_speed": self.multiworld.refinery_speed[self.player],
             "welding_speed": self.multiworld.welding_speed[self.player],
             "grinding_speed": self.multiworld.grinding_speed[self.player],
-            "se_item_names": ",".join(name + "\\" + item.se_item_name for name, item in item_table.items())
         }
 
     def generate_early(self):
