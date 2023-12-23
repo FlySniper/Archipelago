@@ -114,8 +114,8 @@
     <AssemblerSpeedMultiplier>10</AssemblerSpeedMultiplier>
     <AssemblerEfficiencyMultiplier>10</AssemblerEfficiencyMultiplier>
     <RefinerySpeedMultiplier>10</RefinerySpeedMultiplier>
-    <OnlineMode>OFFLINE</OnlineMode>
-    <MaxPlayers>4</MaxPlayers>
+    <OnlineMode>FRIENDS</OnlineMode>
+    <MaxPlayers>6</MaxPlayers>
     <MaxFloatingObjects>56</MaxFloatingObjects>
     <TotalBotLimit>32</TotalBotLimit>
     <MaxBackupSaves>5</MaxBackupSaves>
@@ -161,10 +161,10 @@
     <EnableConvertToStation>true</EnableConvertToStation>
     <StationVoxelSupport>false</StationVoxelSupport>
     <EnableSunRotation>true</EnableSunRotation>
-    <EnableRespawnShips>false</EnableRespawnShips>
+    <EnableRespawnShips>true</EnableRespawnShips>
     <ScenarioEditMode>false</ScenarioEditMode>
     <Scenario>false</Scenario>
-    <UpdateRespawnDictionary>false</UpdateRespawnDictionary>
+    <UpdateRespawnDictionary>true</UpdateRespawnDictionary>
     <CanJoinRunning>false</CanJoinRunning>
     <PhysicsIterations>8</PhysicsIterations>
     <SunRotationIntervalMinutes>119.999992</SunRotationIntervalMinutes>
@@ -172,7 +172,7 @@
     <SpawnWithTools>true</SpawnWithTools>
     <BlueprintShareTimeout>30</BlueprintShareTimeout>
     <BlueprintShare>true</BlueprintShare>
-    <StartInRespawnScreen>false</StartInRespawnScreen>
+    <StartInRespawnScreen>true</StartInRespawnScreen>
     <EnableVoxelDestruction>true</EnableVoxelDestruction>
     <MaxDrones>5</MaxDrones>
     <EnableDrones>false</EnableDrones>
@@ -224,7 +224,6 @@
     <StationsDistanceOuterRadiusEnd>30000000</StationsDistanceOuterRadiusEnd>
     <EconomyTickInSeconds>1200</EconomyTickInSeconds>
     <SimplifiedSimulation>false</SimplifiedSimulation>
-    <SuppressedWarnings />
     <EnablePcuTrading>true</EnablePcuTrading>
     <FamilySharing>true</FamilySharing>
     <EnableSelectivePhysicsUpdates>false</EnableSelectivePhysicsUpdates>
@@ -314,7 +313,7 @@
     </PlayerToFactionsVis>
   </Factions>
   <Mods>
-    <ModItem FriendlyName="Archipelago">
+    <ModItem>
       <Name>Archipelago</Name>
       <PublishedServiceName>Steam</PublishedServiceName>
     </ModItem>
