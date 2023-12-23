@@ -92,7 +92,7 @@ class TitanDistance(Range):
 
 
 class EarthLikeSize(Range):
-    """How large the earth like planet's diameter is in Kilometers."""
+    """How large the earth like planet's radius is in Kilometers."""
     display_name = "Earth Like Planet's size"
     range_start = 20
     range_end = 120
@@ -100,7 +100,7 @@ class EarthLikeSize(Range):
 
 
 class MoonSize(Range):
-    """How large the Moon's diameter is in Kilometers."""
+    """How large the Moon's radius is in Kilometers."""
     display_name = "Moon's Size"
     range_start = 20
     range_end = 120
@@ -108,7 +108,7 @@ class MoonSize(Range):
 
 
 class MarsSize(Range):
-    """How large Mar's diameter is in Kilometers."""
+    """How large Mar's radius is in Kilometers."""
     display_name = "Mar's Size"
     range_start = 20
     range_end = 120
@@ -116,7 +116,7 @@ class MarsSize(Range):
 
 
 class EuropaSize(Range):
-    """How large Europa's diameter is in Kilometers."""
+    """How large Europa's radius is in Kilometers."""
     display_name = "Europa's Size"
     range_start = 20
     range_end = 120
@@ -124,7 +124,7 @@ class EuropaSize(Range):
 
 
 class TritonSize(Range):
-    """How large Triton's diameter is in Kilometers."""
+    """How large Triton's radius is in Kilometers."""
     display_name = "Triton's Size"
     range_start = 20
     range_end = 120
@@ -132,7 +132,7 @@ class TritonSize(Range):
 
 
 class PertamSize(Range):
-    """How large Pertam's diameter is in Kilometers."""
+    """How large Pertam's radius is in Kilometers."""
     display_name = "Pertam's Size"
     range_start = 20
     range_end = 120
@@ -140,7 +140,7 @@ class PertamSize(Range):
 
 
 class AlienSize(Range):
-    """How large the Alien's planet diameter is in Kilometers."""
+    """How large the Alien's planet radius is in Kilometers."""
     display_name = "Alien Planet's Size"
     range_start = 20
     range_end = 120
@@ -148,7 +148,7 @@ class AlienSize(Range):
 
 
 class TitanSize(Range):
-    """How large Titan's diameter is in Kilometers."""
+    """How large Titan's radius is in Kilometers."""
     display_name = "Titan's Size"
     range_start = 20
     range_end = 120

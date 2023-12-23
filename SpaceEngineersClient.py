@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import os
+import re
 import sys
 import asyncio
 import random
@@ -10,7 +11,7 @@ from typing import Tuple, List, Iterable, Dict, TextIO
 
 from worlds.space_engineers import SpaceEngineersWorld
 from worlds.space_engineers.Items import item_table, item_table_ids, ItemData
-from worlds.space_engineers.Locations import location_id_name
+from worlds.space_engineers.Locations import location_id_name, location_name_id
 from worlds.space_engineers.Options import *
 
 import ModuleUpdate
@@ -86,22 +87,25 @@ class SpaceEngineersContext(CommonContext):
         self.syncing = False
         self.awaiting_bridge = False
         self.game_communication_path = ""
+        self.se_saves_directory = ""
+        self.save_directory = ""
         # self.game_communication_path: files go in this path to pass data between us and the actual game
         if "appdata" in os.environ:
-            data_directory = os.path.join("lib", "worlds", "space_engineers", "data")
-            dev_data_directory = os.path.join("worlds", "space_engineers", "data")
+            save_directory = os.path.join("lib", "worlds", "space_engineers", "data", "save")
+            dev_save_directory = os.path.join("worlds", "space_engineers", "data", "save")
             appdata_se = os.path.expandvars(os.path.join("%APPDATA%", "SpaceEngineers"))
             if not os.path.isdir(appdata_se):
                 print_error_and_close("SpaceEngineersClient couldn't find SpaceEngineers in appdata!"
                                       "Boot Space Engineers and then close it to attempt to fix this error")
-            # if not os.path.isdir(data_directory):
-            #     data_directory = dev_data_directory
-            # if not os.path.isdir(data_directory):
-            #     print_error_and_close("SpaceEngineersClient couldn't find the Space Engineers save files in install!")
+            if not os.path.isdir(save_directory):
+                save_directory = dev_save_directory
+            if not os.path.isdir(save_directory):
+                print_error_and_close("SpaceEngineersClient couldn't find the Space Engineers save files in install!")
             self.game_communication_path = os.path.join(appdata_se, "Storage")
             self.remove_communication_files()
             atexit.register(self.remove_communication_files)
-            # shutil.copytree(data_directory, appdata_se, dirs_exist_ok=True)
+            self.se_saves_directory = os.path.join(appdata_se, "Saves")
+            self.save_directory = save_directory
         else:
             print_error_and_close("SpaceEngineersClient couldn't detect system type. "
                                   "Unable to infer required game_communication_path")
@@ -163,8 +167,58 @@ class SpaceEngineersContext(CommonContext):
                 file_contents += f"{data.se_item_name}::{id}:true:{num_items}\n"
         file.write(file_contents)
 
+    def apply_world_settings(self, save_path: str, save_name: str):
+        sandbox_path = os.path.join(save_path, "Sandbox.sbc")
+        sandbox_config_path = os.path.join(save_path, "Sandbox_config.sbc")
+        with open(sandbox_path, "r+") as sandbox_file:
+            text = sandbox_file.read()
+            text = self.apply_world_settings_to_file(text, save_name)
+        with open(sandbox_path, "w") as sandbox_file:
+            sandbox_file.write(text)
+        with open(sandbox_config_path, "r+") as sandbox_config_file:
+            text = sandbox_config_file.read()
+            text = self.apply_world_settings_to_file(text, save_name)
+        with open(sandbox_config_path, "w") as sandbox_config_file:
+            sandbox_config_file.write(text)
+
+    def apply_world_settings_to_file(self, text: str, save_name: str):
+        match = re.search("<InventorySizeMultiplier>[0-9]+</InventorySizeMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<InventorySizeMultiplier>{self.character_inventory_size}</InventorySizeMultiplier>" + \
+               text[match.end():]
+        match = re.search("<BlocksInventorySizeMultiplier>[0-9]+</BlocksInventorySizeMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<BlocksInventorySizeMultiplier>{self.block_inventory_size}</BlocksInventorySizeMultiplier>" + \
+               text[match.end():]
+        match = re.search("<AssemblerSpeedMultiplier>[0-9]+</AssemblerSpeedMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<AssemblerSpeedMultiplier>{self.assembler_speed}</AssemblerSpeedMultiplier>" + \
+               text[match.end():]
+        match = re.search("<AssemblerEfficiencyMultiplier>[0-9]+</AssemblerEfficiencyMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<AssemblerEfficiencyMultiplier>{self.assembler_efficiency}</AssemblerEfficiencyMultiplier>" + \
+               text[match.end():]
+        match = re.search("<RefinerySpeedMultiplier>[0-9]+</RefinerySpeedMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<RefinerySpeedMultiplier>{self.refinery_speed}</RefinerySpeedMultiplier>" + \
+               text[match.end():]
+        match = re.search("<WelderSpeedMultiplier>[0-9]+</WelderSpeedMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<WelderSpeedMultiplier>{self.welding_speed}</WelderSpeedMultiplier>" + \
+               text[match.end():]
+        match = re.search("<GrinderSpeedMultiplier>[0-9]+</GrinderSpeedMultiplier>", text)
+        text = text[:match.start()] + \
+               f"<GrinderSpeedMultiplier>{self.grinding_speed}</GrinderSpeedMultiplier>" + \
+               text[match.end():]
+        match = re.search("<SessionName>AP-TEMPLATE</SessionName>", text)
+        text = text[:match.start()] + \
+               f"<SessionName>{save_name}</SessionName>" + \
+               text[match.end():]
+        return text
+
     def on_package(self, cmd: str, args: dict):
         if cmd in {"Connected"}:
+            ap_save_name = f"AP-{self.slot}-{args['slot_data']['seed']}"
             with open(os.path.join(self.game_communication_path, self.ap_settings_file), 'w') as f:
                 slot_data = args["slot_data"]
                 write_settings_file(f, slot_data)
@@ -201,6 +255,14 @@ class SpaceEngineersContext(CommonContext):
             # self.ui.update_tracker()
 
             random.seed(self.seed_name + str(self.slot))
+            for directory in os.listdir(self.se_saves_directory):
+                ap_save_path = os.path.join(self.se_saves_directory, directory, ap_save_name)
+                if not os.path.exists(ap_save_path):
+                    shutil.copytree(self.save_directory, os.path.join(self.se_saves_directory, directory),
+                                    dirs_exist_ok=True)
+                    os.rename(os.path.join(self.se_saves_directory, directory, "AP-TEMPLATE"),
+                              os.path.join(ap_save_path))
+                    self.apply_world_settings(ap_save_path, ap_save_name)
 
         if cmd in {"RoomInfo"}:
             self.seed_name = args["seed_name"]
@@ -290,7 +352,7 @@ async def game_watcher(ctx: SpaceEngineersContext):
             for file in files:
                 if file.find("apSend") > -1:
                     st = file.split("apSend", -1)[1]
-                    sending = sending+[(int(st))]
+                    sending = sending + [(int(st))]
                 if file.find("apVictory") > -1:
                     victory = True
         ctx.locations_checked = sending

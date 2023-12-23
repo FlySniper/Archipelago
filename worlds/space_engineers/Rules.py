@@ -74,12 +74,12 @@ def set_rules(world: MultiWorld, player: int):
     set_rule(world.get_location("Assembled Fireworks", player),
              lambda state: state._space_engineers_has_region(player,
                                                              "Starting Planet: No Flight Full Refinery and Assembler"))
-    set_rule(world.get_location("Assembled Oxygen Bottle", player),
-             lambda state: state._space_engineers_has_region(player,
-                                                             "Starting Planet: No Flight Full Refinery and Assembler"))
-    set_rule(world.get_location("Assembled Hydrogen Bottle", player),
-             lambda state: state._space_engineers_has_region(player,
-                                                             "Starting Planet: No Flight Full Refinery and Assembler"))
+    # set_rule(world.get_location("Assembled Oxygen Bottle", player),
+    #          lambda state: state._space_engineers_has_region(player,
+    #                                                          "Starting Planet: No Flight Full Refinery and Assembler"))
+    # set_rule(world.get_location("Assembled Hydrogen Bottle", player),
+    #          lambda state: state._space_engineers_has_region(player,
+    #                                                          "Starting Planet: No Flight Full Refinery and Assembler"))
     set_rule(world.get_location("Assembled Enhanced Grinder", player),
              lambda state: state._space_engineers_has_region(player,
                                                              "Starting Planet: No Flight Full Refinery and Assembler"))
