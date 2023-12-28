@@ -78,6 +78,7 @@ non_apworlds: set = {
     "Raft",
     "Secret of Evermore",
     "Slay the Spire",
+    "Space Engineers",
     "Sudoku",
     "Super Mario 64",
     "VVVVVV",

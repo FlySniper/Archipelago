@@ -105,6 +105,8 @@ components: List[Component] = [
     Component('Zelda 1 Client', 'Zelda1Client', file_identifier=SuffixIdentifier('.aptloz')),
     # ChecksFinder
     Component('ChecksFinder Client', 'ChecksFinderClient'),
+    # Space Engineers
+    Component('Space Engineers Client', 'SpaceEngineersClient'),
     # Starcraft 2
     Component('Starcraft 2 Client', 'Starcraft2Client'),
     # Wargroove
