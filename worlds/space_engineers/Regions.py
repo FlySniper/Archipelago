@@ -117,8 +117,8 @@ def create_regions(world, player: int):
                                "Assembled S-10 Pistol Magazine"])
 
     manufacturing_locations.extend(["Assembled Fireworks",
-                                    #"Assembled Oxygen Bottle",
-                                    #"Assembled Hydrogen Bottle",
+                                    # "Assembled Oxygen Bottle",
+                                    # "Assembled Hydrogen Bottle",
                                     "Assembled Enhanced Grinder",
                                     "Assembled Proficient Grinder",
                                     "Assembled Enhanced Welder",
@@ -152,49 +152,27 @@ def create_regions(world, player: int):
                                    "Assembled Elite Grinder",
                                    "Assembled Rocket"])
     flight_locations: [str] = ["Ice"]
-    world_regions = [
-        create_region(world, player, 'Menu', None, ['Starting Planet: No Materials']),
-        create_region(world, player, 'Starting Planet: No Materials', starting_locations,
-                      ['Starting Planet: No Flight Survival Kit']),
-        create_region(world, player, 'Starting Planet: No Flight Survival Kit', buildable_block_locations,
-                      ['Starting Planet: No Flight Full Refinery and Assembler']),
-
-        create_region(world, player, 'Starting Planet: No Flight Full Refinery and Assembler',
-                      manufacturing_locations,
-                      ['Starting Planet: Has Flight']),
-
-        create_region(world, player, 'Starting Planet: Has Flight',
-                      flight_locations,
-                      ['Space: World Size 2', 'Space Engineers Finale']),
-
-    ]
-    # Goal is to Build a Jump Drive
-    if world.goal[player].value == 0:
-        world_regions.append(create_region(world, player, 'Space: World Size 2',
-                                           space_locations_size_2,
-                                           ['Space: World Size 3']))
-    else:
-        world_regions.append(create_region(world, player, 'Space: World Size 2',
-                                           space_locations_size_2,
-                                           ['Space: World Size 3']))
-
-    world_regions.append(create_region(world, player, 'Space: World Size 3',
-                                       space_locations_size_3,
-                                       ['Space: World Size 4']))
-
-    # Goal is to visit every planet, or defeat the mothership
-    if world.goal[player].value == 1 or world.goal[player].value == 2:
-        world_regions.append(create_region(world, player, 'Space: World Size 4',
-                                           space_locations_size_4,
-                                           ['Space Engineers Finale']))
-    else:
-        world_regions.append(create_region(world, player, 'Space: World Size 4',
-                                           space_locations_size_4,
-                                           []))
-
-    world_regions.append(create_region(world, player, 'Space Engineers Finale', [
-        'Space Engineers: Victory'
-    ]))
+    world_regions = [create_region(world, player, 'Menu', None, ['Starting Planet: No Materials']),
+                     create_region(world, player, 'Starting Planet: No Materials', starting_locations,
+                                   ['Starting Planet: No Flight Survival Kit']),
+                     create_region(world, player, 'Starting Planet: No Flight Survival Kit', buildable_block_locations,
+                                   ['Starting Planet: No Flight Full Refinery and Assembler']),
+                     create_region(world, player, 'Starting Planet: No Flight Full Refinery and Assembler',
+                                   manufacturing_locations,
+                                   ['Starting Planet: Has Flight']),
+                     create_region(world, player, 'Starting Planet: Has Flight',
+                                   flight_locations,
+                                   ['Space: World Size 2', 'Space Engineers Finale']),
+                     create_region(world, player, 'Space: World Size 2',
+                                   space_locations_size_2,
+                                   ['Space: World Size 3']), create_region(world, player, 'Space: World Size 3',
+                                                                           space_locations_size_3,
+                                                                           ['Space: World Size 4']),
+                     create_region(world, player, 'Space: World Size 4',
+                                   space_locations_size_4,
+                                   []), create_region(world, player, 'Space Engineers Finale',
+                                                      ['Space Engineers: Victory'])
+                     ]
 
     world.regions += world_regions
 
