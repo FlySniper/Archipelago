@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import atexit
+import datetime
 import os
 import re
 import sys
 import asyncio
 import random
 import shutil
+import time
 from typing import Tuple, List, Iterable, Dict, TextIO
 
 from worlds.space_engineers import SpaceEngineersWorld
@@ -170,6 +172,7 @@ class SpaceEngineersContext(CommonContext):
     def apply_world_settings(self, save_path: str, save_name: str):
         sandbox_path = os.path.join(save_path, "Sandbox.sbc")
         sandbox_config_path = os.path.join(save_path, "Sandbox_config.sbc")
+        os.utime(save_path)
         with open(sandbox_path, "r+") as sandbox_file:
             text = sandbox_file.read()
             text = self.apply_world_settings_to_file(text, save_name)
@@ -214,11 +217,18 @@ class SpaceEngineersContext(CommonContext):
         text = text[:match.start()] + \
                f"<SessionName>{save_name}</SessionName>" + \
                text[match.end():]
+        match = re.search("<LastSaveTime>.................................</LastSaveTime>", text)
+        last_save_time = datetime.datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        # Python doesn't put a colon in the timezone number
+        last_save_time = last_save_time[0:-2] + ':' + last_save_time[-2:]
+        text = text[:match.start()] + \
+               f"<LastSaveTime>{last_save_time}</LastSaveTime>" + \
+               text[match.end():]
         return text
 
     def on_package(self, cmd: str, args: dict):
         if cmd in {"Connected"}:
-            ap_save_name = f"AP-{self.slot}-{args['slot_data']['seed']}"
+            ap_save_name = f"AP-{Utils.get_file_safe_name(self.player_names[self.slot])}-{args['slot_data']['seed']}"
             with open(os.path.join(self.game_communication_path, self.ap_settings_file), 'w') as f:
                 slot_data = args["slot_data"]
                 write_settings_file(f, slot_data)
@@ -323,9 +333,6 @@ class SpaceEngineersContext(CommonContext):
 
             def build(self):
                 container = super().build()
-                panel = TabbedPanelItem(text="Space Engineers")
-                panel.content = self.build_tracker()
-                self.tabs.add_widget(panel)
                 return container
 
             def build_tracker(self):

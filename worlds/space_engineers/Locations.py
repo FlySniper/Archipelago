@@ -48,12 +48,15 @@ MANUFACTURING_UPGRADE_COMPONENTS = [BULLET_PROOF_GLASS, DETECTOR_COMPONENTS, LAR
 SPACE_COMPONENTS = [THRUSTER_COMPONENTS, SUPER_CONDUCTOR_COMPONENTS, GRAVITY_COMPONENTS]
 
 location_table: {str, LocationData} = {
+    # Includes all light armor variants
     "Built Light Armor Block": LocationData(3883300, [STEEL_PLATE], "Built Light Armor Block"),
+    # Includes all heavy armor variants
     "Built Heavy Armor Block": LocationData(3883301, [STEEL_PLATE, METAL_GRID], "Built Heavy Armor Block"),
-    "Built Round Armor Slope": LocationData(3883302, [STEEL_PLATE], "Built Round Armor Slope"),
-    "Built Heavy Armor Round Slope": LocationData(3883303, [STEEL_PLATE, METAL_GRID], "Built Heavy Armor Round Slope"),
-    "Built Light Armor Ramps": LocationData(3883304, [STEEL_PLATE], "Built Light Armor Ramps"),
-    "Built Heavy Armor Ramps": LocationData(3883306, [STEEL_PLATE, METAL_GRID], "Built Heavy Armor Ramps"),
+    # "Built Round Armor Slope": LocationData(3883302, [STEEL_PLATE], "Built Round Armor Slope"),
+    # "Built Heavy Armor Round Slope": LocationData(3883303, [STEEL_PLATE, METAL_GRID],
+    # "Built Heavy Armor Round Slope"),
+    # "Built Light Armor Ramps": LocationData(3883304, [STEEL_PLATE], "Built Light Armor Ramps"),
+    # "Built Heavy Armor Ramps": LocationData(3883306, [STEEL_PLATE, METAL_GRID], "Built Heavy Armor Ramps"),
     "Built Projector": LocationData(3883314, [COMPUTER, MOTOR, LARGE_TUBE, CONSTRUCTION_COMPONENTS, STEEL_PLATE],
                                     "Built Projector"),
     "Built Target Dummy": LocationData(3883315, [STEEL_PLATE, DISPLAY, COMPUTER, MOTOR, SMALL_TUBE],
@@ -62,6 +65,8 @@ location_table: {str, LocationData} = {
                                       "Built Sound Block"),
     "Built Button Panel": LocationData(3883317, [INTERIOR_PLATE, CONSTRUCTION_COMPONENTS, COMPUTER],
                                        "Built Button Panel"),
+    "Built Programmable Blocks": LocationData(3883318, [INTERIOR_PLATE, CONSTRUCTION_COMPONENTS],
+                                              "Built Automation Blocks", location_name="Built Programmable Blocks"),
     "Built AI Blocks": LocationData(3883319, [INTERIOR_PLATE, CONSTRUCTION_COMPONENTS, DETECTOR_COMPONENTS, MOTOR,
                                               COMPUTER, STEEL_PLATE], "Built AI Flight Move",
                                     location_name="Built AI Blocks"),
@@ -84,9 +89,10 @@ location_table: {str, LocationData} = {
                                                 "Built Fueled Energy Sources"),
     "Built Renewable Energy Sources": LocationData(3883331, [INTERIOR_PLATE, MOTOR, CONSTRUCTION_COMPONENTS, GIRDER,
                                                              COMPUTER], "Built Renewable Energy Sources"),
-    "Built Engineer Plushie": LocationData(3883332, [INTERIOR_PLATE, CONSTRUCTION_COMPONENTS],
-                                           "Built Engineer Plushie"),
-    "Built Saberoid Plushie": LocationData(3883333, [STEEL_PLATE], "Built Saberoid Plushie"),
+    # These plushies cannot be built
+    # "Built Engineer Plushie": LocationData(3883332, [INTERIOR_PLATE, CONSTRUCTION_COMPONENTS],
+    #                                        "Built Engineer Plushie"),
+    # "Built Saberoid Plushie": LocationData(3883333, [STEEL_PLATE], "Built Saberoid Plushie"),
     "Built Anniversary Statue": LocationData(3883334, [GIRDER, STEEL_PLATE, CONSTRUCTION_COMPONENTS],
                                              "Built Anniversary Statue"),
     "Built Gravity Blocks": LocationData(3883335, [STEEL_PLATE, CONSTRUCTION_COMPONENTS, COMPUTER, GRAVITY_COMPONENTS],

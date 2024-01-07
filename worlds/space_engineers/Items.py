@@ -18,13 +18,15 @@ class ItemData(typing.NamedTuple):
 
 item_table: Dict[str, ItemData] = {
     # Blocks
+    # Includes all light armor variants
     "Light Armor Block": ItemData(38800, "Block", PROGRESSION, "Light Armor Block"),
+    # Includes all heavy armor variants
     "Heavy Armor Block": ItemData(38801, "Block", PROGRESSION, "Heavy Armor Block"),
-    "Round Armor Slope": ItemData(38802, "Block", PROGRESSION, "Round Armor Slope"),
-    "Heavy Armor Round Slope": ItemData(38803, "Block", PROGRESSION, "Heavy Armor Round Slope"),
-    "Light Armor Ramps": ItemData(38804, "Block", PROGRESSION, "Light Armor Ramps"),
+    # "Round Armor Slope": ItemData(38802, "Block", PROGRESSION, "Round Armor Slope"),
+    # "Heavy Armor Round Slope": ItemData(38803, "Block", PROGRESSION, "Heavy Armor Round Slope"),
+    # "Light Armor Ramps": ItemData(38804, "Block", PROGRESSION, "Light Armor Ramps"),
     #    "Light Armor Ramp Corners": ItemData(38805, "Block", PROGRESSION),
-    "Heavy Armor Ramps": ItemData(38806, "Block", PROGRESSION, "Heavy Armor Ramps"),
+    # "Heavy Armor Ramps": ItemData(38806, "Block", PROGRESSION, "Heavy Armor Ramps"),
     #    "Heavy Armor Ramp Corners": ItemData(38807, "Block", PROGRESSION),
     #    "Light Armor Sloped Corners": ItemData(38808, "Block", PROGRESSION),
     #    "Heavy Armor Sloped Corners": ItemData(38809, "Block", PROGRESSION),
@@ -36,8 +38,8 @@ item_table: Dict[str, ItemData] = {
     "Target Dummy": ItemData(38815, "Block", PROGRESSION, "Target Dummy"),
     "Sound Block": ItemData(38816, "Block", PROGRESSION, "Sound Block"),
     "Button Panel": ItemData(38817, "Block", PROGRESSION, "Button Panel"),
-    #    "Automation Blocks": ItemData(38818, "Block", PROGRESSION),
-    "AI Blocks": ItemData(38819, "Block", PROGRESSION, "AI Flight {Move}"),
+    "Programmable Blocks": ItemData(38818, "Block", PROGRESSION, "Automation Blocks"),
+    "AI Blocks": ItemData(38819, "Block", PROGRESSION, "AI Flight (Move)"),
     "Communication Blocks": ItemData(38820, "Block", PROGRESSION, "Communication Blocks"),
     "Remote Control": ItemData(38821, "Block", PROGRESSION, "Remote Control"),
     #    "Control Station": ItemData(38822, "Block", PROGRESSION),
@@ -50,8 +52,8 @@ item_table: Dict[str, ItemData] = {
     "Battery": ItemData(38829, "Block", PROGRESSION, "Battery"),
     "Fueled Energy Sources": ItemData(38830, "Block", PROGRESSION, "Fueled Energy Sources"),
     "Renewable Energy Sources": ItemData(38831, "Block", PROGRESSION, "Renewable Energy Sources"),
-    "Engineer Plushie": ItemData(38832, "Block", PROGRESSION, "Engineer Plushie"),
-    "Saberoid Plushie": ItemData(38833, "Block", PROGRESSION, "Saberoid Plushie"),
+    # "Engineer Plushie": ItemData(38832, "Block", PROGRESSION, "Engineer Plushie"),
+    # "Saberoid Plushie": ItemData(38833, "Block", PROGRESSION, "Saberoid Plushie"),
     "Anniversary Statue": ItemData(38834, "Block", PROGRESSION, "Anniversary Statue"),
     "Gravity Blocks": ItemData(38835, "Block", PROGRESSION, "Gravity Blocks"),
     "Passage": ItemData(38836, "Block", PROGRESSION, "Passage"),
