@@ -115,6 +115,15 @@ class ClientCommandProcessor(CommandProcessor):
         for item_name in AutoWorldRegister.world_types[self.ctx.game].item_name_to_id:
             self.output(item_name)
 
+    def _cmd_item_groups(self):
+        """List all item group names for the currently running game."""
+        if not self.ctx.game:
+            self.output("No game set, cannot determine existing item groups.")
+            return False
+        self.output(f"Item Group Names for {self.ctx.game}")
+        for group_name in AutoWorldRegister.world_types[self.ctx.game].item_name_groups:
+            self.output(group_name)
+
     def _cmd_locations(self):
         """List all location names for the currently running game."""
         if not self.ctx.game:
@@ -123,6 +132,15 @@ class ClientCommandProcessor(CommandProcessor):
         self.output(f"Location Names for {self.ctx.game}")
         for location_name in AutoWorldRegister.world_types[self.ctx.game].location_name_to_id:
             self.output(location_name)
+
+    def _cmd_location_groups(self):
+        """List all location group names for the currently running game."""
+        if not self.ctx.game:
+            self.output("No game set, cannot determine existing location groups.")
+            return False
+        self.output(f"Location Group Names for {self.ctx.game}")
+        for group_name in AutoWorldRegister.world_types[self.ctx.game].location_name_groups:
+            self.output(group_name)
 
     def _cmd_ready(self):
         """Send ready status to server."""
@@ -460,7 +478,7 @@ class CommonContext:
                 else:
                     self.update_game(cached_game)
         if needed_updates:
-            await self.send_msgs([{"cmd": "GetDataPackage", "games": list(needed_updates)}])
+            await self.send_msgs([{"cmd": "GetDataPackage", "games": [game_name]} for game_name in needed_updates])
 
     def update_game(self, game_package: dict):
         for item_name, item_id in game_package["item_name_to_id"].items():
@@ -477,6 +495,7 @@ class CommonContext:
         current_cache = Utils.persistent_load().get("datapackage", {}).get("games", {})
         current_cache.update(data_package["games"])
         Utils.persistent_store("datapackage", "games", current_cache)
+        logger.info(f"Got new ID/Name DataPackage for {', '.join(data_package['games'])}")
         for game, game_data in data_package["games"].items():
             Utils.store_data_package_for_checksum(game, game_data)
 
@@ -727,7 +746,6 @@ async def process_server_cmd(ctx: CommonContext, args: dict):
             await ctx.server_auth(args['password'])
 
     elif cmd == 'DataPackage':
-        logger.info("Got new ID/Name DataPackage")
         ctx.consume_network_data_package(args['data'])
 
     elif cmd == 'ConnectionRefused':
@@ -941,4 +959,5 @@ def run_as_textclient():
 
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)  # force log-level to work around log level resetting to WARNING
     run_as_textclient()
