@@ -32,13 +32,16 @@ class Wargroove2Level:
     location_rules: dict
     region: Region
     victory_locations: List[str]
+    low_victory_checks: bool
 
-    def __init__(self, name: str, file_name: str, location_rules: dict, victory_locations: List[str] = []):
+    def __init__(self, name: str, file_name: str, location_rules: dict, victory_locations: List[str] = [],
+                 low_victory_checks: bool = True):
         if victory_locations is None:
             victory_locations = []
         self.name = name
         self.file_name = file_name
         self.location_rules = location_rules
+        self.low_victory_checks = low_victory_checks
         if victory_locations:
             self.victory_locations = victory_locations
         else:
@@ -81,7 +84,7 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             location_rules={
                 "Nuru's Vengeance: Victory": lambda state: state.has("Knight", player),
                 "Nuru's Vengeance: Defeat all Dogs": lambda state: state.has("Knight", player),
-                "Nuru's Vengeance: Destroy the Gate with a Spearman": lambda state: state.has_all(
+                "Nuru's Vengeance: Spearman Destroys the Gate": lambda state: state.has_all(
                     {"Knight", "Spearman"}, player)
             }
         ),
@@ -91,11 +94,12 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             location_rules={
                 "Cherrystone Landing: Victory": lambda state: state.has_all({"Warship", "Barge", "Landing Event"},
                                                                             player),
-                "Cherrystone Landing: Defeat a Trebuchet with a Golem": lambda state: state.has_all(
+                "Cherrystone Landing: Smacked a Trebuchet": lambda state: state.has_all(
                     {"Warship", "Barge", "Landing Event", "Golem"}, player),
-                "Cherrystone Landing: Defeat a Fortified Village with a Golem": lambda state: state.has_all(
+                "Cherrystone Landing: Smacked a Fortified Village": lambda state: state.has_all(
                     {"Barge", "Landing Event", "Golem"}, player)
-            }
+            },
+            low_victory_checks=False
         ),
         Wargroove2Level(
             name="Slippery Bridge",
@@ -119,7 +123,55 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             file_name="Sky_High.json",
             location_rules={
                 "Sky High: Victory": lambda state: state.has_all({"Balloon", "Airstrike Event"}, player),
-                "Sky High: Dragon Defeats Stronghold": lambda state: state.has_all({"Balloon", "Airstrike Event", "Dragon"}, player),
+                "Sky High: Dragon Defeats Stronghold": lambda state: state.has_all(
+                    {"Balloon", "Airstrike Event", "Dragon"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Sunken Forest",
+            file_name="Sunken_Forest.json",
+            location_rules={
+                "Sunken Forest: Victory": lambda state: state.has_any({"Mage", "Harpoon Ship"}, player),
+                "Sunken Forest: High Ground": lambda state: state.has("Archer", player),
+                "Sunken Forest: Coastal Siege": lambda state: state.has("Archer", player) and state.has_any(
+                    {"Mage", "Harpoon Ship"}),
+            }
+        ),
+        Wargroove2Level(
+            name="Tenri's Mistake",
+            file_name="Tenris_Mistake.json",
+            location_rules={
+                "Tenri's Mistake: Victory": lambda state: state.has_any({"Mage", "Harpoon Ship"}, player),
+                "Tenri's Mistake: Mighty Barracks": lambda state: state.has("Archer", player),
+                "Tenri's Mistake: Commander Arrives": lambda state: state.has("Archer", player) and state.has_any(
+                    {"Mage", "Harpoon Ship"}),
+            }
+        ),
+        Wargroove2Level(
+            name="Enmity Cliffs",
+            file_name="Enmity_Cliffs.json",
+            location_rules={
+                "Enmity Cliffs: Victory": lambda state: state.has_all({"Spearman", "Bridges Event"}, player),
+                "Enmity Cliffs: Spear Flood": lambda state: state.has("Spearman", player),
+                "Enmity Cliffs: Across the Gap": lambda state: state.has_any({"Archer", "Rifleman"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Terrible Tributaries",
+            file_name="Terrible_Tributaries.json",
+            location_rules={
+                "Terrible Tributaries: Victory": lambda state: state.has("River Boat", player),
+                "Terrible Tributaries: Swimming Knights": lambda state: state.has_all({"Merfolk", "River Boat"}, player),
+                "Terrible Tributaries: Steal Code Names": lambda state: state.has_all({"Thief", "River Boat"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Beached",
+            file_name="Beached.json",
+            location_rules={
+                "Beached: Victory": lambda state: state.has("Knight", player),
+                "Beached: Turtle Power": lambda state: state.has_all({"Turtle", "Knight"}, player),
+                "Beached: Happy Turtle": lambda state: state.has_all({"Turtle", "Knight"}, player),
             }
         ),
     ]
