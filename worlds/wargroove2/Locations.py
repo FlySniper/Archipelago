@@ -20,6 +20,9 @@ location_table = {
     "Beached: Victory": 253018,
     "Beached: Turtle Power": 253019,
     "Beached: Happy Turtle": 253020,
+    "Riflemen Blockade: Victory": 253021,
+    "Riflemen Blockade: From the Mountains": 253022,
+    "Riflemen Blockade: To the Road": 253023,
     #########################################################
     'Slippery Bridge: Victory': 253300,
     'Slippery Bridge: Control all Sea Villages': 253301,
@@ -39,6 +42,10 @@ location_table = {
     "Enmity Cliffs: Victory": 253320,
     "Enmity Cliffs: Spear Flood": 253321,
     "Enmity Cliffs: Across the Gap": 253322,
+#########################################################
+    "Portal Peril: Victory": 253325,
+    "Portal Peril: Unleash the Hounds": 253326,
+    "Portal Peril: Overcharged": 253327,
     'Wargroove 2 Finale: Victory': None,
 }
 

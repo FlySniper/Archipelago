@@ -117,6 +117,10 @@ class Wargroove2World(World):
         for option_name in wargroove2_options:
             option = getattr(self.multiworld, option_name)[self.player]
             slot_data[option_name] = int(option.value)
+        for i in range(0, len(self.level_list)):
+            slot_data[f"Level #{i}"] = self.level_list[i].file_name
+        for i in range(0, len(self.final_levels)):
+            slot_data[f"Final Level #{i}"] = self.level_list[i].file_name
         return slot_data
 
     def get_filler_item_name(self) -> str:

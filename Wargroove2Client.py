@@ -8,10 +8,12 @@ import random
 import shutil
 from typing import Tuple, List, Iterable, Dict
 
-from worlds.wargroove import WargrooveWorld
-from worlds.wargroove.Items import item_table, faction_table, CommanderData, ItemData
+from worlds.wargroove2 import Wargroove2World
+from worlds.wargroove2.Items import item_table, faction_table, CommanderData, ItemData
 
 import ModuleUpdate
+from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT
+
 ModuleUpdate.update()
 
 import Utils
@@ -42,9 +44,9 @@ class Wargroove2ClientCommandProcessor(ClientCommandProcessor):
             if self.ctx.can_choose_commander:
                 commanders = self.ctx.get_commanders()
                 wg2_logger.info('Unlocked commanders: ' +
-                               ', '.join((commander.name for commander, unlocked in commanders if unlocked)))
+                                ', '.join((commander.name for commander, unlocked in commanders if unlocked)))
                 wg2_logger.info('Locked commanders: ' +
-                               ', '.join((commander.name for commander, unlocked in commanders if not unlocked)))
+                                ', '.join((commander.name for commander, unlocked in commanders if not unlocked)))
             else:
                 wg2_logger.error('Cannot set commanders in this game mode.')
 
@@ -84,6 +86,10 @@ class Wargroove2Context(CommonContext):
             root_directory = os.path.join(options["wargroove2_options"]["root_directory"])
             data_directory = os.path.join("lib", "worlds", "wargroove2", "data")
             dev_data_directory = os.path.join("worlds", "wargroove2", "data")
+            self.level_directory = os.path.join("lib", "worlds", "wargroove2", "levels")
+            dev_level_directory = os.path.join("worlds", "wargroove2", "levels")
+            if not os.path.isdir(self.level_directory):
+                self.level_directory = dev_level_directory
             appdata_wargroove = os.path.expandvars(os.path.join("%APPDATA%", "Chucklefish", "Wargroove2"))
             if not os.path.isfile(os.path.join(root_directory, "win64_bin", "wargroove64.exe")):
                 print_error_and_close("Wargroove2Client couldn't find wargroove64.exe. "
@@ -139,9 +145,9 @@ class Wargroove2Context(CommonContext):
 
     def on_package(self, cmd: str, args: dict):
         if cmd in {"Connected"}:
+            slot_data = args["slot_data"]
             filename = f"AP_settings.json"
             with open(os.path.join(self.game_communication_path, filename), 'w') as f:
-                slot_data = args["slot_data"]
                 json.dump(args["slot_data"], f)
                 self.can_choose_commander = slot_data["can_choose_commander"]
                 print('can choose commander:', self.can_choose_commander)
@@ -157,12 +163,24 @@ class Wargroove2Context(CommonContext):
             self.ui.update_tracker()
 
             random.seed(self.seed_name + str(self.slot))
-            # Our indexes start at 1 and we have ?? levels
-            for i in range(1, 100):
+            # Our indexes start at 0 and we have ?? levels
+            for i in range(0, 100):
                 filename = f"seed{i}"
                 with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                     f.write(str(random.randint(0, 4294967295)))
                     f.close()
+            # TODO: Increase this from 13 to 28
+            for i in range(0, LEVEL_COUNT):
+                filename = f"AP_{i+1}.map"
+                level_file_name = slot_data[f"Level #{i}"]
+                shutil.copyfile(os.path.join(self.level_directory, level_file_name),
+                                os.path.join(self.game_communication_path, filename))
+            # TODO: Increase this from 1 to 4 and from 13 to 28
+            for i in range(0, FINAL_LEVEL_COUNT):
+                filename = f"AP_{i + LEVEL_COUNT}.map"
+                level_file_name = slot_data[f"Final Level #{i}"]
+                shutil.copyfile(os.path.join(self.level_directory, level_file_name),
+                                os.path.join(self.game_communication_path, filename))
 
         if cmd in {"RoomInfo"}:
             self.seed_name = args["seed_name"]
@@ -249,7 +267,7 @@ class Wargroove2Context(CommonContext):
         class ItemLabel(Label):
             pass
 
-        class WargrooveManager(GameManager):
+        class Wargroove2Manager(GameManager):
             logging_pairs = [
                 ("Client", "Archipelago"),
                 ("WG2", "WG2 Console"),
@@ -291,10 +309,11 @@ class Wargroove2Context(CommonContext):
                             commander_buttons.append(commander_button)
                             commander_group.add_widget(commander_button)
                         self.commander_buttons[faction] = commander_buttons
-                        faction_box.add_widget(Label(text=faction, size_hint_x=None, pos_hint={'left': 1}, size_hint_y=None, height=10))
+                        faction_box.add_widget(
+                            Label(text=faction, size_hint_x=None, pos_hint={'left': 1}, size_hint_y=None, height=10))
                         faction_box.add_widget(commander_group)
                         commander_select.add_widget(faction_box)
-                    item_tracker = ItemTracker(padding=[0,20])
+                    item_tracker = ItemTracker(padding=[0, 20])
                     self.unit_tracker = BoxLayout(orientation="vertical")
                     other_tracker = BoxLayout(orientation="vertical")
                     self.trigger_tracker = BoxLayout(orientation="vertical")
@@ -319,22 +338,23 @@ class Wargroove2Context(CommonContext):
                 self.trigger_tracker.clear_widgets()
                 for name, item in self.tracker_items.items():
                     if item.type in ("Unit", "Trigger"):
-                        status_color = (1, 1, 1, 1) if item.code is None or item.code in received_ids else (0.6, 0.2, 0.2, 1)
+                        status_color = (1, 1, 1, 1) if item.code is None or item.code in received_ids else (
+                        0.6, 0.2, 0.2, 1)
                         label = ItemLabel(text=name, color=status_color)
                         if item.type == "Unit":
                             self.unit_tracker.add_widget(label)
                         else:
                             self.trigger_tracker.add_widget(label)
                 self.boost_tracker.clear_widgets()
-                extra_income = received_ids.count(52023) * self.ctx.income_boost_multiplier
-                extra_defense = received_ids.count(52024) * self.ctx.commander_defense_boost_multiplier
+                extra_income = received_ids.count(252032) * self.ctx.income_boost_multiplier
+                extra_defense = received_ids.count(252033) * self.ctx.commander_defense_boost_multiplier
                 income_boost = ItemLabel(text="Extra Income: " + str(extra_income))
                 defense_boost = ItemLabel(text="Comm Defense: " + str(100 + extra_defense))
                 self.boost_tracker.add_widget(income_boost)
                 self.boost_tracker.add_widget(defense_boost)
 
-        self.ui = WargrooveManager(self)
-        data = pkgutil.get_data(WargrooveWorld.__module__, "Wargroove2.kv").decode()
+        self.ui = Wargroove2Manager(self)
+        data = pkgutil.get_data(Wargroove2World.__module__, "Wargroove2.kv").decode()
         Builder.load_string(data)
         self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
 
@@ -408,7 +428,7 @@ async def game_watcher(ctx: Wargroove2Context):
             for file in files:
                 if file.find("send") > -1:
                     st = file.split("send", -1)[1]
-                    sending = sending+[(int(st))]
+                    sending = sending + [(int(st))]
                     os.remove(os.path.join(ctx.game_communication_path, file))
                 if file.find("victory") > -1:
                     victory = True
@@ -427,6 +447,7 @@ def print_error_and_close(msg):
     Utils.messagebox("Error", msg, error=True)
     sys.exit(1)
 
+
 if __name__ == '__main__':
     async def main(args):
         ctx = Wargroove2Context(args.connect, args.password)
@@ -443,6 +464,7 @@ if __name__ == '__main__':
         await progression_watcher
 
         await ctx.shutdown()
+
 
     import colorama
 

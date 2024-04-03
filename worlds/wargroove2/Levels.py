@@ -14,12 +14,15 @@ FINAL_LEVEL_2 = "Finale 2"
 FINAL_LEVEL_3 = "Finale 3"
 FINAL_LEVEL_4 = "Finale 4"
 
+LEVEL_COUNT = 13
+FINAL_LEVEL_COUNT = 1
+
 
 def set_region_exit_rules(region: Region, world: MultiWorld, player: int, locations: List[str], operator: str = "or"):
     if operator == "or":
-        exit_rule = lambda state: any(world.get_location(location, player).access_rule(state) for location in locations)
+        exit_rule = lambda state, world=world, player=player: any(world.get_location(location, player).access_rule(state) for location in locations)
     else:
-        exit_rule = lambda state: all(world.get_location(location, player).access_rule(state) for location in locations)
+        exit_rule = lambda state, world=world, player=player: all(world.get_location(location, player).access_rule(state) for location in locations)
     for region_exit in region.exits:
         region_exit.access_rule = exit_rule
 
@@ -33,15 +36,17 @@ class Wargroove2Level:
     region: Region
     victory_locations: List[str]
     low_victory_checks: bool
+    has_ocean: bool
 
     def __init__(self, name: str, file_name: str, location_rules: dict, victory_locations: List[str] = [],
-                 low_victory_checks: bool = True):
+                 low_victory_checks: bool = True, has_ocean: bool = True):
         if victory_locations is None:
             victory_locations = []
         self.name = name
         self.file_name = file_name
         self.location_rules = location_rules
         self.low_victory_checks = low_victory_checks
+        self.has_ocean = has_ocean
         if victory_locations:
             self.victory_locations = victory_locations
         else:
@@ -49,9 +54,9 @@ class Wargroove2Level:
 
     def define_access_rules(self):
         for location_name, rule in self.location_rules.items():
-            set_rule(self.world.get_location(location_name, self.player), lambda state:
+            set_rule(self.world.get_location(location_name, self.player), lambda state, rule=rule:
             state.can_reach(self.region, 'Region', self.player) and rule(state))
-        set_region_exit_rules(self.region, self.world, self.player, self.victory_locations)
+        set_region_exit_rules(self.region, self.world, self.player, self.victory_locations, operator='and')
 
     def define_region(self, name: str, exits=None) -> Region:
         self.region = Region(name, self.player, self.world)
@@ -76,7 +81,8 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
                 "Spire Fire: Victory": lambda state: state.has_any({"Mage", "Witch"}, player),
                 "Spire Fire: Kill Enemy Sky Rider": lambda state: state.has("Witch", player),
                 "Spire Fire: Win without losing your Dragon": lambda state: state.has_any({"Mage", "Witch"}, player)
-            }
+            },
+            has_ocean=False
         ),
         Wargroove2Level(
             name="Nuru's Vengeance",
@@ -86,7 +92,8 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
                 "Nuru's Vengeance: Defeat all Dogs": lambda state: state.has("Knight", player),
                 "Nuru's Vengeance: Spearman Destroys the Gate": lambda state: state.has_all(
                     {"Knight", "Spearman"}, player)
-            }
+            },
+            has_ocean=False
         ),
         Wargroove2Level(
             name="Cherrystone Landing",
@@ -125,7 +132,8 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
                 "Sky High: Victory": lambda state: state.has_all({"Balloon", "Airstrike Event"}, player),
                 "Sky High: Dragon Defeats Stronghold": lambda state: state.has_all(
                     {"Balloon", "Airstrike Event", "Dragon"}, player),
-            }
+            },
+            has_ocean=False
         ),
         Wargroove2Level(
             name="Sunken Forest",
@@ -133,18 +141,17 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             location_rules={
                 "Sunken Forest: Victory": lambda state: state.has_any({"Mage", "Harpoon Ship"}, player),
                 "Sunken Forest: High Ground": lambda state: state.has("Archer", player),
-                "Sunken Forest: Coastal Siege": lambda state: state.has("Archer", player) and state.has_any(
-                    {"Mage", "Harpoon Ship"}),
+                "Sunken Forest: Coastal Siege": lambda state: state.has("Warship", player) and state.has_any(
+                    {"Mage", "Harpoon Ship"}, player),
             }
         ),
         Wargroove2Level(
             name="Tenri's Mistake",
             file_name="Tenris_Mistake.json",
             location_rules={
-                "Tenri's Mistake: Victory": lambda state: state.has_any({"Mage", "Harpoon Ship"}, player),
-                "Tenri's Mistake: Mighty Barracks": lambda state: state.has("Archer", player),
-                "Tenri's Mistake: Commander Arrives": lambda state: state.has("Archer", player) and state.has_any(
-                    {"Mage", "Harpoon Ship"}),
+                "Tenri's Mistake: Victory": lambda state: state.has_any({"Balloon", "Air Trooper"}, player),
+                "Tenri's Mistake: Mighty Barracks": lambda state: state.has_any({"Balloon", "Air Trooper"}, player),
+                "Tenri's Mistake: Commander Arrives": lambda state: state.has("Balloon", player),
             }
         ),
         Wargroove2Level(
@@ -154,7 +161,8 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
                 "Enmity Cliffs: Victory": lambda state: state.has_all({"Spearman", "Bridges Event"}, player),
                 "Enmity Cliffs: Spear Flood": lambda state: state.has("Spearman", player),
                 "Enmity Cliffs: Across the Gap": lambda state: state.has_any({"Archer", "Rifleman"}, player),
-            }
+            },
+            has_ocean=False
         ),
         Wargroove2Level(
             name="Terrible Tributaries",
@@ -174,6 +182,26 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
                 "Beached: Happy Turtle": lambda state: state.has_all({"Turtle", "Knight"}, player),
             }
         ),
+        Wargroove2Level(
+            name="Portal Peril",
+            file_name="Portal_Peril.json",
+            location_rules={
+                "Portal Peril: Victory": lambda state: state.has("Wagon", player),
+                "Portal Peril: Unleash the Hounds": lambda state: state.has("Wagon", player),
+                "Portal Peril: Overcharged": lambda state: state.has("Wagon", player),
+            },
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Riflemen Blockade",
+            file_name="Riflemen_Blockade.json",
+            location_rules={
+                "Riflemen Blockade: Victory": lambda state: state.has("Rifleman", player),
+                "Riflemen Blockade: From the Mountains": lambda state: state.has_all({"Rifleman", "Harpy"}, player),
+                "Riflemen Blockade: To the Road": lambda state: state.has_all({"Rifleman", "Dragon"}, player),
+            },
+            has_ocean=False
+        ),
     ]
     for level in levels:
         level.world = world
@@ -187,7 +215,7 @@ def get_final_levels(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             name="Wargroove 2 Finale",
             file_name="Nuru_Vengeance.json",
             location_rules={
-                "Wargroove 2 Finale: Victory": lambda state: True,  # True for now, so it generates
+                "Wargroove 2 Finale: Victory": lambda state: state.has_all({"Final Center", "Final North"}, player)
             }
         ),
     ]

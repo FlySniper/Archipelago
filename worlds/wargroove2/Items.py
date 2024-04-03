@@ -18,14 +18,14 @@ class ItemData(typing.NamedTuple):
 item_table: Dict[str, ItemData] = {
     # Units
     'Spearman': ItemData(252000, 'Unit'),
-    # 'Wagon': ItemData(252001, 'Unit', USEFUL),
+    'Wagon': ItemData(252001, 'Unit'),
     'Mage': ItemData(252002, 'Unit'),
-    # 'Archer': ItemData(252003, 'Unit'),
+    'Archer': ItemData(252003, 'Unit'),
     'Knight': ItemData(252004, 'Unit'),
     # 'Ballista': ItemData(252005, 'Unit'),
     # 'Trebuchet': ItemData(252006, 'Unit'),
     'Golem': ItemData(252007, 'Unit'),
-    # 'Air Trooper': ItemData(252008, 'Unit'),
+    'Air Trooper': ItemData(252008, 'Unit'),
     'Harpy': ItemData(252009, 'Unit'),
     'Witch': ItemData(252010, 'Unit'),
     'Dragon': ItemData(252011, 'Unit'),
@@ -46,11 +46,11 @@ item_table: Dict[str, ItemData] = {
     # 'Walls Event': ItemData(252024, 'Trigger'),
     'Landing Event': ItemData(252025, 'Trigger'),
     'Airstrike Event': ItemData(252026, 'Trigger'),
-    # 'Final North': ItemData(252027, 'Trigger', PROGRESSION_SKIP_BALANCING),
+    'Final North': ItemData(252027, 'Trigger', PROGRESSION_SKIP_BALANCING),
     # 'Final East': ItemData(252028, 'Trigger', PROGRESSION_SKIP_BALANCING),
     # 'Final South': ItemData(252029, 'Trigger', PROGRESSION_SKIP_BALANCING),
     # 'Final West': ItemData(252030, 'Trigger', PROGRESSION_SKIP_BALANCING),
-    # 'Final Center': ItemData(252031, 'Trigger', PROGRESSION_SKIP_BALANCING),
+    'Final Center': ItemData(252031, 'Trigger', PROGRESSION_SKIP_BALANCING),
 
     # Player Buffs
     'Income Boost': ItemData(252032, 'Boost', FILLER),
