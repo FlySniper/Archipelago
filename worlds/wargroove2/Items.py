@@ -22,8 +22,8 @@ item_table: Dict[str, ItemData] = {
     'Mage': ItemData(252002, 'Unit'),
     'Archer': ItemData(252003, 'Unit'),
     'Knight': ItemData(252004, 'Unit'),
-    # 'Ballista': ItemData(252005, 'Unit'),
-    # 'Trebuchet': ItemData(252006, 'Unit'),
+    'Ballista': ItemData(252005, 'Unit'),
+    'Trebuchet': ItemData(252006, 'Unit'),
     'Golem': ItemData(252007, 'Unit'),
     'Air Trooper': ItemData(252008, 'Unit'),
     'Harpy': ItemData(252009, 'Unit'),
@@ -37,19 +37,19 @@ item_table: Dict[str, ItemData] = {
     'Harpoon Ship': ItemData(252017, 'Unit'),
     'Warship': ItemData(252018, 'Unit'),
     'Frog': ItemData(252019, 'Unit'),
-    # 'Kraken': ItemData(252020, 'Unit'),
+    'Kraken': ItemData(252020, 'Unit'),
     'Thief': ItemData(252021, 'Unit'),
     'Rifleman': ItemData(252022, 'Unit'),
 
     # Map Triggers
     'Bridges Event': ItemData(252023, 'Trigger'),
-    # 'Walls Event': ItemData(252024, 'Trigger'),
+    'Walls Event': ItemData(252024, 'Trigger'),
     'Landing Event': ItemData(252025, 'Trigger'),
     'Airstrike Event': ItemData(252026, 'Trigger'),
     'Final North': ItemData(252027, 'Trigger', PROGRESSION_SKIP_BALANCING),
-    # 'Final East': ItemData(252028, 'Trigger', PROGRESSION_SKIP_BALANCING),
-    # 'Final South': ItemData(252029, 'Trigger', PROGRESSION_SKIP_BALANCING),
-    # 'Final West': ItemData(252030, 'Trigger', PROGRESSION_SKIP_BALANCING),
+    'Final East': ItemData(252028, 'Trigger', PROGRESSION_SKIP_BALANCING),
+    'Final South': ItemData(252029, 'Trigger', PROGRESSION_SKIP_BALANCING),
+    'Final West': ItemData(252030, 'Trigger', PROGRESSION_SKIP_BALANCING),
     'Final Center': ItemData(252031, 'Trigger', PROGRESSION_SKIP_BALANCING),
 
     # Player Buffs
@@ -58,13 +58,13 @@ item_table: Dict[str, ItemData] = {
     'Commander Defense Boost': ItemData(252033, 'Boost', FILLER),
 
     # Factions
-    # 'Cherrystone Commanders': ItemData(252034, 'Faction', USEFUL),
-    # 'Felheim Commanders': ItemData(252035, 'Faction', USEFUL),
-    # 'Floran Commanders': ItemData(252036, 'Faction', USEFUL),
-    # 'Heavensong Commanders': ItemData(252037, 'Faction', USEFUL),
-    # 'Requiem Commanders': ItemData(252038, 'Faction', USEFUL),
-    # 'Pirate Commanders': ItemData(252039, 'Faction', USEFUL),
-    # 'Faahri Commanders': ItemData(252040, 'Faction', USEFUL),
+    'Cherrystone Commanders': ItemData(252034, 'Faction', USEFUL),
+    'Felheim Commanders': ItemData(252035, 'Faction', USEFUL),
+    'Floran Commanders': ItemData(252036, 'Faction', USEFUL),
+    'Heavensong Commanders': ItemData(252037, 'Faction', USEFUL),
+    'Requiem Commanders': ItemData(252038, 'Faction', USEFUL),
+    'Pirate Commanders': ItemData(252039, 'Faction', USEFUL),
+    'Faahri Commanders': ItemData(252040, 'Faction', USEFUL),
 
     # Event Items
     'Wargroove 2 Victory': ItemData(None, 'Goal')

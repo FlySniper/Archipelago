@@ -202,6 +202,26 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             },
             has_ocean=False
         ),
+        Wargroove2Level(
+            name="Towers of the Abyss",
+            file_name="Towers_of_the_Abyss.json",
+            location_rules={
+                "Towers of the Abyss: Victory": lambda state: state.has("Ballista", player),
+                "Towers of the Abyss: Siege Master": lambda state: state.has_all({"Ballista", "Trebuchet"}, player),
+                "Towers of the Abyss: Perfect Defense": lambda state: state.has_all({"Ballista", "Walls Event"}, player),
+            },
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Wagon Freeway",
+            file_name="Wagon_Freeway.json",
+            location_rules={
+                "Wagon Freeway: Victory": lambda state: state.has("Wagon", player),
+                "Wagon Freeway: All Mine Now": lambda state: True,
+                "Wagon Freeway: Pigeon Carrier": lambda state: state.has("Air Trooper", player),
+            },
+            has_ocean=False
+        ),
     ]
     for level in levels:
         level.world = world
@@ -231,7 +251,8 @@ def get_first_level(player: int, world: MultiWorld) -> Wargroove2Level:
         file_name="",
         location_rules={
             "Humble Beginnings Rebirth: Victory": lambda state: True,
-            "Humble Beginnings Rebirth: Talk to Nadia": lambda state: True
+            "Humble Beginnings Rebirth: Talk to Nadia": lambda state: True,
+            "Humble Beginnings Rebirth: Good Dog": lambda state: True
         }
     )
     first_level.world = world

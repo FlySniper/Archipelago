@@ -27,8 +27,8 @@ def create_regions(world, player: int,
                                                                                              level_names[next_level + 1],
                                                                                              level_names[next_level + 2]])]
 
-    world.regions += [level_list[3].define_region(level_names[3], exits=[level_names[12]])]
-    for level_num in range(4, 13):
+    world.regions += [level_list[3].define_region(level_names[3], exits=[level_names[13], level_names[14]])]
+    for level_num in range(4, 15):
         world.regions += [level_list[level_num].define_region(level_names[level_num], exits=[FINAL_LEVEL_1])]
     world.regions += [final_levels[0].define_region(FINAL_LEVEL_1)]
     # # Define Levels 1A-4C
@@ -69,10 +69,12 @@ def create_regions(world, player: int,
         world.get_entrance(f"{level_names[level_num]} exits to {level_names[next_level + 2]}", player).connect(
             world.get_region(level_names[next_level + 2], player))
 
-    world.get_entrance(f"{level_names[3]} exits to {level_names[12]}", player).connect(
-        world.get_region(level_names[12], player))
+    world.get_entrance(f"{level_names[3]} exits to {level_names[13]}", player).connect(
+        world.get_region(level_names[13], player))
+    world.get_entrance(f"{level_names[3]} exits to {level_names[14]}", player).connect(
+        world.get_region(level_names[14], player))
 
-    for level_num in range(4, 13):
+    for level_num in range(4, 15):
         final_level_name = f"{level_names[level_num]} exits to {FINAL_LEVEL_1}"
         world.get_entrance(final_level_name, player).connect(
             world.get_region(FINAL_LEVEL_1, player))

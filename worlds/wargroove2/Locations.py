@@ -3,6 +3,7 @@ from BaseClasses import Location
 location_table = {
     "Humble Beginnings Rebirth: Talk to Nadia": 253001,
     "Humble Beginnings Rebirth: Victory": 253002,
+    "Humble Beginnings Rebirth: Good Dog": 253003,
     #########################################################
     "Nuru's Vengeance: Victory": 253005,
     "Nuru's Vengeance: Spearman Destroys the Gate": 253006,
@@ -23,6 +24,9 @@ location_table = {
     "Riflemen Blockade: Victory": 253021,
     "Riflemen Blockade: From the Mountains": 253022,
     "Riflemen Blockade: To the Road": 253023,
+    "Wagon Freeway: Victory": 253024,
+    "Wagon Freeway: All Mine Now": 253025,
+    "Wagon Freeway: Pigeon Carrier": 253026,
     #########################################################
     'Slippery Bridge: Victory': 253300,
     'Slippery Bridge: Control all Sea Villages': 253301,
@@ -42,10 +46,14 @@ location_table = {
     "Enmity Cliffs: Victory": 253320,
     "Enmity Cliffs: Spear Flood": 253321,
     "Enmity Cliffs: Across the Gap": 253322,
-#########################################################
+    #########################################################
     "Portal Peril: Victory": 253325,
     "Portal Peril: Unleash the Hounds": 253326,
     "Portal Peril: Overcharged": 253327,
+    #########################################################
+    "Towers of the Abyss: Victory": 253330,
+    "Towers of the Abyss: Siege Master": 253331,
+    "Towers of the Abyss: Perfect Defense": 253332,
     'Wargroove 2 Finale: Victory': None,
 }
 
