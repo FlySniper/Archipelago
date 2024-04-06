@@ -4,7 +4,8 @@ import typing
 
 from BaseClasses import Item, MultiWorld, Region, Location, Entrance, Tutorial, ItemClassification
 from .Items import item_table, faction_table, Wargroove2Item
-from .Levels import Wargroove2Level, get_level_table, get_first_level, get_final_levels
+from .Levels import Wargroove2Level, get_level_table, get_first_level, get_final_levels, region_names, FINAL_LEVEL_1, \
+    FINAL_LEVEL_2, FINAL_LEVEL_3, FINAL_LEVEL_4, LEVEL_COUNT, FINAL_LEVEL_COUNT
 from .Locations import location_table
 from .Regions import create_regions
 from .Rules import set_rules
@@ -117,10 +118,16 @@ class Wargroove2World(World):
         for option_name in wargroove2_options:
             option = getattr(self.multiworld, option_name)[self.player]
             slot_data[option_name] = int(option.value)
-        for i in range(0, len(self.level_list)):
-            slot_data[f"Level #{i}"] = self.level_list[i].file_name
-        for i in range(0, len(self.final_levels)):
-            slot_data[f"Final Level #{i}"] = self.level_list[i].file_name
+        for i in range(0, min(LEVEL_COUNT, len(self.level_list))):
+            slot_data[f"Level File #{i}"] = self.level_list[i].file_name
+            for location_name, _ in self.level_list[i].location_rules:
+                slot_data[location_name] = region_names[i]
+        for i in range(0, min(FINAL_LEVEL_COUNT, len(self.final_levels))):
+            slot_data[f"Final Level File #{i}"] = self.final_levels[i].file_name
+        slot_data[self.final_levels[0].name] = FINAL_LEVEL_1
+        slot_data[self.final_levels[1].name] = FINAL_LEVEL_2
+        slot_data[self.final_levels[2].name] = FINAL_LEVEL_3
+        slot_data[self.final_levels[3].name] = FINAL_LEVEL_4
         return slot_data
 
     def get_filler_item_name(self) -> str:

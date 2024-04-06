@@ -12,7 +12,8 @@ from worlds.wargroove2 import Wargroove2World
 from worlds.wargroove2.Items import item_table, faction_table, CommanderData, ItemData
 
 import ModuleUpdate
-from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT
+from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT, region_names
+from worlds.wargroove2.Locations import location_id_name
 
 ModuleUpdate.update()
 
@@ -160,7 +161,7 @@ class Wargroove2Context(CommonContext):
                 with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                     f.close()
             self.update_commander_data()
-            self.ui.update_tracker()
+            self.ui.update_ui()
 
             random.seed(self.seed_name + str(self.slot))
             # Our indexes start at 0 and we have ?? levels
@@ -169,16 +170,14 @@ class Wargroove2Context(CommonContext):
                 with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                     f.write(str(random.randint(0, 4294967295)))
                     f.close()
-            # TODO: Increase this from 13 to 28
             for i in range(0, LEVEL_COUNT):
-                filename = f"AP_{i+1}.map"
-                level_file_name = slot_data[f"Level #{i}"]
+                filename = f"AP_{i + 1}.map"
+                level_file_name = slot_data[f"Level File #{i}"]
                 shutil.copyfile(os.path.join(self.level_directory, level_file_name),
                                 os.path.join(self.game_communication_path, filename))
-            # TODO: Increase this from 1 to 4 and from 13 to 28
             for i in range(0, FINAL_LEVEL_COUNT):
                 filename = f"AP_{i + LEVEL_COUNT}.map"
-                level_file_name = slot_data[f"Final Level #{i}"]
+                level_file_name = slot_data[f"Final Level File #{i}"]
                 shutil.copyfile(os.path.join(self.level_directory, level_file_name),
                                 os.path.join(self.game_communication_path, filename))
 
@@ -221,7 +220,7 @@ class Wargroove2Context(CommonContext):
                                 self.player_names[network_item.player])
                         f.close()
             self.update_commander_data()
-            self.ui.update_tracker()
+            self.ui.update_ui()
 
         if cmd in {"RoomUpdate"}:
             if "checked_locations" in args:
@@ -249,6 +248,9 @@ class Wargroove2Context(CommonContext):
         class TrackerLayout(BoxLayout):
             pass
 
+        class LevelsLayout(BoxLayout):
+            pass
+
         class CommanderSelect(BoxLayout):
             pass
 
@@ -264,7 +266,13 @@ class Wargroove2Context(CommonContext):
         class ItemTracker(BoxLayout):
             pass
 
+        class LevelTracker(BoxLayout):
+            pass
+
         class ItemLabel(Label):
+            pass
+
+        class LevelLabel(Label):
             pass
 
         class Wargroove2Manager(GameManager):
@@ -275,6 +283,11 @@ class Wargroove2Context(CommonContext):
             base_title = "Archipelago Wargroove 2 Client"
             ctx: Wargroove2Context
             unit_tracker: ItemTracker
+            level_tracker: LevelTracker
+            level_1_Layout: GridLayout(cols=1)
+            level_2_Layout: GridLayout(cols=1)
+            level_3_Layout: GridLayout(cols=1)
+            level_4_Layout: GridLayout(cols=1)
             trigger_tracker: BoxLayout
             boost_tracker: BoxLayout
             commander_buttons: Dict[int, List[CommanderButton]]
@@ -286,10 +299,76 @@ class Wargroove2Context(CommonContext):
 
             def build(self):
                 container = super().build()
-                panel = TabbedPanelItem(text="Wargroove 2")
+                panel = TabbedPanelItem(text="WG2 Tracker")
                 panel.content = self.build_tracker()
                 self.tabs.add_widget(panel)
+                panel = TabbedPanelItem(text="WG2 Levels")
+                panel.content = self.build_levels()
+                self.tabs.add_widget(panel)
                 return container
+
+            def build_levels(self) -> LevelsLayout:
+                try:
+                    levels_layout = LevelsLayout(orientation="horizontal")
+                    self.commander_buttons = {}
+                    level_tracker = LevelTracker(padding=[0, 20])
+                    self.level_1_Layout = GridLayout(cols=1)
+                    self.level_2_Layout = GridLayout(cols=1)
+                    self.level_3_Layout = GridLayout(cols=1)
+                    self.level_4_Layout = GridLayout(cols=1)
+                    level_tracker.add_widget(self.level_1_Layout)
+                    level_tracker.add_widget(self.level_2_Layout)
+                    level_tracker.add_widget(self.level_3_Layout)
+                    level_tracker.add_widget(self.level_4_Layout)
+                    levels_layout.add_widget(level_tracker)
+                    self.update_levels()
+                    return levels_layout
+                except Exception as e:
+                    print(e)
+
+            def update_levels(self):
+                received_ids = [item.item for item in self.ctx.items_received]
+                self.level_1_Layout.clear_widgets()
+                self.level_2_Layout.clear_widgets()
+                self.level_3_Layout.clear_widgets()
+                self.level_4_Layout.clear_widgets()
+                level_count = 1
+                # TODO: Level coloring here:
+                for region_name in region_names:
+                    side_objective_text = ""
+                    status_color = (1, 1, 1, 1)
+                    for location_id in self.ctx.missing_locations:
+                        location_name: str = location_id_name[location_id]
+                        slot_region: str = self.slot_data[location_name]
+                        if slot_region == region_name:
+                            pass
+
+                    label = ItemLabel(text=region_name, color=status_color)
+                    if level_count == 1:
+                        self.level_1_Layout.add_widget(label)
+                    elif level_count == 2:
+                        self.level_2_Layout.add_widget(label)
+                    elif level_count == 3:
+                        self.level_3_Layout.add_widget(label)
+                    elif level_count == 4:
+                        self.level_4_Layout.add_widget(label)
+                    elif level_count <= 7:
+                        self.level_1_Layout.add_widget(label)
+                    elif level_count <= 10:
+                        self.level_2_Layout.add_widget(label)
+                    elif level_count <= 13:
+                        self.level_3_Layout.add_widget(label)
+                    elif level_count <= 16:
+                        self.level_4_Layout.add_widget(label)
+                    elif level_count <= 19:
+                        self.level_1_Layout.add_widget(label)
+                    elif level_count <= 22:
+                        self.level_2_Layout.add_widget(label)
+                    elif level_count <= 25:
+                        self.level_3_Layout.add_widget(label)
+                    else:
+                        self.level_4_Layout.add_widget(label)
+                    level_count += 1
 
             def build_tracker(self) -> TrackerLayout:
                 try:
@@ -339,7 +418,7 @@ class Wargroove2Context(CommonContext):
                 for name, item in self.tracker_items.items():
                     if item.type in ("Unit", "Trigger"):
                         status_color = (1, 1, 1, 1) if item.code is None or item.code in received_ids else (
-                        0.6, 0.2, 0.2, 1)
+                            0.6, 0.2, 0.2, 1)
                         label = ItemLabel(text=name, color=status_color)
                         if item.type == "Unit":
                             self.unit_tracker.add_widget(label)
@@ -352,6 +431,10 @@ class Wargroove2Context(CommonContext):
                 defense_boost = ItemLabel(text="Comm Defense: " + str(100 + extra_defense))
                 self.boost_tracker.add_widget(income_boost)
                 self.boost_tracker.add_widget(defense_boost)
+
+            def update_ui(self):
+                self.update_tracker()
+                self.update_levels()
 
         self.ui = Wargroove2Manager(self)
         data = pkgutil.get_data(Wargroove2World.__module__, "Wargroove2.kv").decode()
@@ -381,7 +464,7 @@ class Wargroove2Context(CommonContext):
         with open(os.path.join(self.game_communication_path, filename), 'w') as f:
             json.dump(data, f)
         if self.ui:
-            self.ui.update_tracker()
+            self.ui.update_ui()
 
     def set_commander(self, commander_name: str) -> bool:
         """Sets the current commander to the given one, if possible"""

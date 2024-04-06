@@ -4,17 +4,21 @@ from BaseClasses import Region, Entrance, MultiWorld, Location
 from .Locations import location_table, Wargroove2Location
 from ..generic.Rules import set_rule
 
-level_names: [str] = ["Level 1", "Level 2", "Level 3", "Level 4",
+region_names: [str] = ["Level 1", "Level 2", "Level 3", "Level 4",
                       "Level 1A", "Level 1B", "Level 1C",
                       "Level 2A", "Level 2B", "Level 2C",
                       "Level 3A", "Level 3B", "Level 3C",
-                      "Level 4A", "Level 4B", "Level 4C"]
+                      "Level 4A", "Level 4B", "Level 4C",
+                      "Level 1AA", "Level 1BA", "Level 1CA",
+                      "Level 2AA", "Level 2BA", "Level 2CA",
+                      "Level 3AA", "Level 3BA", "Level 3CA",
+                      "Level 4AA", "Level 4BA", "Level 4CA"]
 FINAL_LEVEL_1 = "Finale 1"
 FINAL_LEVEL_2 = "Finale 2"
 FINAL_LEVEL_3 = "Finale 3"
 FINAL_LEVEL_4 = "Finale 4"
 
-LEVEL_COUNT = 13
+LEVEL_COUNT = 16
 FINAL_LEVEL_COUNT = 1
 
 
@@ -216,11 +220,20 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             name="Wagon Freeway",
             file_name="Wagon_Freeway.json",
             location_rules={
-                "Wagon Freeway: Victory": lambda state: state.has("Wagon", player),
+                "Wagon Freeway: Victory": lambda state: state.has_all({"Wagon", "Spearman"}, player),
                 "Wagon Freeway: All Mine Now": lambda state: True,
                 "Wagon Freeway: Pigeon Carrier": lambda state: state.has("Air Trooper", player),
             },
             has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Kraken Strait",
+            file_name="Kraken_Strait.json",
+            location_rules={
+                "Kraken Strait: Victory": lambda state: state.has_all({"Frog", "Kraken"}, player),
+                "Kraken Strait: Well Defended": lambda state: state.has_all({"Frog", "Kraken"}, player),
+                "Kraken Strait: Clipped Wings": lambda state: state.has("Harpoon Ship", player),
+            }
         ),
     ]
     for level in levels:

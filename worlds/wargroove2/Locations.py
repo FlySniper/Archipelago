@@ -27,6 +27,9 @@ location_table = {
     "Wagon Freeway: Victory": 253024,
     "Wagon Freeway: All Mine Now": 253025,
     "Wagon Freeway: Pigeon Carrier": 253026,
+    "Kraken Strait: Victory": 253027,
+    "Kraken Strait: Well Defended": 253028,
+    "Kraken Strait: Clipped Wings": 253029,
     #########################################################
     'Slippery Bridge: Victory': 253300,
     'Slippery Bridge: Control all Sea Villages': 253301,
@@ -57,6 +60,10 @@ location_table = {
     'Wargroove 2 Finale: Victory': None,
 }
 
+location_id_name: {int, str} = {}
+for name, id in location_table:
+    if id is not None:
+        location_id_name[id] = name
 
 class Wargroove2Location(Location):
     game: str = "Wargroove 2"
