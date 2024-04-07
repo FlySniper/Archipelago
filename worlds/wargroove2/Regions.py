@@ -9,7 +9,7 @@ def create_regions(world, player: int,
                    final_levels: [Wargroove2Level]):
     menu_region = Region('Menu', player, world)
     menu_region.exits.append(Entrance(player, 'Menu exits to Humble Beginnings Rebirth', menu_region))
-    first_level_region = first_level.define_region("Humble Beginnings Rebirth", exits=[region_names[0], region_names[1],
+    first_level_region = first_level.define_region("Humble Beginnings Rebirth", world, exits=[region_names[0], region_names[1],
                                                                                        region_names[2], region_names[3]])
     world.regions += [menu_region, first_level_region]
 
@@ -23,15 +23,15 @@ def create_regions(world, player: int,
     # Define Levels 1-4
     for level_num in range(0, 4):
         next_level = level_num * 4 + 4 - level_num
-        world.regions += [level_list[level_num].define_region(region_names[level_num], exits=[region_names[next_level],
+        world.regions += [level_list[level_num].define_region(region_names[level_num], world, exits=[region_names[next_level],
                                                                                               region_names[
                                                                                                  next_level + 1],
                                                                                               region_names[
                                                                                                  next_level + 2]])]
 
     for level_num in range(4, 16):
-        world.regions += [level_list[level_num].define_region(region_names[level_num], exits=[FINAL_LEVEL_1])]
-    world.regions += [final_levels[0].define_region(FINAL_LEVEL_1)]
+        world.regions += [level_list[level_num].define_region(region_names[level_num], world, exits=[FINAL_LEVEL_1])]
+    world.regions += [final_levels[0].define_region(FINAL_LEVEL_1, world)]
     # # Define Levels 1A-4C
     # for level_num in range(4, 16):
     #     final_level_name = f"{FINAL_LEVEL_1} Entrance from Level {level_num}"

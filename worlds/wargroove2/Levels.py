@@ -5,14 +5,14 @@ from .Locations import location_table, Wargroove2Location
 from ..generic.Rules import set_rule
 
 region_names: [str] = ["Level 1", "Level 2", "Level 3", "Level 4",
-                      "Level 1A", "Level 1B", "Level 1C",
-                      "Level 2A", "Level 2B", "Level 2C",
-                      "Level 3A", "Level 3B", "Level 3C",
-                      "Level 4A", "Level 4B", "Level 4C",
-                      "Level 1AA", "Level 1BA", "Level 1CA",
-                      "Level 2AA", "Level 2BA", "Level 2CA",
-                      "Level 3AA", "Level 3BA", "Level 3CA",
-                      "Level 4AA", "Level 4BA", "Level 4CA"]
+                       "Level 1A", "Level 1B", "Level 1C",
+                       "Level 2A", "Level 2B", "Level 2C",
+                       "Level 3A", "Level 3B", "Level 3C",
+                       "Level 4A", "Level 4B", "Level 4C",
+                       "Level 1AA", "Level 1BA", "Level 1CA",
+                       "Level 2AA", "Level 2BA", "Level 2CA",
+                       "Level 3AA", "Level 3BA", "Level 3CA",
+                       "Level 4AA", "Level 4BA", "Level 4CA"]
 FINAL_LEVEL_1 = "Finale 1"
 FINAL_LEVEL_2 = "Finale 2"
 FINAL_LEVEL_3 = "Finale 3"
@@ -24,15 +24,16 @@ FINAL_LEVEL_COUNT = 1
 
 def set_region_exit_rules(region: Region, world: MultiWorld, player: int, locations: List[str], operator: str = "or"):
     if operator == "or":
-        exit_rule = lambda state, world=world, player=player: any(world.get_location(location, player).access_rule(state) for location in locations)
+        exit_rule = lambda state, world=world, player=player: any(
+            world.get_location(location, player).access_rule(state) for location in locations)
     else:
-        exit_rule = lambda state, world=world, player=player: all(world.get_location(location, player).access_rule(state) for location in locations)
+        exit_rule = lambda state, world=world, player=player: all(
+            world.get_location(location, player).access_rule(state) for location in locations)
     for region_exit in region.exits:
         region_exit.access_rule = exit_rule
 
 
 class Wargroove2Level:
-    world: MultiWorld
     player: int
     name: str
     file_name: str
@@ -56,14 +57,14 @@ class Wargroove2Level:
         else:
             self.victory_locations = [name + ': Victory']
 
-    def define_access_rules(self):
+    def define_access_rules(self, world: MultiWorld):
         for location_name, rule in self.location_rules.items():
-            set_rule(self.world.get_location(location_name, self.player), lambda state, rule=rule:
+            set_rule(world.get_location(location_name, self.player), lambda state, rule=rule:
             state.can_reach(self.region, 'Region', self.player) and rule(state))
-        set_region_exit_rules(self.region, self.world, self.player, self.victory_locations, operator='and')
+        set_region_exit_rules(self.region, world, self.player, self.victory_locations, operator='and')
 
-    def define_region(self, name: str, exits=None) -> Region:
-        self.region = Region(name, self.player, self.world)
+    def define_region(self, name: str, world: MultiWorld, exits=None) -> Region:
+        self.region = Region(name, self.player, world)
         if self.location_rules.keys():
             for location in self.location_rules.keys():
                 loc_id = location_table.get(location, 0)
@@ -76,7 +77,7 @@ class Wargroove2Level:
         return self.region
 
 
-def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
+def get_level_table(player: int) -> List[Wargroove2Level]:
     levels = [
         Wargroove2Level(
             name="Spire Fire",
@@ -173,7 +174,8 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             file_name="Terrible_Tributaries.json",
             location_rules={
                 "Terrible Tributaries: Victory": lambda state: state.has("River Boat", player),
-                "Terrible Tributaries: Swimming Knights": lambda state: state.has_all({"Merfolk", "River Boat"}, player),
+                "Terrible Tributaries: Swimming Knights": lambda state: state.has_all({"Merfolk", "River Boat"},
+                                                                                      player),
                 "Terrible Tributaries: Steal Code Names": lambda state: state.has_all({"Thief", "River Boat"}, player),
             }
         ),
@@ -212,7 +214,8 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
             location_rules={
                 "Towers of the Abyss: Victory": lambda state: state.has("Ballista", player),
                 "Towers of the Abyss: Siege Master": lambda state: state.has_all({"Ballista", "Trebuchet"}, player),
-                "Towers of the Abyss: Perfect Defense": lambda state: state.has_all({"Ballista", "Walls Event"}, player),
+                "Towers of the Abyss: Perfect Defense": lambda state: state.has_all({"Ballista", "Walls Event"},
+                                                                                    player),
             },
             has_ocean=False
         ),
@@ -237,12 +240,11 @@ def get_level_table(player: int, world: MultiWorld) -> List[Wargroove2Level]:
         ),
     ]
     for level in levels:
-        level.world = world
         level.player = player
     return levels
 
 
-def get_final_levels(player: int, world: MultiWorld) -> List[Wargroove2Level]:
+def get_final_levels(player: int) -> List[Wargroove2Level]:
     levels = [
         Wargroove2Level(
             name="Wargroove 2 Finale",
@@ -253,12 +255,11 @@ def get_final_levels(player: int, world: MultiWorld) -> List[Wargroove2Level]:
         ),
     ]
     for level in levels:
-        level.world = world
         level.player = player
     return levels
 
 
-def get_first_level(player: int, world: MultiWorld) -> Wargroove2Level:
+def get_first_level(player: int) -> Wargroove2Level:
     first_level = Wargroove2Level(
         name="Humble Beginnings Rebirth",
         file_name="",
@@ -268,6 +269,5 @@ def get_first_level(player: int, world: MultiWorld) -> Wargroove2Level:
             "Humble Beginnings Rebirth: Good Dog": lambda state: True
         }
     )
-    first_level.world = world
     first_level.player = player
     return first_level

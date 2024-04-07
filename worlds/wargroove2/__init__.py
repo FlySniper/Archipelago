@@ -63,9 +63,9 @@ class Wargroove2World(World):
         }
 
     def generate_early(self):
-        self.first_level = get_first_level(self.player, self.multiworld)
-        self.level_list = get_level_table(self.player, self.multiworld)
-        self.final_levels = get_final_levels(self.player, self.multiworld)
+        self.first_level = get_first_level(self.player)
+        self.level_list = get_level_table(self.player)
+        self.final_levels = get_final_levels(self.player)
         self.multiworld.random.shuffle(self.level_list)
         self.multiworld.random.shuffle(self.final_levels)
         # Selecting a random starting faction
@@ -105,7 +105,7 @@ class Wargroove2World(World):
         self.multiworld.completion_condition[self.player] = lambda state: state.has("Wargroove 2 Victory", self.player)
 
     def set_rules(self):
-        set_rules(self.level_list, self.first_level, self.final_levels)
+        set_rules(self.multiworld, self.level_list, self.first_level, self.final_levels)
 
     def create_item(self, name: str) -> Item:
         return Wargroove2Item(name, self.player)
@@ -120,14 +120,15 @@ class Wargroove2World(World):
             slot_data[option_name] = int(option.value)
         for i in range(0, min(LEVEL_COUNT, len(self.level_list))):
             slot_data[f"Level File #{i}"] = self.level_list[i].file_name
-            for location_name, _ in self.level_list[i].location_rules:
+            slot_data[region_names[i]] = self.level_list[i].name
+            for location_name in self.level_list[i].location_rules.keys():
                 slot_data[location_name] = region_names[i]
         for i in range(0, min(FINAL_LEVEL_COUNT, len(self.final_levels))):
             slot_data[f"Final Level File #{i}"] = self.final_levels[i].file_name
-        slot_data[self.final_levels[0].name] = FINAL_LEVEL_1
-        slot_data[self.final_levels[1].name] = FINAL_LEVEL_2
-        slot_data[self.final_levels[2].name] = FINAL_LEVEL_3
-        slot_data[self.final_levels[3].name] = FINAL_LEVEL_4
+        slot_data[FINAL_LEVEL_1] = self.final_levels[0].name
+        # slot_data[FINAL_LEVEL_2] = self.final_levels[1].name
+        # slot_data[FINAL_LEVEL_3] = self.final_levels[2].name
+        # slot_data[FINAL_LEVEL_4] = self.final_levels[3].name
         return slot_data
 
     def get_filler_item_name(self) -> str:

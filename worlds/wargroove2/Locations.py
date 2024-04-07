@@ -61,7 +61,8 @@ location_table = {
 }
 
 location_id_name: {int, str} = {}
-for name, id in location_table:
+for name in location_table.keys():
+    id = location_table[name]
     if id is not None:
         location_id_name[id] = name
 

@@ -9,11 +9,12 @@ import shutil
 from typing import Tuple, List, Iterable, Dict
 
 from worlds.wargroove2 import Wargroove2World
-from worlds.wargroove2.Items import item_table, faction_table, CommanderData, ItemData
+from worlds.wargroove2.Items import item_table, faction_table, CommanderData, ItemData, item_id_name
 
 import ModuleUpdate
-from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT, region_names
-from worlds.wargroove2.Locations import location_id_name
+from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT, region_names, get_level_table
+from worlds.wargroove2.Locations import location_id_name, location_table
+from worlds.wargroove2.RegionFilter import Wargroove2LogicFilter
 
 ModuleUpdate.update()
 
@@ -61,6 +62,7 @@ class Wargroove2Context(CommonContext):
     commander_defense_boost_multiplier: int = 0
     income_boost_multiplier: int = 0
     starting_groove_multiplier: float
+    slot_data: {}
     faction_item_ids = {
         'Starter': 0,
         'Cherrystone': 252034,
@@ -146,15 +148,15 @@ class Wargroove2Context(CommonContext):
 
     def on_package(self, cmd: str, args: dict):
         if cmd in {"Connected"}:
-            slot_data = args["slot_data"]
+            self.slot_data = args["slot_data"]
             filename = f"AP_settings.json"
             with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                 json.dump(args["slot_data"], f)
-                self.can_choose_commander = slot_data["can_choose_commander"]
+                self.can_choose_commander = self.slot_data["can_choose_commander"]
                 print('can choose commander:', self.can_choose_commander)
-                self.starting_groove_multiplier = slot_data["starting_groove_multiplier"]
-                self.income_boost_multiplier = slot_data["income_boost"]
-                self.commander_defense_boost_multiplier = slot_data["commander_defense_boost"]
+                self.starting_groove_multiplier = self.slot_data["starting_groove_multiplier"]
+                self.income_boost_multiplier = self.slot_data["income_boost"]
+                self.commander_defense_boost_multiplier = self.slot_data["commander_defense_boost"]
                 f.close()
             for ss in self.checked_locations:
                 filename = f"send{ss}"
@@ -172,12 +174,12 @@ class Wargroove2Context(CommonContext):
                     f.close()
             for i in range(0, LEVEL_COUNT):
                 filename = f"AP_{i + 1}.map"
-                level_file_name = slot_data[f"Level File #{i}"]
+                level_file_name = self.slot_data[f"Level File #{i}"]
                 shutil.copyfile(os.path.join(self.level_directory, level_file_name),
                                 os.path.join(self.game_communication_path, filename))
             for i in range(0, FINAL_LEVEL_COUNT):
                 filename = f"AP_{i + LEVEL_COUNT}.map"
-                level_file_name = slot_data[f"Final Level File #{i}"]
+                level_file_name = self.slot_data[f"Final Level File #{i}"]
                 shutil.copyfile(os.path.join(self.level_directory, level_file_name),
                                 os.path.join(self.game_communication_path, filename))
 
@@ -228,6 +230,7 @@ class Wargroove2Context(CommonContext):
                     filename = f"send{ss}"
                     with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                         f.close()
+            self.ui.update_ui()
 
     def run_gui(self):
         """Import kivy UI system and start running it as self.ui_task."""
@@ -310,7 +313,6 @@ class Wargroove2Context(CommonContext):
             def build_levels(self) -> LevelsLayout:
                 try:
                     levels_layout = LevelsLayout(orientation="horizontal")
-                    self.commander_buttons = {}
                     level_tracker = LevelTracker(padding=[0, 20])
                     self.level_1_Layout = GridLayout(cols=1)
                     self.level_2_Layout = GridLayout(cols=1)
@@ -327,48 +329,71 @@ class Wargroove2Context(CommonContext):
                     print(e)
 
             def update_levels(self):
-                received_ids = [item.item for item in self.ctx.items_received]
+                received_names = [item_id_name[item.item] for item in self.ctx.items_received]
+                levels = get_level_table(self.ctx.slot)
+                level_rules = {level.name: level.location_rules for level in levels}
+                region_filter = Wargroove2LogicFilter(received_names)
                 self.level_1_Layout.clear_widgets()
                 self.level_2_Layout.clear_widgets()
                 self.level_3_Layout.clear_widgets()
                 self.level_4_Layout.clear_widgets()
-                level_count = 1
-                # TODO: Level coloring here:
+                level_counter = 1
+                unreachable_levels = list(range(5, 28 + 1))
                 for region_name in region_names:
-                    side_objective_text = ""
-                    status_color = (1, 1, 1, 1)
-                    for location_id in self.ctx.missing_locations:
-                        location_name: str = location_id_name[location_id]
-                        slot_region: str = self.slot_data[location_name]
-                        if slot_region == region_name:
-                            pass
+                    fully_beaten_text = ""
+                    status_color = (0.6, 0.2, 0.2, 1)
+                    is_fully_beaten = True
+                    is_victory_reached = False
+                    if level_counter <= LEVEL_COUNT and hasattr(self.ctx, 'slot_data'):
+                        level_name: str = self.ctx.slot_data[region_name]
+                        for location_name in level_rules[level_name].keys():
+                            if level_counter in unreachable_levels:
+                                break
+                            is_beatable: bool = level_rules[level_name][location_name](region_filter)
+                            is_fully_beaten = is_fully_beaten and is_beatable
+                            if is_beatable and location_name.endswith(": Victory"):
+                                if location_table[location_name] in self.ctx.checked_locations:
+                                    is_victory_reached = True
+                                    status_color = (1.0, 1.0, 1.0, 1)
+                                    if level_counter <= 4:
+                                        next_level = level_counter * 4 + 2 - level_counter
+                                        unreachable_levels.remove(next_level)
+                                        unreachable_levels.remove(next_level + 1)
+                                        unreachable_levels.remove(next_level + 2)
+                                    elif level_counter <= 16:
+                                        unreachable_levels.remove(level_counter + 12)
+                                else:
+                                    status_color = (0.6, 0.6, 0.2, 1)
 
-                    label = ItemLabel(text=region_name, color=status_color)
-                    if level_count == 1:
+                    if is_fully_beaten and is_victory_reached:
+                        fully_beaten_text = " (100%)"
+
+                    label = ItemLabel(text=region_name + fully_beaten_text, color=status_color)
+                    if level_counter == 1:
                         self.level_1_Layout.add_widget(label)
-                    elif level_count == 2:
+                    elif level_counter == 2:
                         self.level_2_Layout.add_widget(label)
-                    elif level_count == 3:
+                    elif level_counter == 3:
                         self.level_3_Layout.add_widget(label)
-                    elif level_count == 4:
+                    elif level_counter == 4:
                         self.level_4_Layout.add_widget(label)
-                    elif level_count <= 7:
+                    elif level_counter <= 7:
                         self.level_1_Layout.add_widget(label)
-                    elif level_count <= 10:
+                    elif level_counter <= 10:
                         self.level_2_Layout.add_widget(label)
-                    elif level_count <= 13:
+                    elif level_counter <= 13:
                         self.level_3_Layout.add_widget(label)
-                    elif level_count <= 16:
+                    elif level_counter <= 16:
                         self.level_4_Layout.add_widget(label)
-                    elif level_count <= 19:
+                    elif level_counter <= 19:
                         self.level_1_Layout.add_widget(label)
-                    elif level_count <= 22:
+                    elif level_counter <= 22:
                         self.level_2_Layout.add_widget(label)
-                    elif level_count <= 25:
+                    elif level_counter <= 25:
                         self.level_3_Layout.add_widget(label)
                     else:
                         self.level_4_Layout.add_widget(label)
-                    level_count += 1
+                    level_counter += 1
 
             def build_tracker(self) -> TrackerLayout:
                 try:

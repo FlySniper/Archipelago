@@ -71,6 +71,12 @@ item_table: Dict[str, ItemData] = {
 
 }
 
+item_id_name: {int, str} = {}
+for name in item_table.keys():
+    id = item_table[name].code
+    if id is not None:
+        item_id_name[id] = name
+
 
 class CommanderData(typing.NamedTuple):
     name: str
