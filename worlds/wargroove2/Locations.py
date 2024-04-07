@@ -57,6 +57,18 @@ location_table = {
     "Towers of the Abyss: Victory": 253330,
     "Towers of the Abyss: Siege Master": 253331,
     "Towers of the Abyss: Perfect Defense": 253332,
+    #########################################################
+    "Gnarled Mountaintop: Victory": 253335,
+    "Gnarled Mountaintop: Watch the Watchtower": 253336,
+    "Gnarled Mountaintop: Vine Skip": 253337,
+    #########################################################
+    "Gold Rush: Victory": 253340,
+    "Gold Rush: Lumber Island": 253341,
+    "Gold Rush: Starglass Rush": 253342,
+    #########################################################
+    "Finishing Blow: Victory": 253345,
+    "Finishing Blow: Mass Destruction": 253346,
+    "Finishing Blow: Defortification": 253347,
     'Wargroove 2 Finale: Victory': None,
 }
 
@@ -65,6 +77,7 @@ for name in location_table.keys():
     id = location_table[name]
     if id is not None:
         location_id_name[id] = name
+
 
 class Wargroove2Location(Location):
     game: str = "Wargroove 2"

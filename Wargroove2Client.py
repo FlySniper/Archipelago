@@ -348,6 +348,7 @@ class Wargroove2Context(CommonContext):
                         level_name: str = self.ctx.slot_data[region_name]
                         for location_name in level_rules[level_name].keys():
                             if level_counter in unreachable_levels:
+                                status_color = (0.35, 0.2, 0.2, 1)
                                 break
                             is_beatable: bool = level_rules[level_name][location_name](region_filter)
                             is_fully_beaten = is_fully_beaten and is_beatable
@@ -356,7 +357,7 @@ class Wargroove2Context(CommonContext):
                                     is_victory_reached = True
                                     status_color = (1.0, 1.0, 1.0, 1)
                                     if level_counter <= 4:
-                                        next_level = level_counter * 4 + 2 - level_counter
+                                        next_level = (level_counter - 1) * 4 + 6 - level_counter
                                         unreachable_levels.remove(next_level)
                                         unreachable_levels.remove(next_level + 1)
                                         unreachable_levels.remove(next_level + 2)

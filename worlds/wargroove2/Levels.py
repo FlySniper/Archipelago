@@ -238,6 +238,35 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
                 "Kraken Strait: Clipped Wings": lambda state: state.has("Harpoon Ship", player),
             }
         ),
+        Wargroove2Level(
+            name="Gnarled Mountaintop",
+            file_name="Gnarled_Mountaintop.json",
+            location_rules={
+                "Gnarled Mountaintop: Victory": lambda state: state.has("Harpy", player),
+                "Gnarled Mountaintop: Watch the Watchtower": lambda state: state.has("Harpy", player),
+                "Gnarled Mountaintop: Vine Skip": lambda state: state.has("Air Trooper", player),
+            },
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Gold Rush",
+            file_name="Gold_Rush.json",
+            location_rules={
+                "Gold Rush: Victory": lambda state: state.has("Thief", player) and
+                                                    state.has_any({"Rifleman", "Merfolk", "Warship"}, player),
+                "Gold Rush: Lumber Island": lambda state: state.has_any({"Merfolk", "River Boat", "Barge"}, player),
+                "Gold Rush: Starglass Rush": lambda state: state.has_any({"River Boat", "Barge"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Finishing Blow",
+            file_name="Finishing_Blow.json",
+            location_rules={
+                "Finishing Blow: Victory": lambda state: state.has("Witch", player),
+                "Finishing Blow: Mass Destruction": lambda state: state.has("Witch", player),
+                "Finishing Blow: Defortification": lambda state: state.has("Thief", player),
+            }
+        ),
     ]
     for level in levels:
         level.player = player
