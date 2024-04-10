@@ -6,14 +6,16 @@ import sys
 import asyncio
 import random
 import shutil
+import typing
 from typing import Tuple, List, Iterable, Dict
 
+from settings import get_settings
 from worlds.wargroove2 import Wargroove2World
 from worlds.wargroove2.Items import item_table, faction_table, CommanderData, ItemData, item_id_name
 
 import ModuleUpdate
 from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT, region_names, get_level_table
-from worlds.wargroove2.Locations import location_id_name, location_table
+from worlds.wargroove2.Locations import location_table
 from worlds.wargroove2.RegionFilter import Wargroove2LogicFilter
 
 ModuleUpdate.update()
@@ -25,7 +27,7 @@ import logging
 if __name__ == "__main__":
     Utils.init_logging("Wargroove2Client", exception_logger="Client")
 
-from NetUtils import NetworkItem, ClientStatus
+from NetUtils import ClientStatus
 from CommonClient import gui_enabled, logger, get_base_parser, ClientCommandProcessor, \
     CommonContext, server_loop
 
@@ -62,6 +64,7 @@ class Wargroove2Context(CommonContext):
     commander_defense_boost_multiplier: int = 0
     income_boost_multiplier: int = 0
     starting_groove_multiplier: float
+    has_death_link: bool = False
     slot_data: {}
     faction_item_ids = {
         'Starter': 0,
@@ -85,7 +88,7 @@ class Wargroove2Context(CommonContext):
         self.awaiting_bridge = False
         # self.game_communication_path: files go in this path to pass data between us and the actual game
         if "appdata" in os.environ:
-            options = Utils.get_options()
+            options = get_settings()
             root_directory = os.path.join(options["wargroove2_options"]["root_directory"])
             data_directory = os.path.join("lib", "worlds", "wargroove2", "data")
             dev_data_directory = os.path.join("worlds", "wargroove2", "data")
@@ -113,6 +116,16 @@ class Wargroove2Context(CommonContext):
         else:
             print_error_and_close("Wargroove2Client couldn't detect system type. "
                                   "Unable to infer required game_communication_path")
+
+    def on_deathlink(self, data: typing.Dict[str, typing.Any]) -> None:
+        with open(os.path.join(self.game_communication_path, "deathLinkReceive"), 'w+') as f:
+            text = data.get("cause", "")
+            if text:
+                f.write(f"DeathLink: {text}")
+            else:
+                f.write(f"DeathLink: Received from {data['source']}")
+            f.close()
+        super(Wargroove2Context, self).on_deathlink(data)
 
     async def server_auth(self, password_requested: bool = False):
         if password_requested and not self.password:
@@ -149,6 +162,7 @@ class Wargroove2Context(CommonContext):
     def on_package(self, cmd: str, args: dict):
         if cmd in {"Connected"}:
             self.slot_data = args["slot_data"]
+            self.has_death_link = self.slot_data["death_link"]
             filename = f"AP_settings.json"
             with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                 json.dump(args["slot_data"], f)
@@ -273,9 +287,6 @@ class Wargroove2Context(CommonContext):
             pass
 
         class ItemLabel(Label):
-            pass
-
-        class LevelLabel(Label):
             pass
 
         class Wargroove2Manager(GameManager):
@@ -523,7 +534,6 @@ class Wargroove2Context(CommonContext):
 
 
 async def game_watcher(ctx: Wargroove2Context):
-    from worlds.wargroove.Locations import location_table
     while not ctx.exit_event.is_set():
         if ctx.syncing == True:
             sync_msg = [{'cmd': 'Sync'}]
@@ -533,11 +543,17 @@ async def game_watcher(ctx: Wargroove2Context):
             ctx.syncing = False
         sending = []
         victory = False
+        await ctx.update_death_link(ctx.has_death_link)
         for root, dirs, files in os.walk(ctx.game_communication_path):
             for file in files:
                 if file.find("send") > -1:
                     st = file.split("send", -1)[1]
                     sending = sending + [(int(st))]
+                    os.remove(os.path.join(ctx.game_communication_path, file))
+                if file == "deathLinkSend" and ctx.has_death_link:
+                    with open(os.path.join(ctx.game_communication_path, file), 'r') as f:
+                        failed_mission = f.read()
+                        await ctx.send_death(f"{ctx.player_names[ctx.slot]} failed {failed_mission}")
                     os.remove(os.path.join(ctx.game_communication_path, file))
                 if file.find("victory") > -1:
                     victory = True

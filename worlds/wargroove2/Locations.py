@@ -69,6 +69,18 @@ location_table = {
     "Finishing Blow: Victory": 253345,
     "Finishing Blow: Mass Destruction": 253346,
     "Finishing Blow: Defortification": 253347,
+    #########################################################
+    "Frantic Inlet: Victory": 253350,
+    "Frantic Inlet: Plug the Gap": 253351,
+    "Frantic Inlet: Portal Detour": 253352,
+    #########################################################
+    "Operation Seagull: Victory": 253355,
+    "Operation Seagull: Crack the Crystal": 253356,
+    "Operation Seagull: Counter Break": 253357,
+    #########################################################
+    "Air Support: Victory": 253360,
+    "Air Support: Roadkill": 253361,
+    "Air Support: Flight Economy": 253362,
     'Wargroove 2 Finale: Victory': None,
 }
 

@@ -1,22 +1,22 @@
 from typing import List
 
-from BaseClasses import Region, Entrance, MultiWorld, Location
+from BaseClasses import Region, Entrance, MultiWorld
 from .Locations import location_table, Wargroove2Location
 from ..generic.Rules import set_rule
 
-region_names: [str] = ["Level 1", "Level 2", "Level 3", "Level 4",
-                       "Level 1A", "Level 1B", "Level 1C",
-                       "Level 2A", "Level 2B", "Level 2C",
-                       "Level 3A", "Level 3B", "Level 3C",
-                       "Level 4A", "Level 4B", "Level 4C",
-                       "Level 1AA", "Level 1BA", "Level 1CA",
-                       "Level 2AA", "Level 2BA", "Level 2CA",
-                       "Level 3AA", "Level 3BA", "Level 3CA",
-                       "Level 4AA", "Level 4BA", "Level 4CA"]
-FINAL_LEVEL_1 = "Finale 1"
-FINAL_LEVEL_2 = "Finale 2"
-FINAL_LEVEL_3 = "Finale 3"
-FINAL_LEVEL_4 = "Finale 4"
+region_names: [str] = ["North 1", "East 1", "South 1", "West 1",
+                       "North 2A", "North 2B", "North 2C",
+                       "East 2A", "East 2B", "East 2C",
+                       "South 2A", "South 2B", "South 2C",
+                       "West 2A", "West 2B", "West 2C",
+                       "North 3A", "North 3B", "North 3C",
+                       "East 3A", "East 3B", "East 3C",
+                       "South 3A", "South 3B", "South 3C",
+                       "West 3A", "West 3B", "West 3C"]
+FINAL_LEVEL_1 = "Northern Finale"
+FINAL_LEVEL_2 = "Eastern Finale"
+FINAL_LEVEL_3 = "Southern Finale"
+FINAL_LEVEL_4 = "Western Finale"
 
 LEVEL_COUNT = 16
 FINAL_LEVEL_COUNT = 1
@@ -265,6 +265,38 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
                 "Finishing Blow: Victory": lambda state: state.has("Witch", player),
                 "Finishing Blow: Mass Destruction": lambda state: state.has("Witch", player),
                 "Finishing Blow: Defortification": lambda state: state.has("Thief", player),
+            }
+        ),
+        Wargroove2Level(
+            name="Frantic Inlet",
+            file_name="Frantic_Inlet.json",
+            location_rules={
+                "Frantic Inlet: Victory": lambda state: state.has("Turtle", player) and
+                                                        state.has_any({"Barge", "Knight"}, player),
+                "Frantic Inlet: Plug the Gap": lambda state: state.has("Spearman", player),
+                "Frantic Inlet: Portal Detour": lambda state: state.has_all({"Turtle", "Barge"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Operation Seagull",
+            file_name="Operation_Seagull.json",
+            location_rules={
+                "Operation Seagull: Victory": lambda state: state.has("Merfolk", player) and
+                                                            state.has_any({"Harpoon Ship", "Witch"}, player) and
+                                                            state.has_any({"Turtle", "Harpy"}, player),
+                "Operation Seagull: Crack the Crystal": lambda state: state.has_any({"Warship", "Kraken"}, player),
+                "Operation Seagull: Counter Break": lambda state: state.has("Dragon", player) and
+                                                                  state.has_all({"Harpoon Ship", "Witch"}, player),
+            },
+            low_victory_checks=False
+        ),
+        Wargroove2Level(
+            name="Air Support",
+            file_name="Air_Support.json",
+            location_rules={
+                "Air Support: Victory": lambda state: state.has_all({"Dragon", "Bridges Event"}, player),
+                "Air Support: Roadkill": lambda state: state.has_all({"Dragon", "Bridges Event"}, player),
+                "Air Support: Flight Economy": lambda state: state.has_all({"Air Trooper", "Bridges Event"}, player),
             }
         ),
     ]

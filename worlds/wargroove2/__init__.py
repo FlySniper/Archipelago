@@ -59,7 +59,8 @@ class Wargroove2World(World):
             'income_boost': self.multiworld.income_boost[self.player],
             'commander_defense_boost': self.multiworld.commander_defense_boost[self.player],
             'can_choose_commander': self.multiworld.commander_choice[self.player] != 0,
-            'starting_groove_multiplier': 20  # Backwards compatibility in case this ever becomes an option
+            'starting_groove_multiplier': 20,  # Backwards compatibility in case this ever becomes an option
+            'death_link': self.multiworld.death_link[self.player] == 1
         }
 
     def generate_early(self):
