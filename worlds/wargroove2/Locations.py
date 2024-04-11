@@ -81,7 +81,8 @@ location_table = {
     "Air Support: Victory": 253360,
     "Air Support: Roadkill": 253361,
     "Air Support: Flight Economy": 253362,
-    'Wargroove 2 Finale: Victory': None,
+    #########################################################
+    'Wargroove 2: Victory': None
 }
 
 location_id_name: {int, str} = {}

@@ -308,11 +308,9 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
 def get_final_levels(player: int) -> List[Wargroove2Level]:
     levels = [
         Wargroove2Level(
-            name="Wargroove 2 Finale",
+            name="Wargroove 2 Finale 1",
             file_name="Nuru_Vengeance.json",
-            location_rules={
-                "Wargroove 2 Finale: Victory": lambda state: state.has_all({"Final Center", "Final North"}, player)
-            }
+            location_rules={}
         ),
     ]
     for level in levels:

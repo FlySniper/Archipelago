@@ -55,11 +55,13 @@ class Wargroove2World(World):
 
     def _get_slot_data(self):
         return {
-            'seed': "".join(self.multiworld.per_slot_randoms[self.player].choice(string.ascii_letters) for i in range(16)),
+            'seed': "".join(
+                self.multiworld.per_slot_randoms[self.player].choice(string.ascii_letters) for i in range(16)),
             'income_boost': self.multiworld.income_boost[self.player],
             'commander_defense_boost': self.multiworld.commander_defense_boost[self.player],
             'can_choose_commander': self.multiworld.commander_choice[self.player] != 0,
             'starting_groove_multiplier': 20,  # Backwards compatibility in case this ever becomes an option
+            'final_levels': self.multiworld.final_levels,
             'death_link': self.multiworld.death_link[self.player] == 1
         }
 
@@ -100,10 +102,9 @@ class Wargroove2World(World):
         self.multiworld.itempool += pool
 
         # Placing victory event at final location
-        victory = Wargroove2Item("Wargroove 2 Victory", self.player)
-        self.multiworld.get_location("Wargroove 2 Finale: Victory", self.player).place_locked_item(victory)
+        self.multiworld.completion_condition[self.player] = lambda state: \
+            state._wg2_has_victory(self.player, self.multiworld.final_levels[self.player])
 
-        self.multiworld.completion_condition[self.player] = lambda state: state.has("Wargroove 2 Victory", self.player)
 
     def set_rules(self):
         set_rules(self.multiworld, self.level_list, self.first_level, self.final_levels)
@@ -127,11 +128,11 @@ class Wargroove2World(World):
         for i in range(0, min(FINAL_LEVEL_COUNT, len(self.final_levels))):
             slot_data[f"Final Level File #{i}"] = self.final_levels[i].file_name
         slot_data[FINAL_LEVEL_1] = self.final_levels[0].name
-        # slot_data[FINAL_LEVEL_2] = self.final_levels[1].name
-        # slot_data[FINAL_LEVEL_3] = self.final_levels[2].name
-        # slot_data[FINAL_LEVEL_4] = self.final_levels[3].name
+        # TODO: Change this so we're not indexing 0
+        slot_data[FINAL_LEVEL_2] = self.final_levels[0].name
+        slot_data[FINAL_LEVEL_3] = self.final_levels[0].name
+        slot_data[FINAL_LEVEL_4] = self.final_levels[0].name
         return slot_data
 
     def get_filler_item_name(self) -> str:
         return self.multiworld.random.choice(["Commander Defense Boost", "Income Boost"])
-

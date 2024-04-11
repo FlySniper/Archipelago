@@ -14,7 +14,8 @@ from worlds.wargroove2 import Wargroove2World
 from worlds.wargroove2.Items import item_table, faction_table, CommanderData, ItemData, item_id_name
 
 import ModuleUpdate
-from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT, region_names, get_level_table
+from worlds.wargroove2.Levels import LEVEL_COUNT, FINAL_LEVEL_COUNT, region_names, get_level_table, FINAL_LEVEL_1, \
+    FINAL_LEVEL_2, FINAL_LEVEL_3, FINAL_LEVEL_4
 from worlds.wargroove2.Locations import location_table
 from worlds.wargroove2.RegionFilter import Wargroove2LogicFilter
 
@@ -65,7 +66,10 @@ class Wargroove2Context(CommonContext):
     income_boost_multiplier: int = 0
     starting_groove_multiplier: float
     has_death_link: bool = False
+    final_levels: int = 1
     slot_data: {}
+    stored_finale_key: str = ""
+    completed_final_regions: [str] = []
     faction_item_ids = {
         'Starter': 0,
         'Cherrystone': 252034,
@@ -163,6 +167,7 @@ class Wargroove2Context(CommonContext):
         if cmd in {"Connected"}:
             self.slot_data = args["slot_data"]
             self.has_death_link = self.slot_data["death_link"]
+            self.final_levels = self.slot_data["final_levels"]
             filename = f"AP_settings.json"
             with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                 json.dump(args["slot_data"], f)
@@ -196,6 +201,9 @@ class Wargroove2Context(CommonContext):
                 level_file_name = self.slot_data[f"Final Level File #{i}"]
                 shutil.copyfile(os.path.join(self.level_directory, level_file_name),
                                 os.path.join(self.game_communication_path, filename))
+
+            self.stored_finale_key = f"wargroove_2_{self.slot}_{self.team}"
+            self.set_notify(self.stored_finale_key)
 
         if cmd in {"RoomInfo"}:
             self.seed_name = args["seed_name"]
@@ -406,6 +414,42 @@ class Wargroove2Context(CommonContext):
                     else:
                         self.level_4_Layout.add_widget(label)
                     level_counter += 1
+                if self.ctx.stored_finale_key in self.ctx.stored_data.keys():
+                    stored_data = self.ctx.stored_data[self.ctx.stored_finale_key]
+                else:
+                    stored_data = None
+                if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_1] in stored_data:
+                    status_color = (1.0, 1.0, 1.0, 1)
+                elif region_filter.has_all({"Final North", "Final Center"}, self.ctx.slot):
+                    status_color = (0.6, 0.6, 0.2, 1)
+                else:
+                    status_color = (0.6, 0.2, 0.2, 1)
+                label = ItemLabel(text=FINAL_LEVEL_1, color=status_color)
+                self.level_1_Layout.add_widget(label)
+                if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_2] in stored_data:
+                    status_color = (1.0, 1.0, 1.0, 1)
+                elif region_filter.has_all({"Final East", "Final Center"}, self.ctx.slot):
+                    status_color = (0.6, 0.6, 0.2, 1)
+                else:
+                    status_color = (0.6, 0.2, 0.2, 1)
+                label = ItemLabel(text=FINAL_LEVEL_2, color=status_color)
+                self.level_2_Layout.add_widget(label)
+                if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_3] in stored_data:
+                    status_color = (1.0, 1.0, 1.0, 1)
+                elif region_filter.has_all({"Final South", "Final Center"}, self.ctx.slot):
+                    status_color = (0.6, 0.6, 0.2, 1)
+                else:
+                    status_color = (0.6, 0.2, 0.2, 1)
+                label = ItemLabel(text=FINAL_LEVEL_3, color=status_color)
+                self.level_3_Layout.add_widget(label)
+                if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_4] in stored_data:
+                    status_color = (1.0, 1.0, 1.0, 1)
+                elif region_filter.has_all({"Final West", "Final Center"}, self.ctx.slot):
+                    status_color = (0.6, 0.6, 0.2, 1)
+                else:
+                    status_color = (0.6, 0.2, 0.2, 1)
+                label = ItemLabel(text=FINAL_LEVEL_4, color=status_color)
+                self.level_4_Layout.add_widget(label)
 
             def build_tracker(self) -> TrackerLayout:
                 try:
@@ -554,9 +598,33 @@ async def game_watcher(ctx: Wargroove2Context):
                     with open(os.path.join(ctx.game_communication_path, file), 'r') as f:
                         failed_mission = f.read()
                         await ctx.send_death(f"{ctx.player_names[ctx.slot]} failed {failed_mission}")
+                        f.close()
                     os.remove(os.path.join(ctx.game_communication_path, file))
-                if file.find("victory") > -1:
-                    victory = True
+                if file == "victory":
+                    with open(os.path.join(ctx.game_communication_path, file), 'r') as f:
+                        victory_level = f.read()
+                        final_level_list = []
+                        if ctx.stored_finale_key in ctx.stored_data.keys():
+                            final_level_list = ctx.stored_data[ctx.stored_finale_key]
+                            if final_level_list is None:
+                                final_level_list = []
+
+                        if victory_level not in final_level_list:
+                            final_level_list.append(victory_level)
+                            ctx.stored_data[ctx.stored_finale_key] = final_level_list
+
+                        message = [{"cmd": 'Set', "key": ctx.stored_finale_key,
+                                    "default": final_level_list,
+                                    "want_reply": True,
+                                    "operations": [{"operation": "replace", "value": final_level_list}]}]
+                        await ctx.send_msgs(message)
+                        final_levels_won = len(ctx.stored_data[ctx.stored_finale_key])
+                        completed_levels = ", ".join(final_level_list)
+                        logger.info(f"({final_levels_won}/{ctx.final_levels}) final levels conquered! Completed: "
+                                    f"{completed_levels}")
+                        if final_levels_won >= ctx.final_levels:
+                            victory = True
+                        f.close()
                     os.remove(os.path.join(ctx.game_communication_path, file))
         ctx.locations_checked = sending
         message = [{"cmd": 'LocationChecks', "locations": sending}]

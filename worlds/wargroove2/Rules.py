@@ -6,7 +6,17 @@ from ..AutoWorld import LogicMixin
 
 
 class Wargroove2Logic(LogicMixin):
-    pass
+    def _wg2_has_victory(self, player: int, finales_required: int) -> bool:
+        finales_completed = 4
+        if self.has("Final North", player):
+            finales_completed += 1
+        if self.has("Final East", player):
+            finales_completed += 1
+        if self.has("Final South", player):
+            finales_completed += 1
+        if self.has("Final West", player):
+            finales_completed += 1
+        return finales_completed >= finales_required and self.has("Final Center", player)
 
 
 def set_rules(world, level_list: [Wargroove2Level],
