@@ -101,10 +101,14 @@ class Wargroove2World(World):
 
         self.multiworld.itempool += pool
 
+        victory = Wargroove2Item("Wargroove 2 Victory", self.player)
+        # TODO: Change this to range(0, 4)
+        for i in range(0, 1):
+            final_level = self.final_levels[i]
+            self.multiworld.get_location(final_level.victory_locations[0], self.player).place_locked_item(victory)
         # Placing victory event at final location
         self.multiworld.completion_condition[self.player] = lambda state: \
-            state._wg2_has_victory(self.player, self.multiworld.final_levels[self.player])
-
+            state.has("Wargroove 2 Victory", self.player, self.multiworld.final_levels[self.player])
 
     def set_rules(self):
         set_rules(self.multiworld, self.level_list, self.first_level, self.final_levels)

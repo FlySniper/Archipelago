@@ -30,6 +30,12 @@ location_table = {
     "Kraken Strait: Victory": 253027,
     "Kraken Strait: Well Defended": 253028,
     "Kraken Strait: Clipped Wings": 253029,
+    "A Ribbitting Time: Victory": 253030,
+    "A Ribbitting Time: Leap Frog": 253031,
+    "A Ribbitting Time: Frogway Robbery": 253032,
+    "Precarious Cliffs: Victory": 253033,
+    "Precarious Cliffs: No Crit for You": 253034,
+    "Precarious Cliffs: Out Ranged": 253035,
     #########################################################
     'Slippery Bridge: Victory': 253300,
     'Slippery Bridge: Control all Sea Villages': 253301,
@@ -82,6 +88,15 @@ location_table = {
     "Air Support: Roadkill": 253361,
     "Air Support: Flight Economy": 253362,
     #########################################################
+    "Fortification: Victory": 253365,
+    "Fortification: Hyper Repair": 253366,
+    "Fortification: Defensive Artillery": 253367,
+    #########################################################
+    "Split Valley: Victory": 253370,
+    "Split Valley: Longshot": 253371,
+    "Split Valley: Ranged Trinity": 253372,
+    #########################################################
+    'Disastrous Crossing: Victory': None,
     'Wargroove 2: Victory': None
 }
 

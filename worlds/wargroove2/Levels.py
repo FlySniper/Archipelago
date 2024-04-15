@@ -287,8 +287,7 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
                 "Operation Seagull: Crack the Crystal": lambda state: state.has_any({"Warship", "Kraken"}, player),
                 "Operation Seagull: Counter Break": lambda state: state.has("Dragon", player) and
                                                                   state.has_all({"Harpoon Ship", "Witch"}, player),
-            },
-            low_victory_checks=False
+            }
         ),
         Wargroove2Level(
             name="Air Support",
@@ -297,6 +296,46 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
                 "Air Support: Victory": lambda state: state.has_all({"Dragon", "Bridges Event"}, player),
                 "Air Support: Roadkill": lambda state: state.has_all({"Dragon", "Bridges Event"}, player),
                 "Air Support: Flight Economy": lambda state: state.has_all({"Air Trooper", "Bridges Event"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Fortification",
+            file_name="Fortification.json",
+            location_rules={
+                "Fortification: Victory": lambda state: state.has_all({"Golem", "Walls Event"}, player) and
+                                                        state.has_any({"Archer", "Trebuchet"}, player),
+                "Fortification: Hyper Repair": lambda state: state.has_all({"Golem", "Walls Event"}, player),
+                "Fortification: Defensive Artillery": lambda state: state.has("Trebuchet", player),
+            },
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="A Ribbitting Time",
+            file_name="A_Ribbitting_Time.json",
+            location_rules={
+                "A Ribbitting Time: Victory": lambda state: state.has("Frog", player),
+                "A Ribbitting Time: Leap Frog": lambda state: state.has("Frog", player),
+                "A Ribbitting Time: Frogway Robbery": lambda state: state.has_all({"Frog", "Thief"}, player),
+            }
+        ),
+        Wargroove2Level(
+            name="Precarious Cliffs",
+            file_name="Fortification.json",
+            location_rules={
+                "Precarious Cliffs: Victory": lambda state: state.has_all({"Airstrike Event", "Archer"}, player),
+                "Precarious Cliffs: No Crit for You": lambda state: state.has("Airstrike Event", player),
+                "Precarious Cliffs: Out Ranged": lambda state: state.has_all({"Airstrike Event", "Archer"}, player),
+            },
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Split Valley",
+            file_name="Split_Valley.json",
+            location_rules={
+                "Split Valley: Victory": lambda state: state.has("Trebuchet", player) and
+                                                       state.has_any({"Bridges Event", "Air Trooper"}, player),
+                "Split Valley: Longshot": lambda state: state.has("Trebuchet", player),
+                "Split Valley: Ranged Trinity": lambda state: state.has_all({"Trebuchet", "Archer", "Ballista"}, player),
             }
         ),
     ]
@@ -308,9 +347,11 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
 def get_final_levels(player: int) -> List[Wargroove2Level]:
     levels = [
         Wargroove2Level(
-            name="Wargroove 2 Finale 1",
-            file_name="Nuru_Vengeance.json",
-            location_rules={}
+            name="Disastrous Crossing",
+            file_name="Disastrous_Crossing.json",
+            location_rules={"Disastrous Crossing: Victory":
+                                lambda state: state.has_any({"Merfolk", "River Boat"}, player) and
+                                              state.has_any({"Knight", "Kraken"}, player)}
         ),
     ]
     for level in levels:
