@@ -66,11 +66,29 @@ class Wargroove2World(World):
         }
 
     def generate_early(self):
+        # First level
         self.first_level = get_first_level(self.player)
+
+        # Standard levels
         self.level_list = get_level_table(self.player)
+        low_victory_checks_levels = list(level for level in self.level_list if level.low_victory_checks)
+        high_victory_checks_levels = list(level for level in self.level_list if not level.low_victory_checks)
+        self.multiworld.random.shuffle(low_victory_checks_levels)
+        self.multiworld.random.shuffle(high_victory_checks_levels)
+        non_starting_levels = high_victory_checks_levels + low_victory_checks_levels[4:]
+        self.multiworld.random.shuffle(non_starting_levels)
+        self.level_list = low_victory_checks_levels[0:4] + non_starting_levels
+
+        # Final Levels
         self.final_levels = get_final_levels(self.player)
-        self.multiworld.random.shuffle(self.level_list)
-        self.multiworld.random.shuffle(self.final_levels)
+        final_levels_no_ocean = list(level for level in self.final_levels if not level.has_ocean)
+        final_levels_ocean = list(level for level in self.final_levels if level.has_ocean)
+        self.multiworld.random.shuffle(final_levels_no_ocean)
+        self.multiworld.random.shuffle(final_levels_ocean)
+        non_north_levels = final_levels_ocean + final_levels_no_ocean[1:]
+        self.multiworld.random.shuffle(non_north_levels)
+        self.final_levels = final_levels_no_ocean[0:1] + non_north_levels
+
         # Selecting a random starting faction
         if self.multiworld.commander_choice[self.player] == 2:
             factions = [faction for faction in faction_table.keys() if faction != "Starter"]
@@ -102,8 +120,7 @@ class Wargroove2World(World):
         self.multiworld.itempool += pool
 
         victory = Wargroove2Item("Wargroove 2 Victory", self.player)
-        # TODO: Change this to range(0, 4)
-        for i in range(0, 1):
+        for i in range(0, 4):
             final_level = self.final_levels[i]
             self.multiworld.get_location(final_level.victory_locations[0], self.player).place_locked_item(victory)
         # Placing victory event at final location
@@ -111,7 +128,7 @@ class Wargroove2World(World):
             state.has("Wargroove 2 Victory", self.player, self.multiworld.final_levels[self.player])
 
     def set_rules(self):
-        set_rules(self.multiworld, self.level_list, self.first_level, self.final_levels)
+        set_rules(self.multiworld, self.level_list, self.first_level, self.final_levels, self.player)
 
     def create_item(self, name: str) -> Item:
         return Wargroove2Item(name, self.player)
@@ -132,10 +149,9 @@ class Wargroove2World(World):
         for i in range(0, min(FINAL_LEVEL_COUNT, len(self.final_levels))):
             slot_data[f"Final Level File #{i}"] = self.final_levels[i].file_name
         slot_data[FINAL_LEVEL_1] = self.final_levels[0].name
-        # TODO: Change this so we're not indexing 0
-        slot_data[FINAL_LEVEL_2] = self.final_levels[0].name
-        slot_data[FINAL_LEVEL_3] = self.final_levels[0].name
-        slot_data[FINAL_LEVEL_4] = self.final_levels[0].name
+        slot_data[FINAL_LEVEL_2] = self.final_levels[1].name
+        slot_data[FINAL_LEVEL_3] = self.final_levels[2].name
+        slot_data[FINAL_LEVEL_4] = self.final_levels[3].name
         return slot_data
 
     def get_filler_item_name(self) -> str:

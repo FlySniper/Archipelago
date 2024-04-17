@@ -36,6 +36,12 @@ location_table = {
     "Precarious Cliffs: Victory": 253033,
     "Precarious Cliffs: No Crit for You": 253034,
     "Precarious Cliffs: Out Ranged": 253035,
+    "Grand Theft Village: Victory": 253036,
+    "Grand Theft Village: Stand Tall": 253037,
+    "Grand Theft Village: Pillager": 253038,
+    "Grand Theft Village 2: Victory": 253039,
+    "Grand Theft Village 2: Stand Tall": 253040,
+    "Grand Theft Village 2: Pillager": 253041,
     #########################################################
     'Slippery Bridge: Victory': 253300,
     'Slippery Bridge: Control all Sea Villages': 253301,
@@ -97,6 +103,9 @@ location_table = {
     "Split Valley: Ranged Trinity": 253372,
     #########################################################
     'Disastrous Crossing: Victory': None,
+    "Dark Mirror: Victory": None,
+    "Doomed Metropolis: Victory": None,
+    "Demented Castle: Victory": None,
     'Wargroove 2: Victory': None
 }
 

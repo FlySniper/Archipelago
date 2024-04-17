@@ -57,10 +57,10 @@ class Wargroove2Level:
         else:
             self.victory_locations = [name + ': Victory']
 
-    def define_access_rules(self, world: MultiWorld):
+    def define_access_rules(self, world: MultiWorld, additional_rule=lambda state: True):
         for location_name, rule in self.location_rules.items():
             set_rule(world.get_location(location_name, self.player), lambda state, rule=rule:
-            state.can_reach(self.region, 'Region', self.player) and rule(state))
+            state.can_reach(self.region, 'Region', self.player) and rule(state) and additional_rule(state))
         set_region_exit_rules(self.region, world, self.player, self.victory_locations, operator='and')
 
     def define_region(self, name: str, world: MultiWorld, exits=None) -> Region:
@@ -335,8 +335,31 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
                 "Split Valley: Victory": lambda state: state.has("Trebuchet", player) and
                                                        state.has_any({"Bridges Event", "Air Trooper"}, player),
                 "Split Valley: Longshot": lambda state: state.has("Trebuchet", player),
-                "Split Valley: Ranged Trinity": lambda state: state.has_all({"Trebuchet", "Archer", "Ballista"}, player),
+                "Split Valley: Ranged Trinity": lambda state: state.has_all({"Trebuchet", "Archer", "Ballista"},
+                                                                            player),
             }
+        ),
+        Wargroove2Level(
+            name="Grand Theft Village",
+            file_name="Grand_Theft_Village.json",
+            location_rules={
+                "Grand Theft Village: Victory": lambda state: state.has("Thief", player) and
+                                                              state.has_any({"Mage", "Ballista"}, player),
+                "Grand Theft Village: Stand Tall": lambda state: state.has("Giant", player),
+                "Grand Theft Village: Pillager": lambda state: True,
+            },
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Grand Theft Village 2",
+            file_name="Grand_Theft_Village.json",
+            location_rules={
+                "Grand Theft Village 2: Victory": lambda state: state.has("Thief", player) and
+                                                              state.has_any({"Mage", "Ballista"}, player),
+                "Grand Theft Village 2: Stand Tall": lambda state: state.has("Giant", player),
+                "Grand Theft Village 2: Pillager": lambda state: True,
+            },
+            has_ocean=False
         ),
     ]
     for level in levels:
@@ -352,6 +375,26 @@ def get_final_levels(player: int) -> List[Wargroove2Level]:
             location_rules={"Disastrous Crossing: Victory":
                                 lambda state: state.has_any({"Merfolk", "River Boat"}, player) and
                                               state.has_any({"Knight", "Kraken"}, player)}
+        ),
+        Wargroove2Level(
+            name="Dark Mirror",
+            file_name="Dark_Mirror.json",
+            location_rules={"Dark Mirror: Victory": lambda state: state.has("Archer", player) and
+                                                                  state.has_any({"Mage", "Ballista"}, player) and
+                                                                  state.has_any({"Harpy", "Dragon"}, player)},
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Doomed Metropolis",
+            file_name="Dark_Mirror.json",
+            location_rules={"Doomed Metropolis: Victory": lambda state: state.has_all({"Mage", "Knight"}, player)},
+            has_ocean=False
+        ),
+        Wargroove2Level(
+            name="Demented Castle",
+            file_name="Demented_Castle.json",
+            location_rules={"Demented Castle: Victory":
+                                lambda state: state.has_all({"Merfolk", "Mage", "Golem", "Harpy"}, player)}
         ),
     ]
     for level in levels:
