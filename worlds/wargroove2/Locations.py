@@ -39,9 +39,9 @@ location_table = {
     "Grand Theft Village: Victory": 253036,
     "Grand Theft Village: Stand Tall": 253037,
     "Grand Theft Village: Pillager": 253038,
-    "Grand Theft Village 2: Victory": 253039,
-    "Grand Theft Village 2: Stand Tall": 253040,
-    "Grand Theft Village 2: Pillager": 253041,
+    "Bridge Brigade: Victory": 253039,
+    "Bridge Brigade: From the Depths": 253040,
+    "Bridge Brigade: Back to the Depths": 253041,
     #########################################################
     'Slippery Bridge: Victory': 253300,
     'Slippery Bridge: Control all Sea Villages': 253301,

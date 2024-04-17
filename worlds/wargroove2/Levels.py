@@ -351,13 +351,13 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
             has_ocean=False
         ),
         Wargroove2Level(
-            name="Grand Theft Village 2",
-            file_name="Grand_Theft_Village.json",
+            name="Bridge Brigade",
+            file_name="Bridge_Brigade.json",
             location_rules={
-                "Grand Theft Village 2: Victory": lambda state: state.has("Thief", player) and
-                                                              state.has_any({"Mage", "Ballista"}, player),
-                "Grand Theft Village 2: Stand Tall": lambda state: state.has("Giant", player),
-                "Grand Theft Village 2: Pillager": lambda state: True,
+                "Bridge Brigade: Victory": lambda state: state.has_all({"Warship", "Spearman"}, player),
+                "Bridge Brigade: From the Depths": lambda state: state.has("Kraken", player),
+                "Bridge Brigade: Back to the Depths": lambda state:
+                state.has_all({"Warship", "Spearman", "Kraken"}, player),
             },
             has_ocean=False
         ),
