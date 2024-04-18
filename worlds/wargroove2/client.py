@@ -382,14 +382,17 @@ class Wargroove2Context(CommonContext):
                 unreachable_levels = list(range(5, 28 + 1))
                 for region_name in region_names:
                     fully_beaten_text = ""
+                    level_name_text = "\n"
                     status_color = (0.6, 0.2, 0.2, 1)
                     is_fully_beaten = True
                     is_victory_reached = False
                     if level_counter <= LEVEL_COUNT and hasattr(self.ctx, 'slot_data'):
                         level_name: str = self.ctx.slot_data[region_name]
+                        level_name_text = f"\n{level_name}"
                         for location_name in level_rules[level_name].keys():
                             if level_counter in unreachable_levels:
                                 status_color = (0.35, 0.2, 0.2, 1)
+                                level_name_text = ""
                                 break
                             is_beatable: bool = level_rules[level_name][location_name](region_filter)
                             is_fully_beaten = is_fully_beaten and is_beatable
@@ -410,7 +413,7 @@ class Wargroove2Context(CommonContext):
                     if is_fully_beaten and is_victory_reached:
                         fully_beaten_text = " (100%)"
 
-                    label = ItemLabel(text=region_name + fully_beaten_text, color=status_color)
+                    label = ItemLabel(text=region_name + fully_beaten_text + level_name_text, color=status_color)
                     if level_counter == 1:
                         self.level_1_Layout.add_widget(label)
                     elif level_counter == 2:
@@ -436,6 +439,7 @@ class Wargroove2Context(CommonContext):
                     else:
                         self.level_4_Layout.add_widget(label)
                     level_counter += 1
+                level_name_text = "\n"
                 if self.ctx.stored_finale_key in self.ctx.stored_data.keys():
                     stored_data = self.ctx.stored_data[self.ctx.stored_finale_key]
                 else:
@@ -443,34 +447,41 @@ class Wargroove2Context(CommonContext):
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_1] in stored_data:
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final North", "Final Center"}, self.ctx.slot):
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_1]}"
                     status_color = (0.6, 0.6, 0.2, 1)
                 else:
                     status_color = (0.6, 0.2, 0.2, 1)
-                label = ItemLabel(text=FINAL_LEVEL_1, color=status_color)
+                label = ItemLabel(text=FINAL_LEVEL_1 + level_name_text, color=status_color)
                 self.level_1_Layout.add_widget(label)
+                level_name_text = "\n"
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_2] in stored_data:
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final East", "Final Center"}, self.ctx.slot):
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_2]}"
                     status_color = (0.6, 0.6, 0.2, 1)
                 else:
                     status_color = (0.6, 0.2, 0.2, 1)
-                label = ItemLabel(text=FINAL_LEVEL_2, color=status_color)
+                label = ItemLabel(text=FINAL_LEVEL_2 + level_name_text, color=status_color)
                 self.level_2_Layout.add_widget(label)
+                level_name_text = "\n"
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_3] in stored_data:
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final South", "Final Center"}, self.ctx.slot):
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_3]}"
                     status_color = (0.6, 0.6, 0.2, 1)
                 else:
                     status_color = (0.6, 0.2, 0.2, 1)
-                label = ItemLabel(text=FINAL_LEVEL_3, color=status_color)
+                label = ItemLabel(text=FINAL_LEVEL_3 + level_name_text, color=status_color)
                 self.level_3_Layout.add_widget(label)
+                level_name_text = "\n"
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_4] in stored_data:
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final West", "Final Center"}, self.ctx.slot):
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_4]}"
                     status_color = (0.6, 0.6, 0.2, 1)
                 else:
                     status_color = (0.6, 0.2, 0.2, 1)
-                label = ItemLabel(text=FINAL_LEVEL_4, color=status_color)
+                label = ItemLabel(text=FINAL_LEVEL_4 + level_name_text, color=status_color)
                 self.level_4_Layout.add_widget(label)
 
             def build_tracker(self) -> TrackerLayout:

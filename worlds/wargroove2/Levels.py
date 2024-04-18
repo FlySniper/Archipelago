@@ -320,7 +320,7 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
         ),
         Wargroove2Level(
             name="Precarious Cliffs",
-            file_name="Fortification.json",
+            file_name="Precarious_Cliffs.json",
             location_rules={
                 "Precarious Cliffs: Victory": lambda state: state.has_all({"Airstrike Event", "Archer"}, player),
                 "Precarious Cliffs: No Crit for You": lambda state: state.has("Airstrike Event", player),
