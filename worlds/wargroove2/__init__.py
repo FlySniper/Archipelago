@@ -11,6 +11,15 @@ from .Regions import create_regions
 from .Rules import set_rules
 from ..AutoWorld import World, WebWorld
 from .Options import wargroove2_options
+from worlds.LauncherComponents import Component, components, Type, launch_subprocess
+
+
+def launch_client():
+    from .client import launch
+    launch_subprocess(launch, name="Wargroove2Client")
+
+
+components.append(Component("Wargroove 2 Client", "Wargroove2Client", func=launch_client, component_type=Type.CLIENT))
 
 
 class Wargroove2Settings(settings.Group):
@@ -146,7 +155,7 @@ class Wargroove2World(World):
             slot_data[region_names[i]] = self.level_list[i].name
             for location_name in self.level_list[i].location_rules.keys():
                 slot_data[location_name] = region_names[i]
-        for i in range(0, min(FINAL_LEVEL_COUNT, len(self.final_levels))):
+        for i in range(0, FINAL_LEVEL_COUNT):
             slot_data[f"Final Level File #{i}"] = self.final_levels[i].file_name
         slot_data[FINAL_LEVEL_1] = self.final_levels[0].name
         slot_data[FINAL_LEVEL_2] = self.final_levels[1].name

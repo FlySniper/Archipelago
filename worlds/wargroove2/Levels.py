@@ -18,8 +18,8 @@ FINAL_LEVEL_2 = "Eastern Finale"
 FINAL_LEVEL_3 = "Southern Finale"
 FINAL_LEVEL_4 = "Western Finale"
 
-LEVEL_COUNT = 16
-FINAL_LEVEL_COUNT = 1
+LEVEL_COUNT = 28
+FINAL_LEVEL_COUNT = 4
 
 
 def set_region_exit_rules(region: Region, world: MultiWorld, player: int, locations: List[str], operator: str = "or"):

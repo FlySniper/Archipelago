@@ -4,6 +4,7 @@ import atexit
 import os
 import sys
 import asyncio
+import pkgutil
 import random
 import shutil
 import typing
@@ -94,12 +95,7 @@ class Wargroove2Context(CommonContext):
         if "appdata" in os.environ:
             options = get_settings()
             root_directory = os.path.join(options["wargroove2_options"]["root_directory"])
-            data_directory = os.path.join("lib", "worlds", "wargroove2", "data")
-            dev_data_directory = os.path.join("worlds", "wargroove2", "data")
-            self.level_directory = os.path.join("lib", "worlds", "wargroove2", "levels")
-            dev_level_directory = os.path.join("worlds", "wargroove2", "levels")
-            if not os.path.isdir(self.level_directory):
-                self.level_directory = dev_level_directory
+            self.level_directory = "levels"
             appdata_wargroove = os.path.expandvars(os.path.join("%APPDATA%", "Chucklefish", "Wargroove2"))
             if not os.path.isfile(os.path.join(root_directory, "win64_bin", "wargroove64.exe")):
                 print_error_and_close("Wargroove2Client couldn't find wargroove64.exe. "
@@ -112,11 +108,29 @@ class Wargroove2Context(CommonContext):
             if not os.path.isdir(appdata_wargroove):
                 print_error_and_close("Wargroove2Client couldn't find Wargoove 2 in appdata!"
                                       "Boot Wargroove 2 and then close it to attempt to fix this error")
-            if not os.path.isdir(data_directory):
-                data_directory = dev_data_directory
-            if not os.path.isdir(data_directory):
-                print_error_and_close("Wargroove2Client couldn't find Wargoove 2 mod and save files in install!")
-            shutil.copytree(data_directory, appdata_wargroove, dirs_exist_ok=True)
+            mods_directory = os.path.join(appdata_wargroove, "mods", "ArchipelagoMod")
+            save_directory = os.path.join(appdata_wargroove, "save")
+
+            # Wargroove 2 doesn't always create the mods directory, so we have to do it
+            if not os.path.isdir(mods_directory):
+                os.makedirs(mods_directory)
+            resources = [os.path.join("data", "mods", "ArchipelagoMod", "maps.dat"),
+                         os.path.join("data", "mods", "ArchipelagoMod", "mod.dat"),
+                         os.path.join("data", "mods", "ArchipelagoMod", "modAssets.dat"),
+                         os.path.join("data", "save", "campaign-45747c660b6a2f09601327a18d662a7d.cmp"),
+                         os.path.join("data", "save", "campaign-45747c660b6a2f09601327a18d662a7d.cmp.bak")]
+            file_paths = [os.path.join(mods_directory, "maps.dat"),
+                          os.path.join(mods_directory, "mod.dat"),
+                          os.path.join(mods_directory, "modAssets.dat"),
+                          os.path.join(save_directory, "campaign-45747c660b6a2f09601327a18d662a7d.cmp"),
+                          os.path.join(save_directory, "campaign-45747c660b6a2f09601327a18d662a7d.cmp.bak")]
+            for i in range(0, len(resources)):
+                file_data = pkgutil.get_data("worlds.wargroove2", resources[i])
+                if file_data is None:
+                    print_error_and_close("Wargroove2Client couldn't find Wargoove 2 mod and save files in install!")
+                with open(file_paths[i], 'wb') as f:
+                    f.write(file_data)
+                    f.close()
         else:
             print_error_and_close("Wargroove2Client couldn't detect system type. "
                                   "Unable to infer required game_communication_path")
@@ -194,13 +208,21 @@ class Wargroove2Context(CommonContext):
             for i in range(0, LEVEL_COUNT):
                 filename = f"AP_{i + 1}.map"
                 level_file_name = self.slot_data[f"Level File #{i}"]
-                shutil.copyfile(os.path.join(self.level_directory, level_file_name),
-                                os.path.join(self.game_communication_path, filename))
+                file_data = pkgutil.get_data("worlds.wargroove2", os.path.join(self.level_directory, level_file_name))
+                if file_data is None:
+                    print_error_and_close("Wargroove2Client couldn't find Wargoove 2 level files in install!")
+                with open(os.path.join(self.game_communication_path, filename), 'wb') as f:
+                    f.write(file_data)
+                    f.close()
             for i in range(0, FINAL_LEVEL_COUNT):
-                filename = f"AP_{i + LEVEL_COUNT}.map"
+                filename = f"AP_{i + LEVEL_COUNT + 1}.map"
                 level_file_name = self.slot_data[f"Final Level File #{i}"]
-                shutil.copyfile(os.path.join(self.level_directory, level_file_name),
-                                os.path.join(self.game_communication_path, filename))
+                file_data = pkgutil.get_data("worlds.wargroove2", os.path.join(self.level_directory, level_file_name))
+                if file_data is None:
+                    print_error_and_close("Wargroove2Client couldn't find Wargoove 2 level files in install!")
+                with open(os.path.join(self.game_communication_path, filename), 'wb') as f:
+                    f.write(file_data)
+                    f.close()
 
             self.stored_finale_key = f"wargroove_2_{self.slot}_{self.team}"
             self.set_notify(self.stored_finale_key)
