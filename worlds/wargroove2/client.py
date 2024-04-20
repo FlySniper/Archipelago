@@ -395,7 +395,8 @@ class Wargroove2Context(CommonContext):
                                 level_name_text = ""
                                 break
                             is_beatable: bool = level_rules[level_name][location_name](region_filter)
-                            is_fully_beaten = is_fully_beaten and is_beatable
+                            is_fully_beaten = is_fully_beaten and \
+                                              location_table[location_name] in self.ctx.checked_locations
                             if is_beatable and location_name.endswith(": Victory"):
                                 if location_table[location_name] in self.ctx.checked_locations:
                                     is_victory_reached = True
@@ -690,7 +691,6 @@ def launch():
         await progression_watcher
 
         await ctx.shutdown()
-
 
     import colorama
 

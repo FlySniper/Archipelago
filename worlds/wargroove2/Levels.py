@@ -386,7 +386,7 @@ def get_final_levels(player: int) -> List[Wargroove2Level]:
         ),
         Wargroove2Level(
             name="Doomed Metropolis",
-            file_name="Dark_Mirror.json",
+            file_name="Doomed_Metropolis.json",
             location_rules={"Doomed Metropolis: Victory": lambda state: state.has_all({"Mage", "Knight"}, player)},
             has_ocean=False
         ),
