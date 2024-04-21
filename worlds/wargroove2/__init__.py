@@ -7,6 +7,7 @@ from .Items import item_table, faction_table, Wargroove2Item
 from .Levels import Wargroove2Level, get_level_table, get_first_level, get_final_levels, region_names, FINAL_LEVEL_1, \
     FINAL_LEVEL_2, FINAL_LEVEL_3, FINAL_LEVEL_4, LEVEL_COUNT, FINAL_LEVEL_COUNT
 from .Locations import location_table
+from .Presets import wargroove2_option_presets
 from .Regions import create_regions
 from .Rules import set_rules
 from ..AutoWorld import World, WebWorld
@@ -30,7 +31,7 @@ class Wargroove2Settings(settings.Group):
         """
         description = "Wargroove 2 root directory"
 
-    root_directory: RootDirectory = RootDirectory("C:/Program Files (x86)/Steam/steamapps/common/Wargroove2")
+    root_directory: RootDirectory = RootDirectory("C:/Program Files (x86)/Steam/steamapps/common/Wargroove 2")
 
 
 class Wargroove2Web(WebWorld):
@@ -39,9 +40,11 @@ class Wargroove2Web(WebWorld):
         "A guide to setting up Wargroove 2 for Archipelago.",
         "English",
         "wargroove2_en.md",
-        "wargroove2/en",
+        "Wargroove 2/en",
         ["Fly Sniper"]
     )]
+
+    options_presets = wargroove2_option_presets
 
 
 class Wargroove2World(World):

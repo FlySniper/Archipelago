@@ -7,7 +7,7 @@ class IncomeBoost(Range):
     display_name = "Income Boost"
     range_start = 0
     range_end = 100
-    default = 25
+    default = 10
 
 
 class CommanderDefenseBoost(Range):
@@ -30,6 +30,7 @@ class CommanderChoice(Choice):
     option_unlockable_factions = 1
     option_random_starting_faction = 2
 
+
 class FinalLevels(Range):
     """How many final levels to beat before victory is achieved."""
     display_name = "FinalLevels"
@@ -42,6 +43,6 @@ wargroove2_options: typing.Dict[str, type(Option)] = {
     "income_boost": IncomeBoost,
     "commander_defense_boost": CommanderDefenseBoost,
     "commander_choice": CommanderChoice,
-    "death_link": DeathLink,
-    "final_levels": FinalLevels
+    "final_levels": FinalLevels,
+    "death_link": DeathLink
 }
