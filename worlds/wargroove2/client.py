@@ -65,7 +65,7 @@ class Wargroove2Context(CommonContext):
     can_choose_commander: bool = False
     commander_defense_boost_multiplier: int = 0
     income_boost_multiplier: int = 0
-    starting_groove_multiplier: float
+    starting_groove_multiplier: int = 0
     has_death_link: bool = False
     final_levels: int = 1
     level_shuffle_seed: int = 0
@@ -254,7 +254,7 @@ class Wargroove2Context(CommonContext):
                     elif self.buff_item_ids["Commander Defense Boost"] == network_item.item:
                         f.write(f"{item_count * self.commander_defense_boost_multiplier}")
                     elif self.buff_item_ids["Groove Boost"] == network_item.item:
-                        f.write(f"{item_count * self.commander_defense_boost_multiplier}")
+                        f.write(f"{item_count * self.starting_groove_multiplier}")
                     else:
                         f.write(f"{item_count}")
                     f.close()

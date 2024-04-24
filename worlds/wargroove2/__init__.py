@@ -70,14 +70,14 @@ class Wargroove2World(World):
     def _get_slot_data(self):
         return {
             'seed': "".join(
-                self.multiworld.per_slot_randoms[self.player].choice(string.ascii_letters) for i in range(16)),
-            'income_boost': self.options.income_boost,
-            'commander_defense_boost': self.options.commander_defense_boost,
-            'starting_groove_multiplier': self.options.groove_boost,
-            'level_shuffle_seed': self.options.level_shuffle_seed,
-            'can_choose_commander': self.options.commander_choice != 0,
-            'final_levels': self.options.final_levels,
-            'death_link': self.options.death_link == 1
+                self.random.choice(string.ascii_letters) for i in range(16)),
+            'income_boost': self.options.income_boost.value,
+            'commander_defense_boost': self.options.commander_defense_boost.value,
+            'starting_groove_multiplier': self.options.groove_boost.value,
+            'level_shuffle_seed': self.options.level_shuffle_seed.value,
+            'can_choose_commander': self.options.commander_choice.value != 0,
+            'final_levels': self.options.final_levels.value,
+            'death_link': self.options.death_link.value == 1
         }
 
     def generate_early(self):
