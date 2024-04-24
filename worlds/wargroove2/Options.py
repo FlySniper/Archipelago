@@ -7,7 +7,7 @@ class IncomeBoost(Range):
     display_name = "Income Boost"
     range_start = 0
     range_end = 100
-    default = 10
+    default = 25
 
 
 class CommanderDefenseBoost(Range):
@@ -16,6 +16,22 @@ class CommanderDefenseBoost(Range):
     range_start = 0
     range_end = 8
     default = 2
+
+
+class GrooveBoost(Range):
+    """How much extra groove the player's commander gets per boost received."""
+    display_name = "Groove Boost"
+    range_start = 0
+    range_end = 10
+    default = 5
+
+
+class LevelShuffleSeed(Range):
+    """What seed to use for level shuffling. 0 uses the multiworld seed."""
+    display_name = "Level Shuffle Seed"
+    range_start = 0
+    range_end = 0xFFFFFFFF
+    default = 0
 
 
 class CommanderChoice(Choice):
@@ -42,6 +58,8 @@ class FinalLevels(Range):
 wargroove2_options: typing.Dict[str, type(Option)] = {
     "income_boost": IncomeBoost,
     "commander_defense_boost": CommanderDefenseBoost,
+    "groove_boost": GrooveBoost,
+    "level_shuffle_seed": LevelShuffleSeed,
     "commander_choice": CommanderChoice,
     "final_levels": FinalLevels,
     "death_link": DeathLink

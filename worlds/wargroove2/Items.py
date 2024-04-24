@@ -56,6 +56,7 @@ item_table: Dict[str, ItemData] = {
     'Income Boost': ItemData(252032, 'Boost', FILLER),
 
     'Commander Defense Boost': ItemData(252033, 'Boost', FILLER),
+    'Groove Boost': ItemData(252041, 'Boost', FILLER),
 
     # Factions
     'Cherrystone Commanders': ItemData(252034, 'Faction', USEFUL),

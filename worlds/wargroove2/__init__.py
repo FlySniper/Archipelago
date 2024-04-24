@@ -1,3 +1,5 @@
+from random import Random
+
 import settings
 import string
 import typing
@@ -69,12 +71,13 @@ class Wargroove2World(World):
         return {
             'seed': "".join(
                 self.multiworld.per_slot_randoms[self.player].choice(string.ascii_letters) for i in range(16)),
-            'income_boost': self.multiworld.income_boost[self.player],
-            'commander_defense_boost': self.multiworld.commander_defense_boost[self.player],
-            'can_choose_commander': self.multiworld.commander_choice[self.player] != 0,
-            'starting_groove_multiplier': 20,  # Backwards compatibility in case this ever becomes an option
-            'final_levels': self.multiworld.final_levels,
-            'death_link': self.multiworld.death_link[self.player] == 1
+            'income_boost': self.options.income_boost,
+            'commander_defense_boost': self.options.commander_defense_boost,
+            'starting_groove_multiplier': self.options.groove_boost,
+            'level_shuffle_seed': self.options.level_shuffle_seed,
+            'can_choose_commander': self.options.commander_choice != 0,
+            'final_levels': self.options.final_levels,
+            'death_link': self.options.death_link == 1
         }
 
     def generate_early(self):
@@ -85,20 +88,25 @@ class Wargroove2World(World):
         self.level_list = get_level_table(self.player)
         low_victory_checks_levels = list(level for level in self.level_list if level.low_victory_checks)
         high_victory_checks_levels = list(level for level in self.level_list if not level.low_victory_checks)
-        self.multiworld.random.shuffle(low_victory_checks_levels)
-        self.multiworld.random.shuffle(high_victory_checks_levels)
+        if self.multiworld.level_shuffle_seed[self.player] == 0:
+            random = self.multiworld.random
+        else:
+            random = Random(str(self.multiworld.level_shuffle_seed[self.player]))
+
+        random.shuffle(low_victory_checks_levels)
+        random.shuffle(high_victory_checks_levels)
         non_starting_levels = high_victory_checks_levels + low_victory_checks_levels[4:]
-        self.multiworld.random.shuffle(non_starting_levels)
+        random.shuffle(non_starting_levels)
         self.level_list = low_victory_checks_levels[0:4] + non_starting_levels
 
         # Final Levels
         self.final_levels = get_final_levels(self.player)
         final_levels_no_ocean = list(level for level in self.final_levels if not level.has_ocean)
         final_levels_ocean = list(level for level in self.final_levels if level.has_ocean)
-        self.multiworld.random.shuffle(final_levels_no_ocean)
-        self.multiworld.random.shuffle(final_levels_ocean)
+        random.shuffle(final_levels_no_ocean)
+        random.shuffle(final_levels_ocean)
         non_north_levels = final_levels_ocean + final_levels_no_ocean[1:]
-        self.multiworld.random.shuffle(non_north_levels)
+        random.shuffle(non_north_levels)
         self.final_levels = final_levels_no_ocean[0:1] + non_north_levels
 
         # Selecting a random starting faction
@@ -113,21 +121,26 @@ class Wargroove2World(World):
         precollected_item_names = {item.name for item in self.multiworld.precollected_items[self.player]}
         ignore_faction_items = self.multiworld.commander_choice[self.player] == 0
         for name, data in item_table.items():
-            if data.code is not None and name not in precollected_item_names and not data.classification == ItemClassification.filler:
+            if data.code is not None and name not in precollected_item_names and \
+                    not data.classification == ItemClassification.filler:
                 if name.endswith(' Commanders') and ignore_faction_items:
                     continue
                 item = Wargroove2Item(name, self.player)
                 pool.append(item)
 
-        # Matching number of unfilled locations with filler items
-        locations_remaining = len(location_table) - 1 - len(pool)
-        while locations_remaining > 0:
-            # Filling the pool equally with both types of filler items
+        for i in range(0, 5):
             pool.append(Wargroove2Item("Commander Defense Boost", self.player))
+            pool.append(Wargroove2Item("Income Boost", self.player))
+
+        # Matching number of unfilled locations with filler items
+        total_locations = len(self.first_level.location_rules.keys())
+        for level in self.level_list[0:LEVEL_COUNT]:
+            total_locations += len(level.location_rules.keys())
+        locations_remaining = total_locations - len(pool)
+        while locations_remaining > 0:
+            # Filling the pool equally with the groove boost
+            pool.append(Wargroove2Item("Groove Boost", self.player))
             locations_remaining -= 1
-            if locations_remaining > 0:
-                pool.append(Wargroove2Item("Income Boost", self.player))
-                locations_remaining -= 1
 
         self.multiworld.itempool += pool
 
@@ -167,4 +180,4 @@ class Wargroove2World(World):
         return slot_data
 
     def get_filler_item_name(self) -> str:
-        return self.multiworld.random.choice(["Commander Defense Boost", "Income Boost"])
+        return "Groove Boost"

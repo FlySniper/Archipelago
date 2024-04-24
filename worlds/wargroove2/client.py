@@ -68,6 +68,7 @@ class Wargroove2Context(CommonContext):
     starting_groove_multiplier: float
     has_death_link: bool = False
     final_levels: int = 1
+    level_shuffle_seed: int = 0
     slot_data: {}
     stored_finale_key: str = ""
     completed_final_regions: [str] = []
@@ -84,6 +85,7 @@ class Wargroove2Context(CommonContext):
     buff_item_ids = {
         'Income Boost': 252032,
         'Commander Defense Boost': 252033,
+        'Groove Boost': 252041,
     }
 
     def __init__(self, server_address, password):
@@ -182,11 +184,11 @@ class Wargroove2Context(CommonContext):
             self.slot_data = args["slot_data"]
             self.has_death_link = self.slot_data["death_link"]
             self.final_levels = self.slot_data["final_levels"]
+            self.level_shuffle_seed = self.slot_data["level_shuffle_seed"]
             filename = f"AP_settings.json"
             with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                 json.dump(args["slot_data"], f)
                 self.can_choose_commander = self.slot_data["can_choose_commander"]
-                print('can choose commander:', self.can_choose_commander)
                 self.starting_groove_multiplier = self.slot_data["starting_groove_multiplier"]
                 self.income_boost_multiplier = self.slot_data["income_boost"]
                 self.commander_defense_boost_multiplier = self.slot_data["commander_defense_boost"]
@@ -195,6 +197,9 @@ class Wargroove2Context(CommonContext):
                 filename = f"send{ss}"
                 with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                     f.close()
+
+            self.stored_finale_key = f"wargroove_2_{self.slot}_{self.team}"
+            self.set_notify(self.stored_finale_key)
             self.update_commander_data()
             self.ui.update_ui()
 
@@ -224,9 +229,6 @@ class Wargroove2Context(CommonContext):
                     f.write(file_data)
                     f.close()
 
-            self.stored_finale_key = f"wargroove_2_{self.slot}_{self.team}"
-            self.set_notify(self.stored_finale_key)
-
         if cmd in {"RoomInfo"}:
             self.seed_name = args["seed_name"]
 
@@ -250,6 +252,8 @@ class Wargroove2Context(CommonContext):
                     if self.buff_item_ids["Income Boost"] == network_item.item:
                         f.write(f"{item_count * self.income_boost_multiplier}")
                     elif self.buff_item_ids["Commander Defense Boost"] == network_item.item:
+                        f.write(f"{item_count * self.commander_defense_boost_multiplier}")
+                    elif self.buff_item_ids["Groove Boost"] == network_item.item:
                         f.write(f"{item_count * self.commander_defense_boost_multiplier}")
                     else:
                         f.write(f"{item_count}")
@@ -275,6 +279,9 @@ class Wargroove2Context(CommonContext):
                     with open(os.path.join(self.game_communication_path, filename), 'w') as f:
                         f.close()
             self.ui.update_ui()
+
+        if cmd in {"Retrieved"}:
+            self.ui.update_levels()
 
     def run_gui(self):
         """Import kivy UI system and start running it as self.ui_task."""
@@ -410,6 +417,8 @@ class Wargroove2Context(CommonContext):
                                         unreachable_levels.remove(level_counter + 12)
                                 else:
                                     status_color = (0.6, 0.6, 0.2, 1)
+                            elif is_beatable and location_table[location_name] not in self.ctx.checked_locations:
+                                fully_beaten_text = "*"
 
                     if is_fully_beaten and is_victory_reached:
                         fully_beaten_text = " (100%)"
@@ -446,6 +455,7 @@ class Wargroove2Context(CommonContext):
                 else:
                     stored_data = None
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_1] in stored_data:
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_1]}"
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final North", "Final Center"}, self.ctx.slot):
                     level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_1]}"
@@ -456,6 +466,7 @@ class Wargroove2Context(CommonContext):
                 self.level_1_Layout.add_widget(label)
                 level_name_text = "\n"
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_2] in stored_data:
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_2]}"
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final East", "Final Center"}, self.ctx.slot):
                     level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_2]}"
@@ -466,6 +477,7 @@ class Wargroove2Context(CommonContext):
                 self.level_2_Layout.add_widget(label)
                 level_name_text = "\n"
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_3] in stored_data:
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_3]}"
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final South", "Final Center"}, self.ctx.slot):
                     level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_3]}"
@@ -476,6 +488,7 @@ class Wargroove2Context(CommonContext):
                 self.level_3_Layout.add_widget(label)
                 level_name_text = "\n"
                 if stored_data is not None and self.ctx.slot_data[FINAL_LEVEL_4] in stored_data:
+                    level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_4]}"
                     status_color = (1.0, 1.0, 1.0, 1)
                 elif region_filter.has_all({"Final West", "Final Center"}, self.ctx.slot):
                     level_name_text = f"\n{self.ctx.slot_data[FINAL_LEVEL_4]}"
@@ -542,10 +555,13 @@ class Wargroove2Context(CommonContext):
                 self.boost_tracker.clear_widgets()
                 extra_income = received_ids.count(252032) * self.ctx.income_boost_multiplier
                 extra_defense = received_ids.count(252033) * self.ctx.commander_defense_boost_multiplier
+                extra_groove = received_ids.count(252041) * self.ctx.starting_groove_multiplier
                 income_boost = ItemLabel(text="Extra Income: " + str(extra_income))
                 defense_boost = ItemLabel(text="Comm Defense: " + str(100 + extra_defense))
+                groove_boost = ItemLabel(text="Starting Groove: " + str(extra_groove))
                 self.boost_tracker.add_widget(income_boost)
                 self.boost_tracker.add_widget(defense_boost)
+                self.boost_tracker.add_widget(groove_boost)
 
             def update_ui(self):
                 self.update_tracker()
@@ -558,22 +574,12 @@ class Wargroove2Context(CommonContext):
 
     def update_commander_data(self):
         if self.can_choose_commander:
-            faction_items = 0
-            faction_item_names = [faction + ' Commanders' for faction in faction_table.keys()]
-            for network_item in self.items_received:
-                if self.item_names[network_item.item] in faction_item_names:
-                    faction_items += 1
-            starting_groove = (faction_items - 1) * self.starting_groove_multiplier
-            # Must be an integer larger than 0
-            starting_groove = int(max(starting_groove, 0))
             data = {
-                "commander": self.current_commander.internal_name,
-                "starting_groove": starting_groove
+                "commander": self.current_commander.internal_name
             }
         else:
             data = {
-                "commander": "seed",
-                "starting_groove": 0
+                "commander": "seed"
             }
         filename = 'commander.json'
         with open(os.path.join(self.game_communication_path, filename), 'w') as f:
@@ -660,6 +666,7 @@ async def game_watcher(ctx: Wargroove2Context):
                             victory = True
                         f.close()
                     os.remove(os.path.join(ctx.game_communication_path, file))
+                    ctx.ui.update_levels()
         ctx.locations_checked = sending
         message = [{"cmd": 'LocationChecks', "locations": sending}]
         await ctx.send_msgs(message)

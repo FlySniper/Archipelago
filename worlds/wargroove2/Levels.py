@@ -131,11 +131,11 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
             }
         ),
         Wargroove2Level(
-            name="Sky High",
-            file_name="Sky_High.json",
+            name="Skydiving",
+            file_name="Skydiving.json",
             location_rules={
-                "Sky High: Victory": lambda state: state.has_all({"Balloon", "Airstrike Event"}, player),
-                "Sky High: Dragon Defeats Stronghold": lambda state: state.has_all(
+                "Skydiving: Victory": lambda state: state.has_all({"Balloon", "Airstrike Event"}, player),
+                "Skydiving: Dragon Defeats Stronghold": lambda state: state.has_all(
                     {"Balloon", "Airstrike Event", "Dragon"}, player),
             },
             has_ocean=False
@@ -345,7 +345,7 @@ def get_level_table(player: int) -> List[Wargroove2Level]:
             location_rules={
                 "Grand Theft Village: Victory": lambda state: state.has("Thief", player) and
                                                               state.has_any({"Mage", "Ballista"}, player),
-                "Grand Theft Village: Stand Tall": lambda state: state.has("Giant", player),
+                "Grand Theft Village: Stand Tall": lambda state: state.has("Golem", player),
                 "Grand Theft Village: Pillager": lambda state: True,
             },
             has_ocean=False
