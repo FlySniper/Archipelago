@@ -86,7 +86,7 @@ This is caused by not deleting campaign progress before updating the mod and cam
 6. In the edit menu, hit `ESC` and click `Delete Progress`.
 7. In the edit menu, hit `ESC` and click `Mods`.
 8. Uncheck the `Archipelago Mod` box, check it again and then click `Save and Reload Map`
-9 . If the above steps do not allow you to start the campaign from `Story->Campaign->Custom->Archipelago 2` replace 
+9. If the above steps do not allow you to start the campaign from `Story->Campaign->Custom->Archipelago 2` replace 
 `playerProgress` and `playerProgress.bak` with your previously backed up files.
 
 ### Mod is out of date when trying to run the Archipelago campaign

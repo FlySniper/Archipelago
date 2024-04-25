@@ -42,7 +42,7 @@ class Wargroove2Web(WebWorld):
         "A guide to setting up Wargroove 2 for Archipelago.",
         "English",
         "wargroove2_en.md",
-        "Wargroove 2/en",
+        "wargroove2/en",
         ["Fly Sniper"]
     )]
 

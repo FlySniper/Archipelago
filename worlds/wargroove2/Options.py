@@ -22,7 +22,7 @@ class GrooveBoost(Range):
     """How much extra groove the player's commander gets per boost received."""
     display_name = "Groove Boost"
     range_start = 0
-    range_end = 6
+    range_end = 10
     default = 3
 
 
