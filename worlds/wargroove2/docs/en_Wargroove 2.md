@@ -26,7 +26,7 @@ Any of the above items can be in another player's world.
 
 ## How does Death Link work in Wargroove 2?
 
-The player won't send a death link when resigning or losing on turn 1.
+The player won't send a death link when resigning, losing on turn 1 or losing on their turn.
 Certain side goals can be reached without the ability to complete the level. Resigning to exit after completing a side
 goal is standard practice. When the player receives a death link from another player, they will be eliminated when the 
 next move is made.

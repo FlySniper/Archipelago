@@ -105,7 +105,7 @@ location_table = {
     'Disastrous Crossing: Victory': None,
     "Dark Mirror: Victory": None,
     "Doomed Metropolis: Victory": None,
-    "Demented Castle: Victory": None,
+    "Dementia Castle: Victory": None,
     'Wargroove 2: Victory': None
 }
 

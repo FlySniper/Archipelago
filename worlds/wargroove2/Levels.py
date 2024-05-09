@@ -391,9 +391,9 @@ def get_final_levels(player: int) -> List[Wargroove2Level]:
             has_ocean=False
         ),
         Wargroove2Level(
-            name="Demented Castle",
-            file_name="Demented_Castle.json",
-            location_rules={"Demented Castle: Victory":
+            name="Dementia Castle",
+            file_name="Dementia_Castle.json",
+            location_rules={"Dementia Castle: Victory":
                                 lambda state: state.has_all({"Merfolk", "Mage", "Golem", "Harpy"}, player)}
         ),
     ]
