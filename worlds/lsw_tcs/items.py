@@ -257,10 +257,10 @@ ITEM_DATA: list[GenericItemData] = [
     _vehicle(168, "Obi-Wan's Starfighter", 291),
     _vehicle(169, "X-Wing", 36),
     _vehicle(170, "Y-Wing", 39),
-    _vehicle(171, "Millenium Falcon", 38),
+    _vehicle(171, "Millennium Falcon", 38),
     _vehicle(172, "TIE-Interceptor", 128),
     _vehicle(173, "Snowspeeder", 32),
-    _vehicle(174, "Speeder", 3),
+    _vehicle(174, "Anakin's Speeder", 3),
     _generic(175, "Purple Stud"),
     # NEW. Items below here did not exist in the manual.
     # TODO: Redo all the item IDs to make more sense. Either internal order in chars.txt, or in character grid order.
@@ -280,6 +280,7 @@ ITEM_DATA: list[GenericItemData] = [
 ]
 
 ITEM_DATA_BY_NAME: dict[str, GenericItemData] = {data.name: data for data in ITEM_DATA}
+ITEM_DATA_BY_ID: dict[int, GenericItemData] = {data.code: data for data in ITEM_DATA if data.code != -1}
 EXTRAS_BY_NAME: dict[str, ExtraData] = {data.name: data for data in ITEM_DATA if isinstance(data, ExtraData)}
 CHARACTERS_AND_VEHICLES_BY_NAME: dict[str, GenericCharacterData] = {data.name: data for data in ITEM_DATA
                                                                     if isinstance(data, GenericCharacterData)}

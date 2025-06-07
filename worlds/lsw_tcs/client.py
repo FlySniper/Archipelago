@@ -22,6 +22,8 @@ from CommonClient import CommonContext, server_loop, gui_enabled
 from .constants import GAME_NAME
 from .items import (
     ITEM_DATA,
+    ITEM_DATA_BY_NAME,
+    ITEM_DATA_BY_ID,
     ExtraData,
     GenericCharacterData,
     CHARACTERS_AND_VEHICLES_BY_NAME,
@@ -30,6 +32,7 @@ from .items import (
     GenericItemData,
 )
 from .locations import EXTRA_SHOP_LOCATION_START
+from .levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA
 
 
 logger = logging.getLogger("Client")
@@ -244,10 +247,89 @@ def _read_minikit_locations(process: pymem.Pymem) -> set[int]:
     return s
 
 
+class UnlockedLevelManager:
+    first_time_setup_complete: bool = False
+    pending_unlocks: list[EpisodeGameLevelArea]
+    character_to_dependent_game_levels: dict[int, list[str]]
+    remaining_level_item_requirements: dict[str, set[int]]
 
+    def __init__(self) -> None:
+        self.pending_unlocks = []
+
+        item_id_to_level_area_short_name: dict[int, list[str]] = {}
+        remaining_level_item_requirements: dict[str, set[int]] = {}
+        for level_area in GAME_LEVEL_AREAS:
+            item_requirements = level_area.item_requirements
+            # TODO: Once Obi-Wan, Qui-Gon and TC-14 are added as real items, remove this if-statement.
+            if item_requirements:
+                code_requirements = set()
+                for item_name in item_requirements:
+                    item_code = ITEM_DATA_BY_NAME[item_name].code
+                    assert item_code != -1
+                    item_id_to_level_area_short_name.setdefault(item_code, []).append(level_area.short_name)
+                    code_requirements.add(item_code)
+                remaining_level_item_requirements[level_area.short_name] = code_requirements
+            else:
+                # Immediately unlocked.
+                self.pending_unlocks.append(level_area)
+
+        self.character_to_dependent_game_levels = item_id_to_level_area_short_name
+        self.remaining_level_item_requirements = remaining_level_item_requirements
+
+    def on_character_or_episode_unlocked(self, character_ap_id: int):
+        dependent_levels = self.character_to_dependent_game_levels.get(character_ap_id)
+        if dependent_levels is None:
+            return
+
+        for dependent_area_short_name in dependent_levels:
+            remaining_requirements = self.remaining_level_item_requirements[dependent_area_short_name]
+            assert remaining_requirements
+            assert character_ap_id in remaining_requirements, f"{ITEM_DATA_BY_ID[character_ap_id].name} not found in {sorted([ITEM_DATA_BY_ID[code] for code in remaining_requirements])}"
+            remaining_requirements.remove(character_ap_id)
+            logger.info("Removed %s from %s requirements", ITEM_DATA_BY_ID[character_ap_id].name, dependent_area_short_name)
+            if not remaining_requirements:
+                self.pending_unlocks.append(SHORT_NAME_TO_LEVEL_AREA[dependent_area_short_name])
+                del self.remaining_level_item_requirements[dependent_area_short_name]
+
+        del self.character_to_dependent_game_levels[character_ap_id]
+
+    def first_time_setup(self, ctx: "LegoStarWarsTheCompleteSagaContext"):
+        self.first_time_setup_complete = True
+        # Lock all levels to start with.
+        locked = b"\x00"
+        # Complete all Story Modes so that players can get straight into playing Free Play.
+        # If Story Mode would to be left required for players to play through, cutscenes would likely want to be modded
+        # out by unpacking and modifying the files, which is what the standalone TCS Randomizer does. Currently, this
+        # TCS AP client is implemented with memory modifications only, though a one-time setup for an AP mod could be
+        # viable in the near-ish future.
+        story_mode_complete = b"\x01"
+        to_write = locked + story_mode_complete
+        for level_area in GAME_LEVEL_AREAS:
+            # The first byte is whether the level is unlocked.
+            # The second byte is whether Story Mode has been completed (and the Gold Brick has been obtained).
+            ctx.write_bytes(level_area.address, to_write, 2)
+
+    @staticmethod
+    def unlock_level(ctx: "LegoStarWarsTheCompleteSagaContext", level_area: EpisodeGameLevelArea):
+        # The first byte indicates whether the level is unlocked.
+        ctx.write_byte(level_area.address, 1)
+        logger.info("Unlocked level %s (%s)", level_area.name, level_area.short_name)
+
+    async def update_game_state(self, ctx: "LegoStarWarsTheCompleteSagaContext"):
+        if not self.first_time_setup_complete:
+            self.first_time_setup(ctx)
+        # TODO: It might be necessary to constantly re-lock locked levels because playing a story level might cause the
+        #  next level to get unlocked. TODO: Try it out.
+        if self.pending_unlocks:
+            for level_area in self.pending_unlocks:
+                self.unlock_level(ctx, level_area)
+            self.pending_unlocks.clear()
 
 
 # todo: Write the first 15 bytes of the multiworld seed into custom character 2's name.
+# todo: Maybe write a character that is impossible to put in a name normally (e.g. lowercase letter or one of \^<>[]
+#  etc. and use that to determine if a seed is 'new'. This could even go in custom character 1's name instead because
+#  the world should never be receiving enough items to use up 15 digits.
 CUSTOM_CHARACTER2_NAME_OFFSET = 0x86E524 + 0x14 # string[15]
 
 
@@ -319,6 +401,7 @@ class AcquiredGeneric:
         # Episode Unlocks
         elif ap_item_id in self.EPISODE_UNLOCKS:
             self.unlocked_episodes.add(self.EPISODE_UNLOCKS[ap_item_id])
+            ctx.unlocked_level_manager.on_character_or_episode_unlocked(ap_item_id)
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
 
@@ -412,6 +495,12 @@ class AcquiredCharacters:
                 chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 3
             else:
                 chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 0
+
+        # TC-14 is unlocked by completing Negotiations Story Mode, so we need to manually unlock them as they are
+        # required to complete Negotiations Free Play (assuming C-3PO/IG-88/4-LOM have not been unlocked).
+        # TODO: Once random starting level is implemented, remove this (and make TC-14 an AP item alongside Qui-Gon and
+        #  Obi-Wan).
+        chars_array[CHARACTERS_AND_VEHICLES_BY_NAME["TC-14"].character_index - self.MIN_CHARACTER_NUMBER] = 3
 
         ctx.write_bytes(self.START_ADDRESS, bytes(chars_array), self.NUM_RANDOMIZED_BYTES)
 
@@ -587,27 +676,36 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_characters: AcquiredCharacters
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
-
+    unlocked_level_manager: UnlockedLevelManager
 
     def __init__(self, server_address: typing.Optional[str] = None, password: typing.Optional[str] = None) -> None:
         super().__init__(server_address, password)
 
+        # todo: These shouldn't get used, can we safely remove them?
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
+        self.unlocked_level_manager = UnlockedLevelManager()
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
-        if cmd == "ReceivedItems":
+        if cmd == "Connected":
+            self.acquired_extras = AcquiredExtras()
+            self.acquired_characters = AcquiredCharacters()
+            self.acquired_generic = AcquiredGeneric()
+            self.unlocked_level_manager = UnlockedLevelManager()
+        elif cmd == "ReceivedItems":
             for item in cast(list[NetworkItem], args["items"]):
                 self.receive_item(item.item)
 
     async def disconnect(self, allow_autoreconnect: bool = False):
         # todo: What are the connect and disconnect methods to override?
         # todo: When receiving item index 0, we also want to destroy and re-create the 'acquired' attributes.
+        # todo: Do we want to replace these when connecting instead?
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
+        self.unlocked_level_manager = UnlockedLevelManager()
         return await super().disconnect(allow_autoreconnect)
 
     async def server_auth(self, password_requested: bool = False):
@@ -733,6 +831,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.acquired_generic.receive_generic(self, code)
         elif code in self.acquired_characters.RECEIVABLE_CHARACTERS_BY_AP_ID:
             self.acquired_characters.receive_character(code)
+            self.unlocked_level_manager.on_character_or_episode_unlocked(code)
         elif code in self.acquired_extras.RECEIVABLE_EXTRAS_BY_AP_ID:
             self.acquired_extras.receive_extra(code)
         else:
@@ -741,6 +840,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
     if ctx.is_in_game():
+        #logger.info("Giving items")
         expected_idx = ctx.get_expected_idx()
 
         # Check if there are new items.
@@ -792,6 +892,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
                     #await ctx.acquired_generic.update_game_state(ctx)
+                    await ctx.unlocked_level_manager.update_game_state(ctx)
                     #await check_locations(ctx)
                     #await _read_extras_purchase_locations(ctx.game_process)
                     # todo: Should the ones below here still run even when disconnected? If they are not run, then a
@@ -833,7 +934,6 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
             logger.error(traceback.format_exc())
             await ctx.disconnect()
             sleep_time = 5
-
 
 
 async def main():
