@@ -698,6 +698,18 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             for item in cast(list[NetworkItem], args["items"]):
                 self.receive_item(item.item)
 
+    def run_gui(self):
+        from kvui import GameManager
+
+        class LegoStarWarsTheCompleteSagaManager(GameManager):
+            logging_pairs = [
+                ("Client", "Archipelago")
+            ]
+            base_title = "Archipelago Lego Star Wars: The Complete Saga Client"
+
+        self.ui = LegoStarWarsTheCompleteSagaManager(self)
+        self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
+
     async def disconnect(self, allow_autoreconnect: bool = False):
         # todo: What are the connect and disconnect methods to override?
         # todo: When receiving item index 0, we also want to destroy and re-create the 'acquired' attributes.
