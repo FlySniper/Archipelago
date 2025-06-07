@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from ..items import ITEM_DATA, GenericCharacterData
 
+
 class TestItems(TestCase):
     def test_item_code_uniqueness(self):
         found_codes = set()
@@ -23,6 +24,6 @@ class TestItems(TestCase):
         for item in ITEM_DATA:
             if not isinstance(item, GenericCharacterData):
                 continue
-            self.assertNotIn(item.character_number, found_character_numbers)
-            self.assertGreater(item.character_number, 0)
-            found_character_numbers.add(item.character_number)
+            self.assertNotIn(item.character_index, found_character_numbers)
+            self.assertGreaterEqual(item.character_index, 0)
+            found_character_numbers.add(item.character_index)

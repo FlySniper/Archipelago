@@ -5,6 +5,7 @@ import colorama
 
 import ModuleUpdate
 import Utils
+from NetUtils import NetworkItem
 
 ModuleUpdate.update()
 
@@ -14,7 +15,7 @@ import struct
 import typing
 from pymem import pymem
 from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIError
-from typing import ClassVar
+from typing import ClassVar, AbstractSet, cast, Iterable
 
 from CommonClient import CommonContext, server_loop, gui_enabled
 
@@ -31,7 +32,7 @@ from .items import (
 from .locations import EXTRA_SHOP_LOCATION_START
 
 
-logger = logging.getLogger("LSWTCSClient")
+logger = logging.getLogger("Client")
 
 
 # FIXME/TODO: Where can we write the last received item index?
@@ -79,18 +80,25 @@ LEVEL_ID_CANTINA = 325
 # 8: Bonuses room
 # ?: Bounty Hunter missions room
 CANTINA_ROOM_ID = 0x87B460
+CANTINA_ROOM_WITH_SHOP = 0
 
+# Appears to be 0 while in the shop, and 1 otherwise. Remains 0 when playing a cutscene from within the shop.
+SHOP_CHECK = 0x87B748  # byte
+SHOP_CHECK_IS_IN_SHOP = b"\x00"
+# Appears to be 1 while in the shop, and 0 otherwise. Becomes 0 when playing a cutscene from within the shop.
+SHOP_CHECK2 = 0x880474  # byte
 EXTRAS_SHOP_START = 0x86E4B8
 EXTRAS_SHOP_LENGTH_BYTES = 6 # 0xB8 to 0xBD
 # Active slot in the shop, maybe we can use this in combination with CANTINA_ROOM_ID and LEVEL_ID_CANTINA to only
 # temporarily lock unpurchased extras that are currently active?
 # Note: The previous 2 and next 2 shop indices are before/after this in memory (5 on screen at once).
-EXTRAS_SHOP_ACTIVE_INDEX = 0x87BDF8
+EXTRAS_SHOP_ACTIVE_INDEX = 0x87BF0C
 EXTRAS_UNLOCKED_START = 0x86E4C8
 
 
-CHARACTERS_SHOP_START = 0x86E4A8 # todo: Not mapped yet
+CHARACTERS_SHOP_START = 0x86E4A8  # todo: Not mapped yet
 CHARACTERS_UNLOCKED_START = 0x86E5C0
+CHARACTERS_SHOP_ACTIVE_INDEX = 0x87BDF8
 
 
 CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable characters
@@ -162,7 +170,7 @@ _MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {
         b"m_pup1": 15,
     },
     0x0: {
-        b"m_pup1",
+        b"m_pup1": 0,  # todo
     }
 }
 
@@ -250,9 +258,6 @@ class AcquiredGeneric:
     EPISODE_UNLOCKS: ClassVar[dict[int, int]] = {
         GENERIC_BY_NAME[f"Episode {i} Unlock"].code: i for i in range(2, 6+1)
     }
-    STUDS: ClassVar[dict[int, int]] = {
-        GENERIC_BY_NAME["Purple Stud"].code: 10000
-    }
     PROGRESSIVE_BONUS_CODE: ClassVar[int] = GENERIC_BY_NAME["Progressive Bonus Level"].code
     PROGRESSIVE_SCORE_MULTIPLIER: ClassVar[int] = GENERIC_BY_NAME["Progressive Score Multiplier"].code
     SCORE_MULIPLIER_EXTRAS: ClassVar[tuple[ExtraData, ExtraData, ExtraData, ExtraData, ExtraData]] = tuple([
@@ -269,6 +274,16 @@ class AcquiredGeneric:
     NOOP_ITEMS: ClassVar[tuple[int, ...]] = tuple([
         GENERIC_BY_NAME["Restart Level Trap"].code
     ])
+    BONUS_CHARACTER_REQUIREMENTS: ClassVar[dict[int, AbstractSet[int]]] = {
+        1: {CHARACTERS_AND_VEHICLES_BY_NAME["Anakin's Podracer"].character_index},
+        2: {CHARACTERS_AND_VEHICLES_BY_NAME["Naboo Starfighter"].character_index},
+        3: {CHARACTERS_AND_VEHICLES_BY_NAME["Republic Gunship"].character_index},
+        4: {CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index
+            for name in ("Darth Vader", "Stormtrooper", "C-3PO")},
+    }
+    STUDS: ClassVar[dict[int, int]] = {
+        GENERIC_BY_NAME["Purple Stud"].code: 10000
+    }
 
     unlocked_episodes: set[int]
     progressive_bonus_count: int
@@ -281,39 +296,63 @@ class AcquiredGeneric:
         self.progressive_score_count = 0
         self.minikit_count = 0
 
-    def give_generic(self, ctx: "LegoStarWarsTheCompleteSagaContext", ap_item_id: int, write_to_game: bool) -> bool:
-        # Studs
+    def receive_generic(self, ctx: "LegoStarWarsTheCompleteSagaContext", ap_item_id: int):
+        # Studs are handled separately as part of the game watcher.
         if ap_item_id in self.STUDS:
-            if write_to_game:
-                studs_to_add = self.STUDS[ap_item_id]
-                current_stud_count = ctx.read_uint(STUD_COUNT)
-                new_stud_count = min(current_stud_count + studs_to_add, MAX_STUD_COUNT)
-                ctx.write_uint(STUD_COUNT, new_stud_count)
+            pass
         # Minikits
         elif ap_item_id in self.MINIKIT_ITEMS:
             self.minikit_count += 1
         # Progressive Bonus Unlock
         elif ap_item_id == self.PROGRESSIVE_BONUS_CODE:
-            if write_to_game:
-                # fixme: Even if a door is built, it won't open unless the player has enough gold bricks.
-                built_gold_brick_doors = ctx.read_byte(BONUSES_BASE_ADDRESS)
-                built_gold_brick_doors |= (1 << self.progressive_bonus_count)
-                ctx.write_byte(BONUSES_BASE_ADDRESS, built_gold_brick_doors)
+            # if write_to_game:
+            #     # fixme: Even if a door is built, it won't open unless the player has enough gold bricks.
+            #     built_gold_brick_doors = ctx.read_uchar(BONUSES_BASE_ADDRESS)
+            #     built_gold_brick_doors |= (1 << self.progressive_bonus_count)
+            #     ctx.write_byte(BONUSES_BASE_ADDRESS, built_gold_brick_doors)
             self.progressive_bonus_count += 1
         # Progressive Score Multiplier
         elif ap_item_id == self.PROGRESSIVE_SCORE_MULTIPLIER:
-            self.progressive_score_count += 1
             if self.progressive_score_count < len(self.SCORE_MULIPLIER_EXTRAS):
-                ctx.acquired_extras.give_extra_from_obj(ctx, self.SCORE_MULIPLIER_EXTRAS[self.progressive_score_count],
-                                                        write_to_game)
+                ctx.acquired_extras.unlock_extra(self.SCORE_MULIPLIER_EXTRAS[self.progressive_score_count])
+            self.progressive_score_count += 1
         # Episode Unlocks
         elif ap_item_id in self.EPISODE_UNLOCKS:
             self.unlocked_episodes.add(self.EPISODE_UNLOCKS[ap_item_id])
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
-            return False
 
-        return True
+    def give_studs(self, ctx: "LegoStarWarsTheCompleteSagaContext", ap_item_id: int):
+        """
+        Grant Studs to the player. Unlike other items, Studs are a consumable resource, so cannot simply be set to the
+        number of received studs and instead must use the last/next item index from AP to determine when a Studs item is
+        newly received by the current save file.
+        """
+        studs_to_add = self.STUDS.get(ap_item_id)
+        if studs_to_add is None:
+            logger.warning("Tried to receive unknown Studs item with item ID %i", ap_item_id)
+            return
+        current_stud_count = ctx.read_uint(STUD_COUNT)
+        new_stud_count = min(current_stud_count + studs_to_add, MAX_STUD_COUNT)
+        ctx.write_uint(STUD_COUNT, new_stud_count)
+
+    async def update_game_state(self, ctx: "LegoStarWarsTheCompleteSagaContext"):
+        # TODO: Is it even possible to close the bonus door? The individual bonus doors cannot be built until the player
+        #   has enough Gold Bricks, but some of the doors have the same Gold Brick requirements, so making them
+        #   progressive wouldn't work unless we could control that. Forcefully unlocking a bonus level door will not
+        #   work unless the player has the required amount of Gold Bricks.
+        # Bonus levels. There are 6.
+        # The byte controls which of the bonus doors have been built, with 1 bit for each door in order of Gold Brick
+        # cost.
+        # todo: This byte should be an instance attribute that is updated whenever a Progressive Bonus Level is
+        #  received, and whenever a Character requirement for a Bonus level is received.
+        unlocked_bonuses_byte = 0
+        for i in range(1, 7):
+            if i <= self.progressive_bonus_count:
+                character_requirements = self.BONUS_CHARACTER_REQUIREMENTS.get(i)
+                if not character_requirements or character_requirements <= ctx.acquired_characters.unlocked_characters:
+                    unlocked_bonuses_byte |= (1 << (i - 1))
+        ctx.write_byte(BONUSES_BASE_ADDRESS, unlocked_bonuses_byte)
 
 
 class AcquiredCharacters:
@@ -321,10 +360,11 @@ class AcquiredCharacters:
     RECEIVABLE_CHARACTERS_BY_AP_ID: ClassVar[dict[int, GenericCharacterData]] = {
         extra.code: extra for extra in CHARACTERS_AND_VEHICLES_BY_NAME.values() if extra.code != -1
     }
-    MIN_CHARACTER_NUMBER: ClassVar[int] = min(char.character_number for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values())
-    MAX_CHARACTER_NUMBER: ClassVar[int] = max(char.character_number for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values())
+    MIN_CHARACTER_NUMBER: ClassVar[int] = min(char.character_index for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values())
+    MAX_CHARACTER_NUMBER: ClassVar[int] = max(char.character_index for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values())
     RANDOMIZED_BYTES_RANGE: ClassVar[range] = range(MIN_CHARACTER_NUMBER, MAX_CHARACTER_NUMBER + 1)
     NUM_RANDOMIZED_BYTES: ClassVar[int] = len(RANDOMIZED_BYTES_RANGE)
+    START_ADDRESS: ClassVar[int] = CHARACTERS_UNLOCKED_START + MIN_CHARACTER_NUMBER
 
     # Buying a character from the shop unlocks a character even though it shouldn't because it is supposed to be a
     # randomized location check, so unlockable characters need to be reset occasionally, though probably only while in
@@ -334,67 +374,93 @@ class AcquiredCharacters:
 
     def __init__(self):
         self.unlocked_characters = set()
-        self.locked_characters = {char.character_number for char in self.RECEIVABLE_CHARACTERS_BY_AP_ID.values()}
+        self.locked_characters = {char.character_index for char in self.RECEIVABLE_CHARACTERS_BY_AP_ID.values()}
 
-    def give_character(self, ctx: "LegoStarWarsTheCompleteSagaContext", ap_item_id: int) -> bool:
+    def unlock_character(self, character: GenericCharacterData):
+        self.unlocked_characters.add(character.character_index)
+
+    def receive_character(self, ap_item_id: int):
+        """Receive a Character from AP, to be given to the player the next time the game state is updated."""
+        if ap_item_id not in self.RECEIVABLE_CHARACTERS_BY_AP_ID:
+            logger.warning("Tried to receive unknown character with item ID %i", ap_item_id)
+            return
+
         char = self.RECEIVABLE_CHARACTERS_BY_AP_ID[ap_item_id]
-        character_number = char.character_number
-        if character_number in self.unlocked_characters:
-            # Nothing to do.
-            return True
-        # 0 = locked
-        # 1 = ???
-        # 2 = ???
-        # 3 = unlocked
-        ctx.write_byte(CHARACTERS_UNLOCKED_START + character_number, 3)
-        self.unlocked_characters.add(character_number)
-        return True
 
-    def write_all_characters(self, ctx: "LegoStarWarsTheCompleteSagaContext") -> None:
-        """Call repeatedly while in the Cantina room with the shop to undo shop character purchases."""
+        # While there are not normally duplicate characters, receiving duplicates does nothing.
+        self.unlock_character(char)
+
+    async def update_game_state(self, ctx: "LegoStarWarsTheCompleteSagaContext") -> None:
+        """
+        Update the game memory that stores which Characters are unlocked, with all the currently unlocked/locked
+        Characters according to Archipelago.
+
+        This is done constantly because the game has not been modified to disable vanilla Character unlocks from Story
+        completion, shop purchases and other means (see CHARS/COLLECTION.TXT in an unpacked game).
+
+        At least already purchased Characters do not re-unlock themselves automatically like with already purchased
+        Extras.
+        """
         # todo: See if there is a performance hit to doing all 137 (or more once we add more vehicles) writes
         #  separately. It would technically be safer.
-        chars = ctx.read_bytes(CHARACTERS_UNLOCKED_START + self.MIN_CHARACTER_NUMBER, self.NUM_RANDOMIZED_BYTES)
+        chars = ctx.read_bytes(self.START_ADDRESS, self.NUM_RANDOMIZED_BYTES)
         chars_array = bytearray(chars)
 
         for char in self.RECEIVABLE_CHARACTERS_BY_AP_ID.values():
-            character_number = char.character_number
-            if character_number in self.unlocked_characters:
-                chars_array[character_number + self.MIN_CHARACTER_NUMBER] = 3
+            character_index = char.character_index
+            if character_index in self.unlocked_characters:
+                chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 3
             else:
-                chars_array[character_number + self.MIN_CHARACTER_NUMBER] = 0
+                chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 0
 
-        ctx.write_bytes(CHARACTERS_UNLOCKED_START + self.MIN_CHARACTER_NUMBER, bytes(chars_array), self.NUM_RANDOMIZED_BYTES)
+        ctx.write_bytes(self.START_ADDRESS, bytes(chars_array), self.NUM_RANDOMIZED_BYTES)
 
+
+def _make_extras_randomized_bits(bytes_range: range, receivable_extras: Iterable[ExtraData]
+                                 ) -> tuple[dict[int, set[int]], tuple[ExtraData, ...]]:
+    # Initialize to all bits randomized, then update by removing non-randomized bits.
+    non_randomized_bits_in_randomized_bytes: dict[int, set[int]] = {
+        i: {1, 2, 4, 8, 16, 32, 64, 128} for i in bytes_range
+    }
+    # Remove bits that are randomized.
+    for extra in receivable_extras:
+        non_randomized_bits_in_randomized_bytes[extra.shop_slot_byte].remove(extra.shop_slot_bit_mask)
+    # Remove bytes with all bits randomized.
+    non_randomized_bits_in_randomized_bytes = {i: bits for i, bits in non_randomized_bits_in_randomized_bytes.items()
+                                               if bits}
+
+    randomized_extras_in_partially_randomized_bytes: tuple[ExtraData, ...] = tuple([
+        extra for extra in receivable_extras
+        if extra.shop_slot_byte in non_randomized_bits_in_randomized_bytes
+    ])
+
+    return non_randomized_bits_in_randomized_bytes, randomized_extras_in_partially_randomized_bytes
 
 
 class AcquiredExtras:
     RECEIVABLE_EXTRAS_BY_AP_ID: ClassVar[dict[int, ExtraData]] = {
         extra.code: extra for extra in EXTRAS_BY_NAME.values() if extra.code != -1
     }
+    ALL_RECEIVABLE_EXTRAS: ClassVar[list[ExtraData]] = [
+        *RECEIVABLE_EXTRAS_BY_AP_ID.values(),
+        # Score multipliers are applied progressively depending on the number of "Progressive Score Multiplier"
+        # received.
+        EXTRAS_BY_NAME["Score x2"],
+        EXTRAS_BY_NAME["Score x4"],
+        EXTRAS_BY_NAME["Score x6"],
+        EXTRAS_BY_NAME["Score x8"],
+        EXTRAS_BY_NAME["Score x10"],
+    ]
     # All bytes in the UnlockedExtras
-    MIN_RANDOMIZED_BYTE: ClassVar[int] = min(extra.shop_slot_byte for extra in RECEIVABLE_EXTRAS_BY_AP_ID.values())
-    MAX_RANDOMIZED_BYTE: ClassVar[int] = max(extra.shop_slot_byte for extra in RECEIVABLE_EXTRAS_BY_AP_ID.values())
+    MIN_RANDOMIZED_BYTE: ClassVar[int] = min(extra.shop_slot_byte for extra in ALL_RECEIVABLE_EXTRAS)
+    MAX_RANDOMIZED_BYTE: ClassVar[int] = max(extra.shop_slot_byte for extra in ALL_RECEIVABLE_EXTRAS)
     RANDOMIZED_BYTES_RANGE: ClassVar[range] = range(MIN_RANDOMIZED_BYTE, MAX_RANDOMIZED_BYTE + 1)
     NUM_RANDOMIZED_BYTES: ClassVar[int] = len(RANDOMIZED_BYTES_RANGE)
 
-    # Initialize to all bits randomized, then update by removing non-randomized bits.
-    NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES: ClassVar[dict[int, set[int]]] = {
-        i: {1, 2, 4, 8, 16, 32, 64, 128} for i in RANDOMIZED_BYTES_RANGE
-    }
-    # Remove bits that are randomized.
-    extra_ = None
-    for extra_ in RECEIVABLE_EXTRAS_BY_AP_ID.values():
-        NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES[extra_.shop_slot_byte].remove(extra_.shop_slot_bit)
-    del extra_
-    # Remove bytes with all bits randomized.
-    NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES = {i: bits for i, bits in NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES.items()
-                                               if bits}
-
-    RANDOMIZED_EXTRAS_IN_PARTIALLY_RANDOMIZED_BYTES: ClassVar[tuple[ExtraData, ...]] = tuple([
-        extra for extra in RECEIVABLE_EXTRAS_BY_AP_ID.values()
-        if extra.shop_slot_byte in NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES
-    ])
+    _t = _make_extras_randomized_bits(RANDOMIZED_BYTES_RANGE, ALL_RECEIVABLE_EXTRAS)
+    NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES: ClassVar[dict[int, set[int]]] = _t[0]
+    RANDOMIZED_EXTRAS_IN_PARTIALLY_RANDOMIZED_BYTES: ClassVar[tuple[ExtraData, ...]] = _t[1]
+    del _t
 
     START_ADDRESS: ClassVar[int] = EXTRAS_UNLOCKED_START + MIN_RANDOMIZED_BYTE
 
@@ -404,29 +470,34 @@ class AcquiredExtras:
         # Min and max are inclusive, so `+ 1` is needed.
         self.unlocked_extras = bytearray(self.NUM_RANDOMIZED_BYTES)
 
-    def give_extra_from_obj(self,
-                            ctx: "LegoStarWarsTheCompleteSagaContext",
-                            extra: ExtraData,
-                            write_to_game: bool) -> bool:
-        if write_to_game:
-            # Because the extra is stored in a single bit, we need to read the current byte, set the bit and then write the
-            # byte again.
-            current_byte = ctx.read_byte(EXTRAS_SHOP_START + extra.shop_slot_byte)
-            current_byte |= extra.shop_slot_bit
-            ctx.write_byte(EXTRAS_SHOP_START + extra.shop_slot_byte, current_byte)
+    def is_extra_unlocked(self, extra: ExtraData) -> bool:
+        return (self.unlocked_extras[extra.shop_slot_byte + self.MIN_RANDOMIZED_BYTE] & extra.shop_slot_bit_mask) != 0
 
-        self.unlocked_extras[extra.shop_slot_byte] |= extra.shop_slot_bit
-        return True
+    # Unused, but here for reference.
+    # def lock_extra(self, extra: ExtraData):
+    #     self.unlocked_extras[extra.shop_slot_byte + self.MIN_RANDOMIZED_BYTE] &= ~extra.shop_slot_bit_mask
 
+    def unlock_extra(self, extra: ExtraData):
+        logger.info("Unlocking extra %s", extra.name)
+        byte_index = extra.shop_slot_byte - self.MIN_RANDOMIZED_BYTE
+        self.unlocked_extras[byte_index] |= extra.shop_slot_bit_mask
 
-    def give_extra(self, ctx: "LegoStarWarsTheCompleteSagaContext", ap_item_id: int, write_to_game: bool) -> bool:
+    def receive_extra(self, ap_item_id: int):
+        """Receive an Extra from AP, to be given to the player the next time the game state is updated."""
         if ap_item_id not in self.RECEIVABLE_EXTRAS_BY_AP_ID:
             logger.warning("Tried to receive unknown extra with item ID %i", ap_item_id)
-            return False
+            return
 
-        return self.give_extra_from_obj(ctx, self.RECEIVABLE_EXTRAS_BY_AP_ID[ap_item_id], write_to_game)
+        self.unlock_extra(self.RECEIVABLE_EXTRAS_BY_AP_ID[ap_item_id])
 
-    def write_all_extras(self, ctx: "LegoStarWarsTheCompleteSagaContext"):
+    async def update_game_state(self, ctx: "LegoStarWarsTheCompleteSagaContext"):
+        """
+        Update the game memory that stores which Extras are unlocked, with all the currently unlocked/locked extras
+        according to Archipelago.
+
+        This is done constantly because the game has not been modified to prevent purchasing an Extra from the shop from
+        unlocking that Extra. Additionally, upon entering the Cantina, all already purchased Extras will unlock again.
+        """
         # Create a copy so that `self.unlocked_extras` always represents only what has been received from Archipelago.
         unlocked_extras_copy = self.unlocked_extras.copy()
 
@@ -440,13 +511,38 @@ class AcquiredExtras:
 
         # Merge in all bits of partially randomized bytes.
         for extra in self.RANDOMIZED_EXTRAS_IN_PARTIALLY_RANDOMIZED_BYTES:
+            byte_index = extra.shop_slot_byte - self.MIN_RANDOMIZED_BYTE
             # If the bit is set:
-            if self.unlocked_extras[extra.shop_slot_byte] & extra.shop_slot_bit:
+            if self.unlocked_extras[byte_index] & extra.shop_slot_bit_mask:
                 # Set the bit in `unlocked_extras_copy`.
-                unlocked_extras_copy[extra.shop_slot_byte] |= extra.shop_slot_bit
+                unlocked_extras_copy[byte_index] |= extra.shop_slot_bit_mask
             else:
                 # Clear the bit in `unlocked_extras_copy`.
-                unlocked_extras_copy[extra.shop_slot_byte] &= ~extra.shop_slot_bit
+                unlocked_extras_copy[byte_index] &= ~extra.shop_slot_bit_mask
+
+        # If the player is in the Cantina, and in the room with the shop, disable the Extra that is currently selected
+        # in the Extras shop, so that it is possible to buy that extra, if it is unlocked, but not purchased.
+        # todo: Just the shop check is probably enough, but it is not clear if that byte is used for something more
+        #  general than only the shop.
+        # todo: The currently open shop (character/extra/gold brick/hint/etc) can probably be found and checked.
+        if (ctx.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
+                and ctx.get_current_level_id() == LEVEL_ID_CANTINA
+                and ctx.read_uchar(CANTINA_ROOM_ID) == CANTINA_ROOM_WITH_SHOP):
+            current_shop_slot = ctx.read_uchar(EXTRAS_SHOP_ACTIVE_INDEX)
+            extra_byte = current_shop_slot // 8
+            extra_bit_mask = 1 << (current_shop_slot % 8)
+
+            # Check if the Extra at the current shop slot is in the range of bytes for randomized Extras.
+            if extra_byte in self.RANDOMIZED_BYTES_RANGE:
+                # Check if the Extra at the current shop slot is already unlocked.
+                byte_index = extra_byte - self.MIN_RANDOMIZED_BYTE
+                if self.unlocked_extras[byte_index] & extra_bit_mask:
+                    # Check if the Extra at the current shop slot has not been purchased.
+                    extras_shop_byte = ctx.read_uchar(EXTRAS_SHOP_START + extra_byte)
+                    if not (extras_shop_byte & extra_bit_mask):
+                        # The Extra is unlocked, but not purchased yet, so lock it temporarily.
+                        unlocked_extras_copy[byte_index] &= ~extra_bit_mask
+                        # logger.info("Temporarily locking the Extra currently selected for purchase in the shop")
 
         # Write the updated extras array.
         ctx.write_bytes(self.START_ADDRESS, bytes(unlocked_extras_copy), self.NUM_RANDOMIZED_BYTES)
@@ -500,6 +596,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
 
+    def on_package(self, cmd: str, args: dict):
+        super().on_package(cmd, args)
+        if cmd == "ReceivedItems":
+            for item in cast(list[NetworkItem], args["items"]):
+                self.receive_item(item.item)
+
     async def disconnect(self, allow_autoreconnect: bool = False):
         # todo: What are the connect and disconnect methods to override?
         # todo: When receiving item index 0, we also want to destroy and re-create the 'acquired' attributes.
@@ -507,6 +609,18 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
         return await super().disconnect(allow_autoreconnect)
+
+    async def server_auth(self, password_requested: bool = False):
+        if password_requested and not self.password:
+            await super().server_auth(password_requested)
+        await self.get_username()
+        self.tags = set()
+        await self.send_connect()
+
+    async def shutdown(self):
+        logger.info("Shutting down client")
+        self.unhook_game_process()
+        return await super().shutdown()
 
     def open_game_process(self):
         try:
@@ -541,7 +655,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         return True
 
     def unhook_game_process(self):
-        self.game_process = None
+        if self.game_process is not None:
+            self.game_process.close_process()
+            self.game_process = None
+            logger.info("Unhooked game process")
 
     @property
     def _game_process(self) -> pymem.Pymem:
@@ -560,7 +677,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def read_bytes(self, address: int, length: int) -> bytes:
         return self._game_process.read_bytes(self.memory_offset + address, length)
 
-    def read_byte(self, address: int) -> int:
+    def read_byte(self, address: int) -> bytes:
+        return self._game_process.read_bytes(self.memory_offset + address, 1)
+
+    def read_uchar(self, address: int) -> int:
         return self._game_process.read_uchar(self.memory_offset + address)
         #return self._game_process.read_bytes(self.memory_offset + address, 1)[0]
 
@@ -574,7 +694,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self._game_process.write_bytes(self.memory_offset + address, value, length)
 
     def get_current_level_id(self) -> int:
-        return self.read_ushort(CURRENT_LEVEL_ID) != 0
+        return self.read_ushort(CURRENT_LEVEL_ID)
 
     def is_in_game(self) -> bool:
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
@@ -593,21 +713,30 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def get_expected_idx(self) -> int:
         # Storing this in Custom Character 1's name as a string for now.
         as_bytestring = self.read_bytes(CUSTOM_CHARACTER_1_NAME, 15)
+        # STRANGER 1
+        if as_bytestring[0] not in range(b"0"[0], b"9"[0] + 1):
+            return 0
         return int(as_bytestring.partition(b"\x00")[0])
 
     def give_item(self, code: int) -> bool:
         if not self.is_in_game():
             return False
+        if code in self.acquired_generic.STUDS:
+            self.acquired_generic.give_studs(self, code)
+        return True
 
-        if code in self.acquired_extras.RECEIVABLE_EXTRAS_BY_AP_ID:
-            return self.acquired_extras.give_extra(self, code)
+    def receive_item(self, code: int):
+        from . import LegoStarWarsTCSWorld
+        item_name = LegoStarWarsTCSWorld.item_id_to_name.get(code, f"Unknown {code}")
+        logger.info(f"Receiving item {item_name} from AP")
+        if code in self.acquired_generic.RECEIVABLE_GENERIC_BY_AP_ID:
+            self.acquired_generic.receive_generic(self, code)
         elif code in self.acquired_characters.RECEIVABLE_CHARACTERS_BY_AP_ID:
-            return self.acquired_characters.give_character(self, code)
-        elif code in self.acquired_generic.RECEIVABLE_GENERIC_BY_AP_ID:
-            return self.acquired_generic.give_generic(self, code)
+            self.acquired_characters.receive_character(code)
+        elif code in self.acquired_extras.RECEIVABLE_EXTRAS_BY_AP_ID:
+            self.acquired_extras.receive_extra(code)
         else:
-            logger.warning(f"Received item with code %s not recognized.", code)
-            return True
+            logger.warning(f"Received unknown item with AP ID {code}")
 
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
@@ -630,9 +759,9 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
             ctx.set_expected_idx(idx + 1)
 
 
-
 async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
     logger.info("Starting connection to game.")
+    last_message = ""
     sleep_time = 0.0
     while not ctx.exit_event.is_set():
         if sleep_time > 0.0:
@@ -649,6 +778,10 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 if not ctx.is_in_game():
                     # Need to wait for the player to load into a save file.
                     sleep_time = 0.1
+                    msg = "Waiting for player to load into a save file"
+                    if last_message != msg:
+                        logger.info(msg)
+                        last_message = msg
                     continue
                 if ctx.slot is not None:
                     # todo: Store the multiworld seed name somewhere in the save file and check it before giving any
@@ -656,6 +789,9 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     #  disconnect if the seed name does not match?
                     # todo: Can we store the slot name somewhere too and check that also?
                     await give_items(ctx)
+                    await ctx.acquired_characters.update_game_state(ctx)
+                    await ctx.acquired_extras.update_game_state(ctx)
+                    #await ctx.acquired_generic.update_game_state(ctx)
                     #await check_locations(ctx)
                     #await _read_extras_purchase_locations(ctx.game_process)
                     # todo: Should the ones below here still run even when disconnected? If they are not run, then a
@@ -677,16 +813,23 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 sleep_time = 0.1
             else:
                 if not ctx.open_game_process():
-                    logger.info("Connection to game failed, attempting again in 5 seconds...")
+                    msg = "Connection to game failed, attempting again in 5 seconds..."
+                    logger.info(msg)
+                    last_message = msg
                     await ctx.disconnect()
                     sleep_time = 5
                 else:
                     # No wait, start processing items/locations/etc. immediately if the client is connected to the
                     # server.
                     pass
-        except PymemError | WinAPIError:
+        except Exception as e:
             ctx.unhook_game_process()
-            logger.info("Game connection failed, attempting again in 5 seconds...")
+            if isinstance(e, (PymemError, WinAPIError)):
+                msg = "Game connection failed, attempting again in 5 seconds..."
+            else:
+                msg = "Unexpected error occurred, attempting again in 5 seconds..."
+            logger.info(msg)
+            last_message = msg
             logger.error(traceback.format_exc())
             await ctx.disconnect()
             sleep_time = 5
@@ -706,10 +849,12 @@ async def main():
     game_watcher_task = asyncio.create_task(game_watcher(ctx), name="LegoStarWarsTheCompleteSagaGameWatcher")
 
     await ctx.exit_event.wait()
+    # Wake the game watcher task, if it is currently sleeping, so it can start shutting down when it sees that the
+    # exit_event is set.
+    ctx.watcher_event.set()
     ctx.server_address = None
 
     await game_watcher_task
-
     await ctx.shutdown()
 
 
