@@ -1,7 +1,7 @@
 import asyncio
 import traceback
-
 import colorama
+from enum import IntEnum
 
 import ModuleUpdate
 import Utils
@@ -30,6 +30,7 @@ from .items import (
     EXTRAS_BY_NAME,
     GENERIC_BY_NAME,
     GenericItemData,
+    CHARACTER_SHOP_SLOTS,
 )
 from .locations import EXTRA_SHOP_LOCATION_START
 from .levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA
@@ -85,11 +86,22 @@ LEVEL_ID_CANTINA = 325
 CANTINA_ROOM_ID = 0x87B460
 CANTINA_ROOM_WITH_SHOP = 0
 
+
+class ShopType(IntEnum):
+    HINTS = 0
+    CHARACTERS = 1
+    EXTRAS = 2
+    ENTER_CODE = 3
+    GOLD_BRICKS = 4
+    STORY_CLIPS = 5
+
+
 # Appears to be 0 while in the shop, and 1 otherwise. Remains 0 when playing a cutscene from within the shop.
 SHOP_CHECK = 0x87B748  # byte
 SHOP_CHECK_IS_IN_SHOP = b"\x00"
-# Appears to be 1 while in the shop, and 0 otherwise. Becomes 0 when playing a cutscene from within the shop.
-SHOP_CHECK2 = 0x880474  # byte
+# Appears to be 1 while in the shop, and 0 otherwise. But becomes 0 when playing a cutscene from within the shop.
+# SHOP_CHECK2 = 0x880474  # byte
+ACTIVE_SHOP_TYPE_ADDRESS = 0x8801AC
 EXTRAS_SHOP_START = 0x86E4B8
 EXTRAS_SHOP_LENGTH_BYTES = 6 # 0xB8 to 0xBD
 # Active slot in the shop, maybe we can use this in combination with CANTINA_ROOM_ID and LEVEL_ID_CANTINA to only
@@ -99,7 +111,7 @@ EXTRAS_SHOP_ACTIVE_INDEX = 0x87BF0C
 EXTRAS_UNLOCKED_START = 0x86E4C8
 
 
-CHARACTERS_SHOP_START = 0x86E4A8  # todo: Not mapped yet
+CHARACTERS_SHOP_START = 0x86E4A8  # See CHARACTER_SHOP_SLOTS in items.py for the mapping
 CHARACTERS_UNLOCKED_START = 0x86E5C0
 CHARACTERS_SHOP_ACTIVE_INDEX = 0x87BDF8
 
@@ -448,11 +460,16 @@ class AcquiredCharacters:
     RANDOMIZED_BYTES_RANGE: ClassVar[range] = range(MIN_CHARACTER_NUMBER, MAX_CHARACTER_NUMBER + 1)
     NUM_RANDOMIZED_BYTES: ClassVar[int] = len(RANDOMIZED_BYTES_RANGE)
     START_ADDRESS: ClassVar[int] = CHARACTERS_UNLOCKED_START + MIN_CHARACTER_NUMBER
+    # Each Character Shop index to the character index of the Character in that slot.
+    SHOP_INDEX_TO_CHARACTER_INDEX: ClassVar[dict[int, int]] = {
+        i: CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index for i, name in enumerate(CHARACTER_SHOP_SLOTS.keys())
+    }
 
     # Buying a character from the shop unlocks a character even though it shouldn't because it is supposed to be a
-    # randomized location check, so unlockable characters need to be reset occasionally, though probably only while in
-    # the Cantina.
-    # Completing a story mode level will also probably unlock a character.
+    # randomized location check, so unlockable characters need to be reset occasionally.
+    # todo: This is probably only necessary to do while in the Cantina, but currently it is always being done.
+    # Completing a story mode level will also probably unlock a character, maybe only if the story mode has not already
+    # been completed.
     unlocked_characters: set[int]
 
     def __init__(self):
@@ -501,6 +518,27 @@ class AcquiredCharacters:
         # TODO: Once random starting level is implemented, remove this (and make TC-14 an AP item alongside Qui-Gon and
         #  Obi-Wan).
         chars_array[CHARACTERS_AND_VEHICLES_BY_NAME["TC-14"].character_index - self.MIN_CHARACTER_NUMBER] = 3
+
+        # If the player is in the Character Shop, temporarily lock the character they have selected for purchase if that
+        # Character has already been unlocked through receiving that Character from Archipelago.
+        if ctx.is_in_shop(ShopType.CHARACTERS):
+            current_character_shop_slot_index = ctx.read_uchar(CHARACTERS_SHOP_ACTIVE_INDEX)
+            slot_byte = current_character_shop_slot_index // 8
+            slot_bit_mask = 1 << (current_character_shop_slot_index % 8)
+
+            character_index_for_slot = self.SHOP_INDEX_TO_CHARACTER_INDEX[current_character_shop_slot_index]
+
+            # Check if the Character at the currents shop slot is in the range of bytes for randomized Characters.
+            if character_index_for_slot in self.RANDOMIZED_BYTES_RANGE:
+                # Check if the Character at the current shop slot is already unlocked.
+                byte_index = character_index_for_slot - self.MIN_CHARACTER_NUMBER
+                if chars_array[byte_index] == 3:
+                    # Check if the Character at the current shop slot has not been purchased.
+                    character_shop_byte = ctx.read_uchar(CHARACTERS_SHOP_START + slot_byte)
+                    if not (character_shop_byte & slot_bit_mask):
+                        # The Character is unlocked, but not purchased yet, so lock the character temporarily to allow
+                        # purchase.
+                        chars_array[byte_index] = 0
 
         ctx.write_bytes(self.START_ADDRESS, bytes(chars_array), self.NUM_RANDOMIZED_BYTES)
 
@@ -609,14 +647,9 @@ class AcquiredExtras:
                 # Clear the bit in `unlocked_extras_copy`.
                 unlocked_extras_copy[byte_index] &= ~extra.shop_slot_bit_mask
 
-        # If the player is in the Cantina, and in the room with the shop, disable the Extra that is currently selected
+        # If the player is in the Extras shop in the Cantina, temporarily disable the Extra that is currently selected
         # in the Extras shop, so that it is possible to buy that extra, if it is unlocked, but not purchased.
-        # todo: Just the shop check is probably enough, but it is not clear if that byte is used for something more
-        #  general than only the shop.
-        # todo: The currently open shop (character/extra/gold brick/hint/etc) can probably be found and checked.
-        if (ctx.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
-                and ctx.get_current_level_id() == LEVEL_ID_CANTINA
-                and ctx.read_uchar(CANTINA_ROOM_ID) == CANTINA_ROOM_WITH_SHOP):
+        if ctx.is_in_shop(ShopType.EXTRAS):
             current_shop_slot = ctx.read_uchar(EXTRAS_SHOP_ACTIVE_INDEX)
             extra_byte = current_shop_slot // 8
             extra_bit_mask = 1 << (current_shop_slot % 8)
@@ -629,9 +662,8 @@ class AcquiredExtras:
                     # Check if the Extra at the current shop slot has not been purchased.
                     extras_shop_byte = ctx.read_uchar(EXTRAS_SHOP_START + extra_byte)
                     if not (extras_shop_byte & extra_bit_mask):
-                        # The Extra is unlocked, but not purchased yet, so lock it temporarily.
+                        # The Extra is unlocked, but not purchased yet, so lock it temporarily to allow the purchase.
                         unlocked_extras_copy[byte_index] &= ~extra_bit_mask
-                        # logger.info("Temporarily locking the Extra currently selected for purchase in the shop")
 
         # Write the updated extras array.
         ctx.write_bytes(self.START_ADDRESS, bytes(unlocked_extras_copy), self.NUM_RANDOMIZED_BYTES)
@@ -807,6 +839,15 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def is_in_game(self) -> bool:
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
         return (process := self.game_process) is not None and process.read_ushort(self.memory_offset + CURRENT_LEVEL_ID) != 0
+
+    def is_in_shop(self, shop_type: ShopType) -> bool:
+        """Check whether the player is currently in a shop. Does not check for being in-game."""
+        # todo: Just the SHOP_CHECK is probably enough to determine whether the player is in a shop, but it is not clear
+        #  if that byte is used for something more general than only the shop.
+        return (self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
+                and self.get_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
+                and self.read_uchar(CANTINA_ROOM_ID) == CANTINA_ROOM_WITH_SHOP  # and in the room with the shops.
+                and self.read_uchar(ACTIVE_SHOP_TYPE_ADDRESS) == shop_type.value)
 
     def set_game_expected_idx(self, idx: int) -> None:
         # Storing this in Custom Character 1's name as a string for now.

@@ -154,7 +154,7 @@ ITEM_DATA: list[GenericItemData] = [
     _char(70, "Kit Fisto", 83, abilities=JEDI),
     _char(71, "Shaak Ti", 85, abilities=JEDI),
     _char(72, "Aayla Secura", 315, abilities=JEDI),
-    _char(73, "Plo Kloon", 316, abilities=JEDI),
+    _char(73, "Plo Koon", 316, abilities=JEDI),
     _char(74, "Count Dooku", 103, abilities=JEDI | SITH),
     _char(75, "Grievous' Bodyguard", 64, abilities=HIGH_JUMP),
     _char(76, "General Grievous", 60, abilities=HIGH_JUMP),
@@ -258,7 +258,7 @@ ITEM_DATA: list[GenericItemData] = [
     _vehicle(169, "X-Wing", 36),
     _vehicle(170, "Y-Wing", 39),
     _vehicle(171, "Millennium Falcon", 38),
-    _vehicle(172, "TIE-Interceptor", 128),
+    _vehicle(172, "TIE Interceptor", 128),
     _vehicle(173, "Snowspeeder", 32),
     _vehicle(174, "Anakin's Speeder", 3),
     _generic(175, "Purple Stud"),
@@ -277,6 +277,19 @@ ITEM_DATA: list[GenericItemData] = [
     _extra(-1, "Silhouettes", 0x6),
     _extra(-1, "Beep Beep", 0x7),
     _extra(-1, "Adaptive Difficulty", 0x2C),  # Effectively a difficulty setting, so not randomized.
+    # Custom characters can only use unlocked character equipment, besides some blasters.
+    # todo: Does this include lightsabers if there are no Jedi unlocked?
+    _char(-1, "Custom Character 1", 168, abilities=BLASTER),
+    _char(-1, "Custom Character 2", 169, abilities=BLASTER),
+    _vehicle(-1, "Sebulba's Podracer", 261),
+    _vehicle(-1, "Zam's Airspeeder", 277),
+    _vehicle(-1, "Droid Trifighter", 292),
+    _vehicle(-1, "Vulture Droid", 293),
+    _vehicle(-1, "Clone Arcfighter", 295),
+    _vehicle(-1, "TIE Fighter", 37),
+    _vehicle(-1, "TIE Fighter (Darth Vader)", 182),
+    _vehicle(-1, "TIE Bomber", 209),
+    _vehicle(-1, "Imperial Shuttle", 198),
 ]
 
 ITEM_DATA_BY_NAME: dict[str, GenericItemData] = {data.name: data for data in ITEM_DATA}
@@ -287,3 +300,157 @@ CHARACTERS_AND_VEHICLES_BY_NAME: dict[str, GenericCharacterData] = {data.name: d
 GENERIC_BY_NAME: dict[str, GenericItemData] = {data.name: data for data in ITEM_DATA if data.item_type == "Generic"}
 
 ITEM_NAME_TO_ID: dict[str, int] = {name: item.code for name, item in ITEM_DATA_BY_NAME.items() if item.code != -1}
+
+# Purchasable characters and how they are unlocked, in the order they appear in the shop.
+# See the order of characters in COLLECTION.TXT that use "buy_in_shop", plus Indiana Jones, who is special.
+CHARACTER_SHOP_SLOTS: dict[str, str | None] = {
+    "Gonk Droid": None,
+    "PK Droid": None,
+
+    # Episode 1
+    "Battle Droid": "1-1",
+    "Battle Droid (Security)": "1-1",
+    "Battle Droid (Commander)": "1-1",
+    "Droideka": "1-1",
+
+    "Captain Tarpals": "1-2",
+    "Boss Nass": "1-2",
+
+    "Royal Guard": "1-3",
+    "Padmé": "1-3",
+
+    "Watto": "1-4",
+    "Pit Droid": "1-4",
+
+    # No non-vehicle characters for 1-5
+
+    "Darth Maul": "1-6",
+
+    # Episode 2
+    "Zam Wesell": "2-1",
+    "Dexter Jettster": "2-1",
+
+    "Clone": "2-2",
+    "Lama Su": "2-2",
+    "Taun We": "2-2",
+
+    "Geonosian": "2-3",
+    "Battle Droid (Geonosis)": "2-3",
+
+    "Super Battle Droid": "2-4",
+    "Jango Fett": "2-4",
+    "Boba Fett (Boy)": "2-4",
+    "Luminara": "2-4",
+    "Ki-Adi Mundi": "2-4",
+    "Kit Fisto": "2-4",
+    "Shaak Ti": "2-4",
+    "Aayla Secura": "2-4",
+    "Plo Koon": "2-4",
+
+    # No non-vehicle characters for 2-5 or 2-6
+
+    # Episode 3
+    # No non-vehicle characters for 3-1
+
+    "Count Dooku": "3-2",
+    "Grievous' Bodyguard": "3-2",
+
+    "General Grievous": "3-3",
+
+    "Wookiee": "3-4",
+    "Clone (Episode 3)": "3-4",
+    "Clone (Episode 3, Pilot)": "3-4",
+    "Clone (Episode 3, Swamp)": "3-4",
+    "Clone (Episode 3, Walker)": "3-4",
+
+    "Mace Windu (Episode 3)": "3-5",
+    "Disguised Clone": "3-5",
+
+    # No non-vehicle characters for 3-6
+
+    # Episode 4
+    "Rebel Trooper": "4-1",
+    "Stormtrooper": "4-1",
+    "Imperial Shuttle Pilot": "4-1",
+
+    "Tusken Raider": "4-2",
+    "Jawa": "4-2",
+
+    "Sandtrooper": "4-3",
+    "Greedo": "4-3",
+    "Imperial Spy": "4-3",
+
+    "Beach Trooper": "4-4",
+    "Death Star Trooper": "4-4",
+    "TIE Fighter Pilot": "4-4",
+    "Imperial Officer": "4-4",
+    "Grand Moff Tarkin": "4-4",
+
+    # No non-vehicle characters for 4-5 or 4-6
+
+    # Episode 5
+    # No non-vehicle characters for 5-1
+
+    "Han Solo (Hood)": "5-2",
+    "Rebel Trooper (Hoth)": "5-2",
+    "Rebel Pilot": "5-2",
+    "Snowtrooper": "5-2",
+    "Luke Skywalker (Hoth)": "5-2",
+
+    # No non-vehicle characters for 5-3, 5-4 or 5-5
+
+    "Lobot": "5-6",
+    "Ugnaught": "5-6",
+    "Bespin Guard": "5-6",
+    "Princess Leia (Prisoner)": "5-6",
+
+    # Episode 6
+    "Gamorrean Guard": "6-1",
+    "Bib Fortuna": "6-1",
+    "Palace Guard": "6-1",
+    "Bossk": "6-1",
+
+    "Skiff Guard": "6-2",
+    "Boba Fett": "6-2",
+
+    # No non-vehicle characters for 6-3
+
+    "Ewok": "6-4",
+
+    "Imperial Guard": "6-5",
+    "The Emperor": "6-5",
+
+    "Admiral Ackbar": "6-6",
+
+    # All Episodes complete
+    "IG-88": "ALL_EPISODES",
+    "Dengar": "ALL_EPISODES",
+    "4-LOM": "ALL_EPISODES",
+    "Ben Kenobi (Ghost)": "ALL_EPISODES",
+    "Anakin Skywalker (Ghost)": "ALL_EPISODES",
+    "Yoda (Ghost)": "ALL_EPISODES",
+    "R2-Q5": "ALL_EPISODES",
+
+    # Watch Indiana Jones trailer
+    "Indiana Jones": "INDY_TRAILER",
+
+    # Episode 1 Vehicles
+    "Sebulba's Podracer": "1-4",
+
+    # Episode 2 Vehicles
+    "Zam's Airspeeder": "2-1",
+
+    # Episode 3 Vehicles
+    "Droid Trifighter": "3-1",
+    "Vulture Droid": "3-1",
+    "Clone Arcfighter": "3-1",
+
+    # Episode 4 Vehicles
+    "TIE Fighter": "4-6",
+    "TIE Interceptor": "4-6",
+    "TIE Fighter (Darth Vader)": "4-6",
+
+    # Episode 5 Vehicles
+    "TIE Bomber": "5-3",
+    "Imperial Shuttle": "5-3",
+}
