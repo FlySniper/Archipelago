@@ -677,26 +677,26 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
     unlocked_level_manager: UnlockedLevelManager
+    client_expected_idx: int
+    fully_connected: bool
 
     def __init__(self, server_address: typing.Optional[str] = None, password: typing.Optional[str] = None) -> None:
         super().__init__(server_address, password)
 
-        # todo: These shouldn't get used, can we safely remove them?
+        # todo: These assigned values shouldn't get used, can we safely remove them?
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
         self.unlocked_level_manager = UnlockedLevelManager()
+        self.client_expected_idx = 0
+        self.fully_connected = False
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
         if cmd == "Connected":
-            self.acquired_extras = AcquiredExtras()
-            self.acquired_characters = AcquiredCharacters()
-            self.acquired_generic = AcquiredGeneric()
-            self.unlocked_level_manager = UnlockedLevelManager()
-        elif cmd == "ReceivedItems":
-            for item in cast(list[NetworkItem], args["items"]):
-                self.receive_item(item.item)
+            self.reset_client_received_items()
+            self.client_expected_idx = 0
+            self.fully_connected = True
 
     def run_gui(self):
         from kvui import GameManager
@@ -714,10 +714,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # todo: What are the connect and disconnect methods to override?
         # todo: When receiving item index 0, we also want to destroy and re-create the 'acquired' attributes.
         # todo: Do we want to replace these when connecting instead?
-        self.acquired_extras = AcquiredExtras()
-        self.acquired_characters = AcquiredCharacters()
-        self.acquired_generic = AcquiredGeneric()
-        self.unlocked_level_manager = UnlockedLevelManager()
+        self.reset_client_received_items()
+        self.fully_connected = False
         return await super().disconnect(allow_autoreconnect)
 
     async def server_auth(self, password_requested: bool = False):
@@ -810,7 +808,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
         return (process := self.game_process) is not None and process.read_ushort(self.memory_offset + CURRENT_LEVEL_ID) != 0
 
-    def set_expected_idx(self, idx: int) -> None:
+    def set_game_expected_idx(self, idx: int) -> None:
         # Storing this in Custom Character 1's name as a string for now.
         to_write = str(idx).encode()
         if len(to_write) > 15:
@@ -820,19 +818,26 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             to_write += b"\x00" * (15 - len(to_write))
         self.write_bytes(CUSTOM_CHARACTER_1_NAME, to_write, len(to_write))
 
-    def get_expected_idx(self) -> int:
+    def get_game_expected_idx(self) -> int:
         # Storing this in Custom Character 1's name as a string for now.
         as_bytestring = self.read_bytes(CUSTOM_CHARACTER_1_NAME, 15)
         # STRANGER 1
         if as_bytestring[0] not in range(b"0"[0], b"9"[0] + 1):
             return 0
-        return int(as_bytestring.partition(b"\x00")[0])
+        try:
+            return int(as_bytestring.partition(b"\x00")[0])
+        except ValueError:
+            return 0
 
     def give_item(self, code: int) -> bool:
-        if not self.is_in_game():
-            return False
         if code in self.acquired_generic.STUDS:
+            # Studs are directly given to the player as they are received, so it is necessary to check that the player
+            # is currently in-game.
+            if not self.is_in_game():
+                return False
             self.acquired_generic.give_studs(self, code)
+        else:
+            self.receive_item(code)
         return True
 
     def receive_item(self, code: int):
@@ -849,26 +854,56 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             logger.warning(f"Received unknown item with AP ID {code}")
 
+    def reset_client_received_items(self):
+        self.acquired_extras = AcquiredExtras()
+        self.acquired_characters = AcquiredCharacters()
+        self.acquired_generic = AcquiredGeneric()
+        self.unlocked_level_manager = UnlockedLevelManager()
+        self.client_expected_idx = 0
+
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
     if ctx.is_in_game():
         #logger.info("Giving items")
-        expected_idx = ctx.get_expected_idx()
+        # The player can enter a level, receive items, and then exit back to the Cantina without saving, reverting their
+        # expected_idx to an older value and undoing any studs that were given.
+        # To ensure that given studs take into account the player's score multiplier at the time the studs were given,
+        # it is necessary to reset client state in this case.
+        expected_idx_game = ctx.get_game_expected_idx()
+        expected_idx_client = ctx.client_expected_idx
+
+        received_items = ctx.items_received
+
+        # Check if the game rolled back its save data, the client needs to be reset and caught back up.
+        if expected_idx_game < ctx.client_expected_idx:
+            logger.info("Resetting client received items due to game save data rollback")
+            ctx.reset_client_received_items()
+            for idx, item in enumerate(received_items[:expected_idx_game]):
+                ctx.receive_item(item.item)
+                ctx.client_expected_idx = idx + 1
+
+        # Check if we are resuming a seed where the client is fresh and needs to be caught up.
+        if ctx.client_expected_idx < expected_idx_game:
+            logger.info("Catching up client to game state")
+            for idx, item in enumerate(received_items[expected_idx_client:expected_idx_game],
+                                       start=expected_idx_client):
+                ctx.receive_item(item.item)
+                ctx.client_expected_idx = idx + 1
 
         # Check if there are new items.
-        received_items = ctx.items_received
-        if len(received_items) <= expected_idx:
+        if len(received_items) <= expected_idx_game:
             # There are no new items.
             return
 
         # Loop through items to give.
         # Give the player all items at an index greater than or equal to the expected index.
-        for idx, item in enumerate(received_items[expected_idx:], start=expected_idx):
+        for idx, item in enumerate(received_items[expected_idx_game:], start=expected_idx_game):
             while not ctx.give_item(item.item):
                 await asyncio.sleep(0.01)
 
             # Increment the expected index.
-            ctx.set_expected_idx(idx + 1)
+            ctx.set_game_expected_idx(idx + 1)
+            ctx.client_expected_idx = idx + 1
 
 
 async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
@@ -889,13 +924,20 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
             if game_process is not None:
                 if not ctx.is_in_game():
                     # Need to wait for the player to load into a save file.
-                    sleep_time = 0.1
-                    msg = "Waiting for player to load into a save file"
-                    if last_message != msg:
-                        logger.info(msg)
-                        last_message = msg
+                    sleep_time = 0.5 #0.1
+                    # todo: Save the multiworld seed somewhere (custom character 2 name?) and check that before giving
+                    #  items. Then, it won't be necessary to disconnect when not loaded into a save file.
+                    if ctx.slot:
+                        logger.info("Disconnected due to exiting to main menu.")
+                        await ctx.disconnect()
+                    else:
+                        msg = "Waiting for player to load into a save file"
+                        if last_message != msg:
+                            logger.info(msg)
+                            last_message = msg
                     continue
-                if ctx.slot is not None:
+                if ctx.slot is not None and ctx.fully_connected:
+                    #logger.info("Checking items to give")
                     # todo: Store the multiworld seed name somewhere in the save file and check it before giving any
                     #  items or checking any locations. OR can we do this check when connecting and then immediately
                     #  disconnect if the seed name does not match?
@@ -923,7 +965,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     # the shop, even if the shop slot has not been purchased. Temporarily disable the extra in the
                     # active shop slot if the shop slot has not been purchased, but the extra has been unlocked.
                     #await temporarily_disable_extra_of_unpurchased_active_extra_in_shop(ctx)
-                sleep_time = 0.1
+                sleep_time = 0.5 #0.1
             else:
                 if not ctx.open_game_process():
                     msg = "Connection to game failed, attempting again in 5 seconds..."
