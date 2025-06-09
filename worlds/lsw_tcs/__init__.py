@@ -3,6 +3,7 @@ from worlds.LauncherComponents import components, Component, launch_subprocess, 
 
 from . import constants
 from .items import ITEM_NAME_TO_ID
+from .locations import LOCATION_NAME_TO_ID
 from .options import LegoStarWarsTCSOptions
 
 
@@ -29,4 +30,4 @@ class LegoStarWarsTCSWorld(World):
     options_dataclass = LegoStarWarsTCSOptions
 
     item_name_to_id = ITEM_NAME_TO_ID
-    location_name_to_id = {}
+    location_name_to_id = LOCATION_NAME_TO_ID
