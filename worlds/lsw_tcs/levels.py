@@ -36,6 +36,8 @@ class EpisodeGameLevelArea:
 
 
 # GameLevelArea short_name to the set of characters needed to unlock that GameLevelArea
+# To find characters, grep the LEVELS directory for non-binary files, searching for '" player'. Note that vehicle levels
+# typically have an alternate color scheme vehicle for Player 2 which may not be collectable.
 LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
     k: frozenset(v) for k, v in {
         # "1-1": {
@@ -45,9 +47,13 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
         # },
         "1-1": set(),
         "1-2": {
+            # "Obi-Wan Kenobi",
+            # "Qui-Gon Jinn",
             "Jar Jar Binks",
         },
         "1-3": {
+            # "Obi-Wan Kenobi",
+            # "Qui-Gon Jinn",
             "Captain Panaka",
             "Queen Amidala",
         },
@@ -55,9 +61,11 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Anakin's Podracer",
         },
         "1-5": {
+            # "Obi-Wan Kenobi",
+            # "Qui-Gon Jinn",
             "Anakin Skywalker (Boy)",
             "Captain Panaka",
-            "Queen Amidala",
+            "Queen Amidala",  # FIXME: Should be Padmé (Battle) instead?
             "R2-D2",
         },
         "1-6": set(),
@@ -83,6 +91,7 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Mace Windu",
             "Padmé (Clawed)",
             "Obi-Wan Kenobi (Jedi Master)",
+            # R2-D2  # FIXME?: Missing R2-D2?
         },
         "2-5": {
             "Republic Gunship",
@@ -95,6 +104,10 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
         "3-1": {
             "Anakin's Starfighter",
             "Obi-Wan's Starfighter",
+            # FIXME?: These non-vehicle characters are also listed as player characters in the file. Should they be
+            #  required?
+            # "Obi-Wan Kenobi (Episode 3)",
+            # "Anakin Skywalker (Jedi)",
         },
         "3-2": {
             "Anakin Skywalker (Jedi)",
@@ -187,6 +200,7 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Lando Calrissian",
             "Princess Leia (Bespin)",
             "R2-D2",
+            # "Chewbacca",  # FIXME?: Missing Chewbacca?
         },
         "6-1": {
             "Chewbacca",
