@@ -31,11 +31,11 @@ from ..items import (
     GenericItemData,
     CHARACTER_SHOP_SLOTS,
 )
-from ..locations import LOCATION_NAME_TO_ID
 from ..levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA
 from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
 from .location_checkers.bonus_level_completion import BonusLevelCompletionChecker
 from .location_checkers.true_jedi_and_minikits import TrueJediAndMinikitChecker
+from .location_checkers.shop_purchases import PurchasedExtrasChecker, PurchasedCharactersChecker
 
 
 logger = logging.getLogger("Client")
@@ -205,68 +205,6 @@ def _s8(b: bytes) -> bytes:
     return b + b"\x00" * (8 - len(b))
 MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {k: {_s8(k2): v2 for k2, v2 in v.items()}
                                                             for k, v in _MINIKIT_ADDRESSES_AND_NAMES.items()}
-
-
-def _extras_to_shop_address() -> dict[MemoryOffset, dict[BitMask, LocationId]]:
-    """Purchase <extra> shop ID -> AP Location ID"""
-    per_byte: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
-    for extra_data in EXTRAS_BY_NAME.values():
-        if extra_data.name == "Adaptive Difficulty":
-            # Not present in the shop because it is always unlocked
-            continue
-        if extra_data.code == -1:
-            # Not implemented yet
-            continue
-        byte_offset = extra_data.extra_number // 8
-        bit_mask = 1 << (extra_data.extra_number % 8)
-        if extra_data.level_shortname is not None:
-            location_name = f"Purchase {extra_data.name} ({extra_data.level_shortname})"
-        else:
-            location_name = f"Purchase {extra_data.name}"
-        assert location_name in LOCATION_NAME_TO_ID, f"ERROR: {location_name} is not a location name"
-        location_id = LOCATION_NAME_TO_ID[location_name]
-        per_byte.setdefault(byte_offset, {})[bit_mask] = location_id
-    # todo: list[tuple[int, dict[int, int]]] for better iteration performance?
-    # return list(per_byte.items())
-    return per_byte
-
-
-EXTRAS_SHOP_OFFSETS_TO_AP_LOCATIONS: dict[MemoryOffset, dict[BitMask, LocationId]] = _extras_to_shop_address()
-
-
-def _characters_to_shop_address() -> dict[MemoryOffset, dict[BitMask, LocationId]]:
-    per_byte: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
-    for character in CHARACTERS_AND_VEHICLES_BY_NAME.values():
-        if character.shop_slot == -1:
-            # Not present in the shop.
-            continue
-        if character.code == -1:
-            # Not implemented yet.
-            continue
-        if character.name in ("Indiana Jones", "Princess Leia (Prisoner)", "TIE Interceptor"):
-            # todo: Needs to be added as an Archipelago location
-            continue
-        byte_offset = character.shop_slot // 8
-        bit_mask = 1 << (character.shop_slot % 8)
-        location_name = f"Purchase {character.name}"
-        assert location_name in LOCATION_NAME_TO_ID, f"Error: {location_name} is not a location name"
-        location_id = LOCATION_NAME_TO_ID[location_name]
-        per_byte.setdefault(byte_offset, {})[bit_mask] = location_id
-    return per_byte
-
-
-CHARACTER_SHOP_OFFSETS_TO_AP_LOCATIONS: dict[MemoryOffset, dict[BitMask, LocationId]] = _characters_to_shop_address()
-
-
-def _read_extras_purchase_locations(process: pymem.Pymem) -> set[int]:
-    extras_shop_bytes = process.read_bytes(EXTRAS_SHOP_START, EXTRAS_SHOP_LENGTH_BYTES)
-    s = set()
-    for byte_offset, bits_to_ap_locations in EXTRAS_SHOP_OFFSETS_TO_AP_LOCATIONS.items():
-        byte = extras_shop_bytes[byte_offset]
-        for bit_offset, ap_location_id in bits_to_ap_locations.items():
-            if byte & bit_offset:
-                s.add(ap_location_id)
-    return s
 
 
 def _read_minikit_locations(process: pymem.Pymem) -> set[int]:
@@ -715,70 +653,6 @@ class AcquiredExtras:
         # Write the updated extras array.
         ctx.write_bytes(self.START_ADDRESS, bytes(unlocked_extras_copy), self.NUM_RANDOMIZED_BYTES)
 
-
-# TODO: Deduplicate the Extras and Characters checkers
-class PurchasedCharactersChecker:
-    remaining_character_purchases: dict[MemoryOffset, dict[BitMask, LocationId]]
-
-    def __init__(self):
-        self.remaining_character_purchases = {byte_offset: bit_mask_to_ap_id.copy() for byte_offset, bit_mask_to_ap_id
-                                              in CHARACTER_SHOP_OFFSETS_TO_AP_LOCATIONS.items()}
-        self.remaining_min_byte = min(self.remaining_character_purchases.keys())
-        self.remaining_max_byte = max(self.remaining_character_purchases.keys())
-
-    async def check_extra_purchases(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[int]):
-        server_checked_locations = ctx.checked_locations
-        updated_remaining_character_purchases: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
-        for byte_offset, bit_mask_to_ap_id in self.remaining_character_purchases.items():
-            updated_bit_to_ap_id: dict[BitMask, LocationId] = {bit: ap_id for bit, ap_id in bit_mask_to_ap_id.items()
-                                                               if ap_id not in server_checked_locations}
-            if updated_bit_to_ap_id:
-                updated_remaining_character_purchases[byte_offset] = updated_bit_to_ap_id
-
-        if updated_remaining_character_purchases:
-            min_byte_offset = min(updated_remaining_character_purchases.keys())
-            max_byte_offset = max(updated_remaining_character_purchases.keys())
-            num_bytes = max_byte_offset - min_byte_offset + 1
-            characters_shop_bytes = ctx.read_bytes(CHARACTERS_SHOP_START + min_byte_offset, num_bytes)
-
-            for byte_offset, bit_mask_to_ap_id in updated_remaining_character_purchases.items():
-                shop_byte = characters_shop_bytes[byte_offset - min_byte_offset]
-                for bit_mask, ap_id in bit_mask_to_ap_id.items():
-                    if shop_byte & bit_mask:
-                        new_location_checks.append(ap_id)
-        self.remaining_character_purchases = updated_remaining_character_purchases
-
-
-class PurchasedExtrasChecker:
-    remaining_extra_purchases: dict[MemoryOffset, dict[BitMask, LocationId]]
-
-    def __init__(self):
-        self.remaining_extra_purchases = {byte_offset: bit_mask_to_ap_id.copy() for byte_offset, bit_mask_to_ap_id
-                                          in EXTRAS_SHOP_OFFSETS_TO_AP_LOCATIONS.items()}
-        self.remaining_min_byte = min(self.remaining_extra_purchases.keys())
-        self.remaining_max_byte = max(self.remaining_extra_purchases.keys())
-
-    async def check_extra_purchases(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[int]):
-        server_checked_locations = ctx.checked_locations
-        updated_remaining_extra_purchases: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
-        for byte_offset, bit_mask_to_ap_id in self.remaining_extra_purchases.items():
-            updated_bit_to_ap_id: dict[BitMask, LocationId] = {bit: ap_id for bit, ap_id in bit_mask_to_ap_id.items()
-                                                               if ap_id not in server_checked_locations}
-            if updated_bit_to_ap_id:
-                updated_remaining_extra_purchases[byte_offset] = updated_bit_to_ap_id
-
-        if updated_remaining_extra_purchases:
-            min_byte_offset = min(updated_remaining_extra_purchases.keys())
-            max_byte_offset = max(updated_remaining_extra_purchases.keys())
-            num_bytes = max_byte_offset - min_byte_offset + 1
-            extras_shop_bytes = ctx.read_bytes(EXTRAS_SHOP_START + min_byte_offset, num_bytes)
-
-            for byte_offset, bit_mask_to_ap_id in updated_remaining_extra_purchases.items():
-                shop_byte = extras_shop_bytes[byte_offset - min_byte_offset]
-                for bit_mask, ap_id in bit_mask_to_ap_id.items():
-                    if shop_byte & bit_mask:
-                        new_location_checks.append(ap_id)
-        self.remaining_extra_purchases = updated_remaining_extra_purchases
 
 # class PurchasedGoldBricks:
 #     pass
