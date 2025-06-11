@@ -566,6 +566,8 @@ class AcquiredCharacters:
         for char in self.RECEIVABLE_CHARACTERS_BY_AP_ID.values():
             character_index = char.character_index
             if character_index in self.unlocked_characters:
+                # 0b01 controls whether the character shows in the Free Play character picker.
+                # 0b10's use is unknown, but seemingly all unlocked characters use both bits.
                 chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 3
             else:
                 chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 0
