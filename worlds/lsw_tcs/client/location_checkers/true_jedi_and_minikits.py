@@ -4,12 +4,27 @@ from ...locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
 
 
 class TrueJediAndMinikitChecker:
-    remaining_true_jedi_checks: list[str]
-    remaining_minikit_checks: dict[str, list[tuple[int, str]]]
+    """
+    Check if the player has completed True Jedi for each level and check how many Minikit canisters the player has
+    collected in each level.
+
+    It is possible to check the number of Minikit canisters the player has collected in the current level they are in,
+    so that Minikit checks send in realtime, but the intention is to make each Minikit a separate check with separate
+    logic, which will require a rewrite, so only updating collected Minikits by reading the in-memory save file data is
+    good enough before the rewrite.
+
+    Realtime checks are better for if there are receivable items, in the future, that affect the player while in a
+    level. Realtime checks are also better for the case of another player in the multiworld waiting for a Minikit check
+    to resume playing because the TCS player currently has to choose between either exiting the level early to send the
+    check, but then having to replay the level for additional checks, or taking longer to send the check by only sending
+    the check once the level has been completed.
+    """
+    remaining_true_jedi_check_shortnames: list[str]
+    remaining_minikit_checks_by_shortname: dict[str, list[tuple[int, str]]]
 
     def __init__(self):
-        self.remaining_true_jedi_checks = list(LEVEL_COMMON_LOCATIONS.keys())
-        self.remaining_minikit_checks = {
+        self.remaining_true_jedi_check_shortnames = list(LEVEL_COMMON_LOCATIONS.keys())
+        self.remaining_minikit_checks_by_shortname = {
             name: list(enumerate(data["Minikits"], start=1)) for name, data in LEVEL_COMMON_LOCATIONS.items()
         }
 
@@ -32,7 +47,7 @@ class TrueJediAndMinikitChecker:
                 return new_bytes
 
         updated_remaining_true_jedi_checks: list[str] = []
-        for shortname in self.remaining_true_jedi_checks:
+        for shortname in self.remaining_true_jedi_check_shortnames:
             location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
             location_id = LOCATION_NAME_TO_ID[location_name]
             if location_id in ctx.checked_locations:
@@ -41,10 +56,10 @@ class TrueJediAndMinikitChecker:
             if true_jedi:
                 new_location_checks.append(location_id)
             updated_remaining_true_jedi_checks.append(shortname)
-        self.remaining_true_jedi_checks = updated_remaining_true_jedi_checks
+        self.remaining_true_jedi_check_shortnames = updated_remaining_true_jedi_checks
 
-        updated_remaining_minikit_checks: dict[str, list[tuple[int, str]]] = {}
-        for shortname, remaining_minikits in self.remaining_minikit_checks.items():
+        updated_remaining_minikit_checks_by_shortname: dict[str, list[tuple[int, str]]] = {}
+        for shortname, remaining_minikits in self.remaining_minikit_checks_by_shortname.items():
             not_checked_minikit_checks: list[int] = []
             updated_remaining_minikits: list[tuple[int, str]] = []
             for count, location_name in remaining_minikits:
@@ -53,11 +68,11 @@ class TrueJediAndMinikitChecker:
                     not_checked_minikit_checks.append(location_id)
                     updated_remaining_minikits.append((count, location_name))
             if updated_remaining_minikits:
-                updated_remaining_minikit_checks[shortname] = updated_remaining_minikits
+                updated_remaining_minikit_checks_by_shortname[shortname] = updated_remaining_minikits
 
                 minikit_count = get_bytes_for_short_name(shortname)[1]
                 zipped = zip(updated_remaining_minikits, not_checked_minikit_checks, strict=True)
                 for (count, _name), location_id in zipped:
                     if minikit_count >= count:
                         new_location_checks.append(location_id)
-        self.remaining_minikit_checks = updated_remaining_minikit_checks
+        self.remaining_minikit_checks_by_shortname = updated_remaining_minikit_checks_by_shortname
