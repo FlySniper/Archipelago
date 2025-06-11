@@ -1,6 +1,18 @@
+from typing import Sequence, Mapping
+
 from ..type_aliases import TCSContext
 from ...levels import SHORT_NAME_TO_LEVEL_AREA
 from ...locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
+
+
+ALL_GAME_AREA_SHORTNAMES: Sequence[str] = tuple(LEVEL_COMMON_LOCATIONS.keys())
+# Suppress PyCharm typing bug.
+# PyCharm gets the typing correct when doing `tuple(list(enumerate(data["Minikits"], start=1)))`, which evaluate to the
+# same type.
+# noinspection PyTypeChecker
+ALL_MINIKIT_CHECKS_BY_SHORTNAME: Mapping[str, Sequence[tuple[int, str]]] = {
+    name: tuple(enumerate(data["Minikits"], start=1)) for name, data in LEVEL_COMMON_LOCATIONS.items()
+}
 
 
 class TrueJediAndMinikitChecker:
@@ -10,8 +22,8 @@ class TrueJediAndMinikitChecker:
 
     It is possible to check the number of Minikit canisters the player has collected in the current level they are in,
     so that Minikit checks send in realtime, but the intention is to make each Minikit a separate check with separate
-    logic, which will require a rewrite, so only updating collected Minikits by reading the in-memory save file data is
-    good enough before the rewrite.
+    logic, which will require a rewrite anyway, so only updating collected Minikits by reading the in-memory save file
+    data is good enough before the rewrite.
 
     Realtime checks are better for if there are receivable items, in the future, that affect the player while in a
     level. Realtime checks are also better for the case of another player in the multiworld waiting for a Minikit check
@@ -19,14 +31,9 @@ class TrueJediAndMinikitChecker:
     check, but then having to replay the level for additional checks, or taking longer to send the check by only sending
     the check once the level has been completed.
     """
-    remaining_true_jedi_check_shortnames: list[str]
-    remaining_minikit_checks_by_shortname: dict[str, list[tuple[int, str]]]
-
-    def __init__(self):
-        self.remaining_true_jedi_check_shortnames = list(LEVEL_COMMON_LOCATIONS.keys())
-        self.remaining_minikit_checks_by_shortname = {
-            name: list(enumerate(data["Minikits"], start=1)) for name, data in LEVEL_COMMON_LOCATIONS.items()
-        }
+    # Sequence and Mapping are used because they hint that the types are immutable.
+    remaining_true_jedi_check_shortnames: Sequence[str] = ALL_GAME_AREA_SHORTNAMES
+    remaining_minikit_checks_by_shortname: Mapping[str, Sequence[tuple[int, str]]] = ALL_MINIKIT_CHECKS_BY_SHORTNAME
 
     async def check_true_jedi_and_minikits(self, ctx: TCSContext, new_location_checks: list[int]):
         # todo: More smartly read only as many bytes as necessary. So only 1 byte when either the True Jedi is complete

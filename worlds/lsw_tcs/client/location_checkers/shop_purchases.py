@@ -28,7 +28,7 @@ class BasePurchasesChecker(abc.ABC):
         updated_remaining_purchases: dict[MemoryOffset, dict[BitMask, ApLocationId]] = {}
         for byte_offset, bit_mask_to_ap_id in self.remaining_purchases.items():
             updated_bit_to_ap_id: dict[BitMask, ApLocationId] = {bit: ap_id for bit, ap_id in bit_mask_to_ap_id.items()
-                                                               if ap_id not in server_checked_locations}
+                                                                 if ap_id not in server_checked_locations}
             if updated_bit_to_ap_id:
                 updated_remaining_purchases[byte_offset] = updated_bit_to_ap_id
 
@@ -56,12 +56,13 @@ def _characters_to_shop_address() -> dict[MemoryOffset, dict[BitMask, ApLocation
             # Not implemented yet.
             continue
         if character.name in ("Indiana Jones", "Princess Leia (Prisoner)", "TIE Interceptor"):
-            # todo: Needs to be added as an Archipelago location
+            # todo: These need to be added as Archipelago locations in addition to others Characters that do not even
+            #   have items defined currently.
             continue
         byte_offset = character.shop_slot // 8
         bit_mask = 1 << (character.shop_slot % 8)
         location_name = f"Purchase {character.name}"
-        assert location_name in LOCATION_NAME_TO_ID, f"Error: {location_name} is not a location name"
+        assert location_name in LOCATION_NAME_TO_ID, f"ERROR: {location_name} is not a location name"
         location_id = LOCATION_NAME_TO_ID[location_name]
         per_byte.setdefault(byte_offset, {})[bit_mask] = location_id
     return per_byte
@@ -72,22 +73,23 @@ def _extras_to_shop_address() -> dict[MemoryOffset, dict[BitMask, ApLocationId]]
     per_byte: dict[MemoryOffset, dict[BitMask, ApLocationId]] = {}
     for extra_data in EXTRAS_BY_NAME.values():
         if extra_data.name == "Adaptive Difficulty":
-            # Not present in the shop because it is always unlocked
+            # Not present in the shop because it is always unlocked. It is also fortunately found in memory after all
+            # the purchasable Extras, so there is no awkward skipping of memory to skip over Adaptive Difficulty.
             continue
         if extra_data.code == -1:
-            # Not implemented yet
+            # Not implemented yet.
             continue
         byte_offset = extra_data.extra_number // 8
         bit_mask = 1 << (extra_data.extra_number % 8)
         if extra_data.level_shortname is not None:
             location_name = f"Purchase {extra_data.name} ({extra_data.level_shortname})"
         else:
+            # Not relevant currently because only the Extras unlocked through Power Bricks are implemented as
+            # Archipelago items currently.
             location_name = f"Purchase {extra_data.name}"
         assert location_name in LOCATION_NAME_TO_ID, f"ERROR: {location_name} is not a location name"
         location_id = LOCATION_NAME_TO_ID[location_name]
         per_byte.setdefault(byte_offset, {})[bit_mask] = location_id
-    # todo: list[tuple[int, dict[int, int]]] for better iteration performance?
-    # return list(per_byte.items())
     return per_byte
 
 

@@ -3,6 +3,11 @@ from ...levels import BONUS_GAME_LEVEL_AREAS
 from ...locations import LOCATION_NAME_TO_ID
 
 
+ALL_STORY_COMPLETION_CHECKS: dict[MemoryAddress, ApLocationId] = {
+    bonus.address + bonus.completion_offset: LOCATION_NAME_TO_ID[bonus.name] for bonus in BONUS_GAME_LEVEL_AREAS
+}
+
+
 class BonusLevelCompletionChecker:
     """
     Check if the player has completed a bonus level by reading the completion byte of each bonus level that has not
@@ -13,9 +18,7 @@ class BonusLevelCompletionChecker:
     remaining_story_completion_checks: dict[MemoryAddress, ApLocationId]
 
     def __init__(self):
-        self.remaining_story_completion_checks = {
-            bonus.address + bonus.completion_offset: LOCATION_NAME_TO_ID[bonus.name] for bonus in BONUS_GAME_LEVEL_AREAS
-        }
+        self.remaining_story_completion_checks = ALL_STORY_COMPLETION_CHECKS.copy()
 
     async def check_completion(self, ctx: TCSContext, new_location_checks: list[int]):
         # As location checks get sent, the remaining bytes to gets reduced.

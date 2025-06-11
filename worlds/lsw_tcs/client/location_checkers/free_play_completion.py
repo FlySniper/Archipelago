@@ -23,6 +23,12 @@ CURRENT_GAME_MODE_FREE_PLAY = 1
 # CURRENT_GAME_MODE_CHALLENGE_BONUS = 2
 
 
+STATUS_LEVEL_ID_TO_AP_ID: dict[LevelId, ApLocationId] = {
+    area.status_level_id: LOCATION_NAME_TO_ID[LEVEL_COMMON_LOCATIONS[area.short_name]["Completion"]]
+    for area in GAME_LEVEL_AREAS
+}
+
+
 def is_in_free_play(ctx: TCSContext) -> bool:
     """
     Return whether the player is currently in Free Play.
@@ -55,10 +61,6 @@ class FreePlayLevelCompletionChecker:
     in Free Play, so the client must poll the game state and track completions itself in the case of disconnecting from
     the server.
     """
-    STATUS_LEVEL_ID_TO_AP_ID: dict[LevelId, ApLocationId] = {
-        area.status_level_id: LOCATION_NAME_TO_ID[LEVEL_COMMON_LOCATIONS[area.short_name]["Completion"]]
-        for area in GAME_LEVEL_AREAS
-    }
 
     sent_locations: set[ApLocationId]
 
@@ -68,8 +70,8 @@ class FreePlayLevelCompletionChecker:
     async def check_completion(self, ctx: TCSContext, new_location_checks: list[ApLocationId]):
         # Level ID should be checked first because STATUS_LEVEL_TYPE_ADDRESS can be STATUS_LEVEL_TYPE_LEVEL_COMPLETION
         # during normal gameplay, so it would be possible for STATUS_LEVEL_TYPE_ADDRESS to match and then the player
-        # does 'Save and Exit', changing the Level ID to
-        completion_location_id = self.STATUS_LEVEL_ID_TO_AP_ID.get(ctx.get_current_level_id())
+        # does 'Save and Exit', changing the Level ID to a 'status' level and accidentally sending a location check.
+        completion_location_id = STATUS_LEVEL_ID_TO_AP_ID.get(ctx.get_current_level_id())
         if (completion_location_id is not None
                 and completion_location_id in ctx.missing_locations
                 and is_in_free_play(ctx)
