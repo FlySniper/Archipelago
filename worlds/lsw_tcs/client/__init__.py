@@ -33,8 +33,9 @@ from ..items import (
     CHARACTER_SHOP_SLOTS,
 )
 from ..locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
-from ..levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA, BONUS_GAME_LEVEL_AREAS
+from ..levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA
 from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
+from .location_checkers.bonus_level_completion import BonusLevelCompletionChecker
 
 
 logger = logging.getLogger("Client")
@@ -713,26 +714,6 @@ class AcquiredExtras:
 
         # Write the updated extras array.
         ctx.write_bytes(self.START_ADDRESS, bytes(unlocked_extras_copy), self.NUM_RANDOMIZED_BYTES)
-
-
-class BonusLevelCompletionChecker:
-    # Anakin's Flight and A New Hope support Free Play, but the rest are Story mode only.
-    remaining_story_completion_checks: dict[MemoryAddress, LocationId]
-
-    def __init__(self):
-        self.remaining_story_completion_checks = {
-            bonus.address + bonus.completion_offset: LOCATION_NAME_TO_ID[bonus.name] for bonus in BONUS_GAME_LEVEL_AREAS
-        }
-
-    async def check_completion(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[int]):
-        updated_remaining_story_completion_checks = {}
-        for address, ap_id in self.remaining_story_completion_checks.items():
-            if ap_id in ctx.checked_locations:
-                continue
-            if ctx.read_uchar(address):
-                new_location_checks.append(ap_id)
-            updated_remaining_story_completion_checks[address] = ap_id
-        self.remaining_story_completion_checks = updated_remaining_story_completion_checks
 
 
 class TrueJediAndMinikitChecker:
