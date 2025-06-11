@@ -19,8 +19,8 @@ from typing import ClassVar, AbstractSet, cast, Iterable
 
 from CommonClient import CommonContext, server_loop, gui_enabled
 
-from .constants import GAME_NAME
-from .items import (
+from ..constants import GAME_NAME
+from ..items import (
     ITEM_DATA,
     ITEM_DATA_BY_NAME,
     ITEM_DATA_BY_ID,
@@ -32,8 +32,8 @@ from .items import (
     GenericItemData,
     CHARACTER_SHOP_SLOTS,
 )
-from .locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
-from .levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA, BONUS_GAME_LEVEL_AREAS
+from ..locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
+from ..levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA, BONUS_GAME_LEVEL_AREAS
 
 
 logger = logging.getLogger("Client")
@@ -1126,7 +1126,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         return True
 
     def receive_item(self, code: int):
-        from . import LegoStarWarsTCSWorld
+        from .. import LegoStarWarsTCSWorld
         item_name = LegoStarWarsTCSWorld.item_id_to_name.get(code, f"Unknown {code}")
         debug_logger.info(f"Receiving item {item_name} from AP")
         if code in self.acquired_generic.RECEIVABLE_GENERIC_BY_AP_ID:
