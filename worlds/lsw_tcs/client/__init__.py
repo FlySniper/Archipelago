@@ -34,7 +34,7 @@ from ..items import (
 )
 from ..locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
 from ..levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA, BONUS_GAME_LEVEL_AREAS
-from .location_checkers.free_play_completion_checker import FreePlayLevelCompletionChecker
+from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
 
 
 logger = logging.getLogger("Client")
