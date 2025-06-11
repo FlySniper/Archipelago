@@ -360,6 +360,9 @@ class UnlockedLevelManager:
         self.first_time_setup_complete = True
         # Lock all levels to start with.
         locked = b"\x00"
+        # FIXME: Story mode being completed results in the characters being unlocked in the shop.
+        #  Either going into the shop needs to clear Story Mode completion, or Story Mode completion needs to be added
+        #  when unlocking a level, ideally only temporarily until Free Play has been completed.
         # Complete all Story Modes so that players can get straight into playing Free Play.
         # If Story Mode would to be left required for players to play through, cutscenes would likely want to be modded
         # out by unpacking and modifying the files, which is what the standalone TCS Randomizer does. Currently, this
@@ -383,6 +386,9 @@ class UnlockedLevelManager:
             self.first_time_setup(ctx)
         # TODO: It might be necessary to constantly re-lock locked levels because playing a story level might cause the
         #  next level to get unlocked. TODO: Try it out.
+        # TODO: The "All Episode" character purchases in the shop (4-LOM/Ghosts/etc.) might need all levels to be
+        #  temporarily set as completed when trying to buy the characters while the client has received all episode
+        #  unlocks, so that the characters can actually be purchased without completing every level.
         if self.pending_unlocks:
             for level_area in self.pending_unlocks:
                 self.unlock_level(ctx, level_area)
@@ -1094,6 +1100,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def get_game_expected_idx(self) -> int:
         # Storing this in Custom Character 1's name as a string for now.
+        # TODO: Investigate storing the expected idx in one of the unused 4-byte floats at the end of level data (those
+        #  ones that all default to 1200.0 (20 minutes) that presumably would have been used to store best Challenge
+        #  Mode times, but appear to be unused.
         as_bytestring = self.read_bytes(CUSTOM_CHARACTER_1_NAME, 15)
         # STRANGER 1
         if as_bytestring[0] not in range(b"0"[0], b"9"[0] + 1):
@@ -1220,12 +1229,18 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     # todo: Store the multiworld seed name somewhere in the save file and check it before giving any
                     #  items or checking any locations. OR can we do this check when connecting and then immediately
                     #  disconnect if the seed name does not match?
+                    # todo: If the save file number is set to -1/255, write the multiworld seed to custom character 2's
+                    #  name, otherwise, read from their name instead and reject connections that do not match.
+                    #  For safety, the written multiworld seed should only use characters that players can use, so
+                    #  capital letters, numbers, space (no trailing), and "-" (were there more?).
                     # todo: Can we store the slot name somewhere too and check that also?
                     await give_items(ctx)
 
                     # Update game state for received items.
+                    # todo: These need to continue running following disconnection from the server.
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
+                    # todo: Bonus level management.
                     #await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_level_manager.update_game_state(ctx)
 
@@ -1239,22 +1254,6 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
 
                     # Send newly cleared locations to the server, if there are any.
                     await ctx.check_locations(new_location_checks)
-                    # todo: Should the ones below here still run even when disconnected? If they are not run, then a
-                    #  player could disconnect, buy a character from the shop, and then use that character without that
-                    #  character getting disabled. Similar for purchased, but not unlocked, extras becoming unlocked
-                    #  when they shouldn't because the AP item for the extra has not been received.
-                    # Constantly reset unlocked characters while in the Cantina room with the shop because purchasing a
-                    # character from the shop will unlock it for the player, but the unlock should be randomized, so we
-                    # need to reset to undo it.
-                    #await reset_characters_if_in_cantina_shop_room(ctx)
-                    # TODO: Check if it's just upon entering the Cantina, or if changing any level will re-unlock them.
-                    # Upon entering the cantina from another level, any extras purchased from the shop will re-unlock
-                    # themselves, but they should remain locked until they are received from the multiworld.
-                    #await reset_characters_and_extras_if_entering_cantina(ctx)
-                    # If an extra has been unlocked because it has been received, that extra cannot be purchased from
-                    # the shop, even if the shop slot has not been purchased. Temporarily disable the extra in the
-                    # active shop slot if the shop slot has not been purchased, but the extra has been unlocked.
-                    #await temporarily_disable_extra_of_unpurchased_active_extra_in_shop(ctx)
                 sleep_time = 0.5 #0.1
             else:
                 if not ctx.open_game_process():
