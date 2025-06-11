@@ -37,6 +37,7 @@ from .levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_
 
 
 logger = logging.getLogger("Client")
+debug_logger = logging.getLogger("TCS Debug")
 
 
 # FIXME/TODO: Where can we write the last received item index?
@@ -348,7 +349,7 @@ class UnlockedLevelManager:
             assert remaining_requirements
             assert character_ap_id in remaining_requirements, f"{ITEM_DATA_BY_ID[character_ap_id].name} not found in {sorted([ITEM_DATA_BY_ID[code] for code in remaining_requirements])}"
             remaining_requirements.remove(character_ap_id)
-            logger.info("Removed %s from %s requirements", ITEM_DATA_BY_ID[character_ap_id].name, dependent_area_short_name)
+            debug_logger.info("Removed %s from %s requirements", ITEM_DATA_BY_ID[character_ap_id].name, dependent_area_short_name)
             if not remaining_requirements:
                 self.pending_unlocks.append(SHORT_NAME_TO_LEVEL_AREA[dependent_area_short_name])
                 del self.remaining_level_item_requirements[dependent_area_short_name]
@@ -375,7 +376,7 @@ class UnlockedLevelManager:
     def unlock_level(ctx: "LegoStarWarsTheCompleteSagaContext", level_area: EpisodeGameLevelArea):
         # The first byte indicates whether the level is unlocked.
         ctx.write_byte(level_area.address, 1)
-        logger.info("Unlocked level %s (%s)", level_area.name, level_area.short_name)
+        debug_logger.info("Unlocked level %s (%s)", level_area.name, level_area.short_name)
 
     async def update_game_state(self, ctx: "LegoStarWarsTheCompleteSagaContext"):
         if not self.first_time_setup_complete:
@@ -655,7 +656,7 @@ class AcquiredExtras:
     #     self.unlocked_extras[extra.shop_slot_byte + self.MIN_RANDOMIZED_BYTE] &= ~extra.shop_slot_bit_mask
 
     def unlock_extra(self, extra: ExtraData):
-        logger.info("Unlocking extra %s", extra.name)
+        debug_logger.info("Unlocking extra %s", extra.name)
         byte_index = extra.shop_slot_byte - self.MIN_RANDOMIZED_BYTE
         self.unlocked_extras[byte_index] |= extra.shop_slot_bit_mask
 
@@ -966,7 +967,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         class LegoStarWarsTheCompleteSagaManager(GameManager):
             logging_pairs = [
-                ("Client", "Archipelago")
+                ("Client", "Archipelago"),
+                ("TCS Debug", "Debug"),
             ]
             base_title = "Archipelago Lego Star Wars: The Complete Saga Client"
 
@@ -1115,7 +1117,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def receive_item(self, code: int):
         from . import LegoStarWarsTCSWorld
         item_name = LegoStarWarsTCSWorld.item_id_to_name.get(code, f"Unknown {code}")
-        logger.info(f"Receiving item {item_name} from AP")
+        debug_logger.info(f"Receiving item {item_name} from AP")
         if code in self.acquired_generic.RECEIVABLE_GENERIC_BY_AP_ID:
             self.acquired_generic.receive_generic(self, code)
         elif code in self.acquired_characters.RECEIVABLE_CHARACTERS_BY_AP_ID:
@@ -1153,7 +1155,7 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
 
         # Check if the game rolled back its save data, the client needs to be reset and caught back up.
         if expected_idx_game < ctx.client_expected_idx:
-            logger.info("Resetting client received items due to game save data rollback")
+            debug_logger.info("Resetting client received items due to game save data rollback")
             ctx.reset_client()
             for idx, item in enumerate(received_items[:expected_idx_game]):
                 ctx.receive_item(item.item)
@@ -1161,7 +1163,7 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
 
         # Check if we are resuming a seed where the client is fresh and needs to be caught up.
         if ctx.client_expected_idx < expected_idx_game:
-            logger.info("Catching up client to game state")
+            debug_logger.info("Catching up client to game state")
             for idx, item in enumerate(received_items[expected_idx_client:expected_idx_game],
                                        start=expected_idx_client):
                 ctx.receive_item(item.item)
