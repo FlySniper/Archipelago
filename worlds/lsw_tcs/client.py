@@ -924,7 +924,7 @@ class NoProcessError(RuntimeError):
 
 
 class LegoStarWarsTheCompleteSagaContext(CommonContext):
-    game = GAME_NAME
+    game = "Manual_LegoStarWarsTheCompleteSaga_Mysteryem" # GAME_NAME
     items_handling = 0b111  # Fully remote
 
     game_process: pymem.Pymem | None = None
