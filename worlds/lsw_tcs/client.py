@@ -32,8 +32,8 @@ from .items import (
     GenericItemData,
     CHARACTER_SHOP_SLOTS,
 )
-from .locations import EXTRA_SHOP_LOCATION_START
-from .levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA
+from .locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
+from .levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA, BONUS_GAME_LEVEL_AREAS
 
 
 logger = logging.getLogger("Client")
@@ -48,6 +48,12 @@ logger = logging.getLogger("Client")
 
 # todo: How to detect GOG executable and offset all addresses?
 
+# Aliases for clarity in typing.
+MemoryAddress = int
+MemoryOffset = int
+BitMask = int
+LocationId = int
+
 
 PROCESS_NAME = "LEGOStarWarsSaga"
 
@@ -61,6 +67,20 @@ MEMORY_OFFSET_GOG = 0x20
 # Note, this is not the in-level stud count. We don't add to that, because it is not saved.
 STUD_COUNT = 0x86E4DC
 MAX_STUD_COUNT = 4_000_000_000
+
+CURRENT_GAME_MODE_ADDRESS = 0x87951C
+CURRENT_GAME_MODE_STORY = 0
+CURRENT_GAME_MODE_FREE_PLAY = 1
+# Per-level Challenge mode as well as per-episode character bonus and Superstory.
+# TODO: What do vehicle bonuses and separate bonus levels count as?
+CURRENT_GAME_MODE_CHALLENGE_BONUS = 2
+
+# The most stable byte I could find to determine the difference between the 'status' screen when using "Save and Exit
+# Cantina" and when completing a level, in Free Play. What this byte controls is unknown.
+# Seems to always be 0x8 when using "Save and Quit", and 0x0 when completing a level.
+STATUS_LEVEL_TYPE_ADDRESS = 0x87A6D9
+# STATUS_LEVEL_TYPE_SAVE_AND_EXIT = 0x8
+STATUS_LEVEL_TYPE_LEVEL_COMPLETION = 0x0
 
 CURRENT_LEVEL_ID = 0x951BA0  # 2 bytes (or more)
 # While in the Cantina and in the shop room, all extras that have been received, but not purchased, must be locked,
@@ -198,25 +218,55 @@ MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {k: {_s8(k2): v2 for 
                                                             for k, v in _MINIKIT_ADDRESSES_AND_NAMES.items()}
 
 
-def _extras_to_shop_address() -> dict[int, dict[int, int]]:
+def _extras_to_shop_address() -> dict[MemoryOffset, dict[BitMask, LocationId]]:
     """Purchase <extra> shop ID -> AP Location ID"""
-    per_byte: dict[int, dict[int, int]] = {}
-    for item_data in ITEM_DATA:
-        if not isinstance(item_data, ExtraData):
-            continue
-        if item_data.name == "Adaptive Difficulty":
+    per_byte: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
+    for extra_data in EXTRAS_BY_NAME.values():
+        if extra_data.name == "Adaptive Difficulty":
             # Not present in the shop because it is always unlocked
             continue
-        byte_offset = item_data.extra_number // 8
-        bit = 1 << (item_data.extra_number % 8)
-        location_id = item_data.extra_number + EXTRA_SHOP_LOCATION_START
-        per_byte.setdefault(byte_offset, {})[bit] = location_id
+        if extra_data.code == -1:
+            # Not implemented yet
+            continue
+        byte_offset = extra_data.extra_number // 8
+        bit_mask = 1 << (extra_data.extra_number % 8)
+        if extra_data.level_shortname is not None:
+            location_name = f"Purchase {extra_data.name} ({extra_data.level_shortname})"
+        else:
+            location_name = f"Purchase {extra_data.name}"
+        assert location_name in LOCATION_NAME_TO_ID, f"ERROR: {location_name} is not a location name"
+        location_id = LOCATION_NAME_TO_ID[location_name]
+        per_byte.setdefault(byte_offset, {})[bit_mask] = location_id
     # todo: list[tuple[int, dict[int, int]]] for better iteration performance?
     # return list(per_byte.items())
     return per_byte
 
 
-EXTRAS_SHOP_OFFSETS_TO_AP_LOCATIONS = _extras_to_shop_address()
+EXTRAS_SHOP_OFFSETS_TO_AP_LOCATIONS: dict[MemoryOffset, dict[BitMask, LocationId]] = _extras_to_shop_address()
+
+
+def _characters_to_shop_address() -> dict[MemoryOffset, dict[BitMask, LocationId]]:
+    per_byte: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
+    for character in CHARACTERS_AND_VEHICLES_BY_NAME.values():
+        if character.shop_slot == -1:
+            # Not present in the shop.
+            continue
+        if character.code == -1:
+            # Not implemented yet.
+            continue
+        if character.name in ("Indiana Jones", "Princess Leia (Prisoner)", "TIE Interceptor"):
+            # todo: Needs to be added as an Archipelago location
+            continue
+        byte_offset = character.shop_slot // 8
+        bit_mask = 1 << (character.shop_slot % 8)
+        location_name = f"Purchase {character.name}"
+        assert location_name in LOCATION_NAME_TO_ID, f"Error: {location_name} is not a location name"
+        location_id = LOCATION_NAME_TO_ID[location_name]
+        per_byte.setdefault(byte_offset, {})[bit_mask] = location_id
+    return per_byte
+
+
+CHARACTER_SHOP_OFFSETS_TO_AP_LOCATIONS: dict[MemoryOffset, dict[BitMask, LocationId]] = _characters_to_shop_address()
 
 
 def _read_extras_purchase_locations(process: pymem.Pymem) -> set[int]:
@@ -669,21 +719,189 @@ class AcquiredExtras:
         ctx.write_bytes(self.START_ADDRESS, bytes(unlocked_extras_copy), self.NUM_RANDOMIZED_BYTES)
 
 
-class PurchasedCharacters:
-    pass
+# TODO: How quickly can a player reasonably skip through the level completion screen? Do we need to check for level
+#  completion with a higher frequency than how often the game watcher is checking?
+class FreePlayLevelCompletionChecker:
+    """
+    Check if the player has completed a free play level by looking for the ending screen that tallies up new
+    studs/minikits.
+
+    There appears to be no persistent storage in the game's memory or save data for whether a level has been completed
+    in Free Play, so the client
+    """
+    STATUS_LEVEL_ID_TO_AP_ID = {
+        area.status_level_id: LOCATION_NAME_TO_ID[LEVEL_COMMON_LOCATIONS[area.short_name]["Completion"]]
+        for area in GAME_LEVEL_AREAS
+    }
+
+    sent_locations: set[LocationId]
+
+    def __init__(self):
+        self.sent_locations = set()
+
+    async def check_completion(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[LocationId]):
+        # Level ID should be checked first because STATUS_LEVEL_TYPE_ADDRESS can be STATUS_LEVEL_TYPE_LEVEL_COMPLETION
+        # during normal gameplay, so it would be possible for STATUS_LEVEL_TYPE_ADDRESS to match and then the player
+        # does 'Save and Exit', changing the Level ID to
+        completion_location_id = self.STATUS_LEVEL_ID_TO_AP_ID.get(ctx.get_current_level_id())
+        if (completion_location_id is not None
+                and completion_location_id in ctx.missing_locations
+                and ctx.read_uchar(CURRENT_GAME_MODE_ADDRESS) == CURRENT_GAME_MODE_FREE_PLAY
+                and ctx.read_uchar(STATUS_LEVEL_TYPE_ADDRESS) == STATUS_LEVEL_TYPE_LEVEL_COMPLETION):
+            self.sent_locations.add(completion_location_id)
+
+        self.sent_locations.difference_update(ctx.checked_locations)
+
+        # Locations to send to the server will be filtered to only those in ctx.missing_locations, so include everything
+        # up to this point in-case one was missed in a disconnect.
+        new_location_checks.extend(self.sent_locations)
 
 
-class PurchasedExtras:
-    ALL_PURCHASABLE_EXTRAS = EXTRAS_BY_NAME.copy()
-    del ALL_PURCHASABLE_EXTRAS["Adaptive Difficulty"]
+class BonusLevelCompletionChecker:
+    # Anakin's Flight and A New Hope support Free Play, but the rest are Story mode only.
+    remaining_story_completion_checks: dict[MemoryAddress, LocationId]
 
-    data: bytearray
+    def __init__(self):
+        self.remaining_story_completion_checks = {
+            bonus.address + bonus.completion_offset: LOCATION_NAME_TO_ID[bonus.name] for bonus in BONUS_GAME_LEVEL_AREAS
+        }
 
-    # def __init__(self):
-    #     start_byte_index = 1
-    #     assert self.ALL_PURCHASABLE_EXTRAS["Super Gonk"].shop_slot_byte == start_byte_index
-    #     end_byte_index_inclusive =
+    async def check_completion(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[int]):
+        updated_remaining_story_completion_checks = {}
+        for address, ap_id in self.remaining_story_completion_checks.items():
+            if ap_id in ctx.checked_locations:
+                continue
+            if ctx.read_uchar(address):
+                new_location_checks.append(ap_id)
+            updated_remaining_story_completion_checks[address] = ap_id
+        self.remaining_story_completion_checks = updated_remaining_story_completion_checks
 
+
+class TrueJediAndMinikitChecker:
+    remaining_true_jedi_checks: list[str]
+    remaining_minikit_checks: dict[str, list[tuple[int, str]]]
+
+    def __init__(self):
+        self.remaining_true_jedi_checks = list(LEVEL_COMMON_LOCATIONS.keys())
+        self.remaining_minikit_checks = {
+            name: list(enumerate(data["Minikits"], start=1)) for name, data in LEVEL_COMMON_LOCATIONS.items()
+        }
+
+    async def check_true_jedi_and_minikits(self,
+                                           ctx: "LegoStarWarsTheCompleteSagaContext",
+                                           new_location_checks: list[int]):
+        # todo: More smartly read only as many bytes as necessary. So only 1 byte when either the True Jedi is complete
+        #  or all Minikits have been collected.
+        cached_bytes: dict[str, tuple[int, int]] = {}
+
+        def get_bytes_for_short_name(short_name: str):
+            if short_name in cached_bytes:
+                return cached_bytes[short_name]
+            else:
+                # True Jedi seems to be at the 4th byte (maybe it is the 3rd because they both get activated?), Minikit
+                # count is at the 6th byte. To reduce memory reads, both are retrieved simultaneously.
+                read_bytes = ctx.read_bytes(SHORT_NAME_TO_LEVEL_AREA[short_name].address + 3, 3)
+                true_jedi_byte = read_bytes[0]
+                minikit_count_byte = read_bytes[2]
+                new_bytes = (true_jedi_byte, minikit_count_byte)
+                cached_bytes[short_name] = new_bytes
+                return new_bytes
+
+        updated_remaining_true_jedi_checks: list[str] = []
+        for shortname in self.remaining_true_jedi_checks:
+            location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
+            location_id = LOCATION_NAME_TO_ID[location_name]
+            if location_id in ctx.checked_locations:
+                continue
+            true_jedi = get_bytes_for_short_name(shortname)[0]
+            if true_jedi:
+                new_location_checks.append(location_id)
+            updated_remaining_true_jedi_checks.append(shortname)
+        self.remaining_true_jedi_checks = updated_remaining_true_jedi_checks
+
+        updated_remaining_minikit_checks: dict[str, list[tuple[int, str]]] = {}
+        for shortname, remaining_minikits in self.remaining_minikit_checks.items():
+            not_checked_minikit_checks: list[int] = []
+            updated_remaining_minikits: list[tuple[int, str]] = []
+            for count, location_name in remaining_minikits:
+                location_id = LOCATION_NAME_TO_ID[location_name]
+                if location_id not in ctx.checked_locations:
+                    not_checked_minikit_checks.append(location_id)
+                    updated_remaining_minikits.append((count, location_name))
+            if updated_remaining_minikits:
+                updated_remaining_minikit_checks[shortname] = updated_remaining_minikits
+
+                minikit_count = get_bytes_for_short_name(shortname)[1]
+                zipped = zip(updated_remaining_minikits, not_checked_minikit_checks, strict=True)
+                for (count, _name), location_id in zipped:
+                    if minikit_count >= count:
+                        new_location_checks.append(location_id)
+        self.remaining_minikit_checks = updated_remaining_minikit_checks
+
+
+# TODO: Deduplicate the Extras and Characters checkers
+class PurchasedCharactersChecker:
+    remaining_character_purchases: dict[MemoryOffset, dict[BitMask, LocationId]]
+
+    def __init__(self):
+        self.remaining_character_purchases = {byte_offset: bit_mask_to_ap_id.copy() for byte_offset, bit_mask_to_ap_id
+                                              in CHARACTER_SHOP_OFFSETS_TO_AP_LOCATIONS.items()}
+        self.remaining_min_byte = min(self.remaining_character_purchases.keys())
+        self.remaining_max_byte = max(self.remaining_character_purchases.keys())
+
+    async def check_extra_purchases(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[int]):
+        server_checked_locations = ctx.checked_locations
+        updated_remaining_character_purchases: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
+        for byte_offset, bit_mask_to_ap_id in self.remaining_character_purchases.items():
+            updated_bit_to_ap_id: dict[BitMask, LocationId] = {bit: ap_id for bit, ap_id in bit_mask_to_ap_id.items()
+                                                               if ap_id not in server_checked_locations}
+            if updated_bit_to_ap_id:
+                updated_remaining_character_purchases[byte_offset] = updated_bit_to_ap_id
+
+        if updated_remaining_character_purchases:
+            min_byte_offset = min(updated_remaining_character_purchases.keys())
+            max_byte_offset = max(updated_remaining_character_purchases.keys())
+            num_bytes = max_byte_offset - min_byte_offset + 1
+            characters_shop_bytes = ctx.read_bytes(CHARACTERS_SHOP_START + min_byte_offset, num_bytes)
+
+            for byte_offset, bit_mask_to_ap_id in updated_remaining_character_purchases.items():
+                shop_byte = characters_shop_bytes[byte_offset - min_byte_offset]
+                for bit_mask, ap_id in bit_mask_to_ap_id.items():
+                    if shop_byte & bit_mask:
+                        new_location_checks.append(ap_id)
+        self.remaining_character_purchases = updated_remaining_character_purchases
+
+
+class PurchasedExtrasChecker:
+    remaining_extra_purchases: dict[MemoryOffset, dict[BitMask, LocationId]]
+
+    def __init__(self):
+        self.remaining_extra_purchases = {byte_offset: bit_mask_to_ap_id.copy() for byte_offset, bit_mask_to_ap_id
+                                          in EXTRAS_SHOP_OFFSETS_TO_AP_LOCATIONS.items()}
+        self.remaining_min_byte = min(self.remaining_extra_purchases.keys())
+        self.remaining_max_byte = max(self.remaining_extra_purchases.keys())
+
+    async def check_extra_purchases(self, ctx: "LegoStarWarsTheCompleteSagaContext", new_location_checks: list[int]):
+        server_checked_locations = ctx.checked_locations
+        updated_remaining_extra_purchases: dict[MemoryOffset, dict[BitMask, LocationId]] = {}
+        for byte_offset, bit_mask_to_ap_id in self.remaining_extra_purchases.items():
+            updated_bit_to_ap_id: dict[BitMask, LocationId] = {bit: ap_id for bit, ap_id in bit_mask_to_ap_id.items()
+                                                               if ap_id not in server_checked_locations}
+            if updated_bit_to_ap_id:
+                updated_remaining_extra_purchases[byte_offset] = updated_bit_to_ap_id
+
+        if updated_remaining_extra_purchases:
+            min_byte_offset = min(updated_remaining_extra_purchases.keys())
+            max_byte_offset = max(updated_remaining_extra_purchases.keys())
+            num_bytes = max_byte_offset - min_byte_offset + 1
+            extras_shop_bytes = ctx.read_bytes(EXTRAS_SHOP_START + min_byte_offset, num_bytes)
+
+            for byte_offset, bit_mask_to_ap_id in updated_remaining_extra_purchases.items():
+                shop_byte = extras_shop_bytes[byte_offset - min_byte_offset]
+                for bit_mask, ap_id in bit_mask_to_ap_id.items():
+                    if shop_byte & bit_mask:
+                        new_location_checks.append(ap_id)
+        self.remaining_extra_purchases = updated_remaining_extra_purchases
 
 # class PurchasedGoldBricks:
 #     pass
@@ -710,6 +928,14 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_generic: AcquiredGeneric
     unlocked_level_manager: UnlockedLevelManager
     client_expected_idx: int
+
+    # Location checkers.
+    free_play_completion_checker: FreePlayLevelCompletionChecker
+    true_jedi_and_minikit_checker: TrueJediAndMinikitChecker
+    purchased_extras_checker: PurchasedExtrasChecker
+    purchased_characters_checker: PurchasedCharactersChecker
+    bonus_level_completion_checker: BonusLevelCompletionChecker
+
     fully_connected: bool
 
     def __init__(self, server_address: typing.Optional[str] = None, password: typing.Optional[str] = None) -> None:
@@ -720,13 +946,18 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
         self.unlocked_level_manager = UnlockedLevelManager()
+        self.free_play_completion_checker = FreePlayLevelCompletionChecker()
+        self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
+        self.purchased_extras_checker = PurchasedExtrasChecker()
+        self.purchased_characters_checker = PurchasedCharactersChecker()
+        self.bonus_level_completion_checker = BonusLevelCompletionChecker()
         self.client_expected_idx = 0
         self.fully_connected = False
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
         if cmd == "Connected":
-            self.reset_client_received_items()
+            self.reset_client()
             self.client_expected_idx = 0
             self.fully_connected = True
 
@@ -746,7 +977,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # todo: What are the connect and disconnect methods to override?
         # todo: When receiving item index 0, we also want to destroy and re-create the 'acquired' attributes.
         # todo: Do we want to replace these when connecting instead?
-        self.reset_client_received_items()
+        self.reset_client()
         self.fully_connected = False
         return await super().disconnect(allow_autoreconnect)
 
@@ -895,12 +1126,17 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             logger.warning(f"Received unknown item with AP ID {code}")
 
-    def reset_client_received_items(self):
+    def reset_client(self):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
         self.unlocked_level_manager = UnlockedLevelManager()
         self.client_expected_idx = 0
+        self.free_play_completion_checker = FreePlayLevelCompletionChecker()
+        self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
+        self.purchased_extras_checker = PurchasedExtrasChecker()
+        self.purchased_characters_checker = PurchasedCharactersChecker()
+        self.bonus_level_completion_checker = BonusLevelCompletionChecker()
 
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
@@ -918,7 +1154,7 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
         # Check if the game rolled back its save data, the client needs to be reset and caught back up.
         if expected_idx_game < ctx.client_expected_idx:
             logger.info("Resetting client received items due to game save data rollback")
-            ctx.reset_client_received_items()
+            ctx.reset_client()
             for idx, item in enumerate(received_items[:expected_idx_game]):
                 ctx.receive_item(item.item)
                 ctx.client_expected_idx = idx + 1
@@ -984,12 +1220,23 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     #  disconnect if the seed name does not match?
                     # todo: Can we store the slot name somewhere too and check that also?
                     await give_items(ctx)
+
+                    # Update game state for received items.
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
                     #await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_level_manager.update_game_state(ctx)
-                    #await check_locations(ctx)
-                    #await _read_extras_purchase_locations(ctx.game_process)
+
+                    # Check for newly cleared locations.
+                    new_location_checks: list[int] = []
+                    await ctx.free_play_completion_checker.check_completion(ctx, new_location_checks)
+                    await ctx.true_jedi_and_minikit_checker.check_true_jedi_and_minikits(ctx, new_location_checks)
+                    await ctx.purchased_extras_checker.check_extra_purchases(ctx, new_location_checks)
+                    await ctx.purchased_characters_checker.check_extra_purchases(ctx, new_location_checks)
+                    await ctx.bonus_level_completion_checker.check_completion(ctx, new_location_checks)
+
+                    # Send newly cleared locations to the server, if there are any.
+                    await ctx.check_locations(new_location_checks)
                     # todo: Should the ones below here still run even when disconnected? If they are not run, then a
                     #  player could disconnect, buy a character from the shop, and then use that character without that
                     #  character getting disabled. Similar for purchased, but not unlocked, extras becoming unlocked

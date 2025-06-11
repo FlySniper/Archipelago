@@ -1,3 +1,6 @@
+import itertools
+from typing import ClassVar, TypedDict
+
 EXTRA_SHOP_LOCATION_START = 1000
 
 # Watching the Indiana Jones trailer allows for Indiana Jones to be purchased from the shop, this should be a new
@@ -9,6 +12,51 @@ EXTRA_SHOP_LOCATION_START = 1000
 # FIXME: General Grevious is unlocked for purchase as part of 3-2 currently, but should be 3-3!
 # FIXME: Rebel Trooper (Hoth), Rebel Pilot, Snowtrooper are unlocked for purchase as part of 5-1 currently, but should be 5-2!
 # FIXME: Purchase Princess Leia (Prisoner) should be unlocked for purchase as part of 5-6, but is missing as a location check
+
+LEVEL_SHORT_NAMES = [f"{episode}-{chapter}" for episode, chapter in itertools.product(range(1, 7), range(1, 7))]
+
+
+class LevelLocationData:
+    MINIKIT_COUNT_OFFSET: ClassVar[int] = 5
+    COMPLETION_OFFSET: ClassVar[int] = 8  # todo: Is this were we can get the unused 'best completion time'?
+
+    minikits: tuple[str, ...]
+    completion: str
+    true_jedi: str
+    purchases: tuple[str, ...]
+
+    def __init__(self, short_name: str):
+        self.minikits = tuple([f"{short_name} Minikit {i+1}" for i in range(10)])
+        self.completion = f"{short_name} Completion"
+        self.true_jedi = f"{short_name} True Jedi"
+        # Set later
+        self.purchases = ()
+
+LEVEL_LOCATION_DATA: dict[str, LevelLocationData] = {
+
+}
+
+# todo: Replace this with a class.
+LevelDict = TypedDict(
+    "LevelDict",
+    {
+        "Minikits": list[str],
+        "Completion": str,
+        "True Jedi": str,
+    }
+)
+
+LEVEL_COMMON_LOCATIONS: dict[str, LevelDict] = {
+    name: {
+        "Minikits": [f"{name} Minikit {i+1}" for i in range(10)],
+        "Completion": f"{name} Completion",
+        "True Jedi": f"{name} True Jedi",
+    }
+    for name in LEVEL_SHORT_NAMES
+}
+LEVEL_COMPLETION = {
+
+}
 
 # TODO: Copied from the manual world's datapackage, to be reworked.
 LOCATION_NAME_TO_ID = {
@@ -39,7 +87,7 @@ LOCATION_NAME_TO_ID = {
     "Purchase Kit Fisto": 25,
     "Purchase Shaak Ti": 26,
     "Purchase Aayla Secura": 27,
-    "Purchase Plo Kloon": 28,
+    "Purchase Plo Koon": 28,
     "Purchase Count Dooku": 29,
     "Purchase Grievous' Bodyguard": 30,
     "Purchase General Grievous": 31,
@@ -90,7 +138,7 @@ LOCATION_NAME_TO_ID = {
     "Purchase Padmé": 76,
     "Purchase Luke Skywalker (Hoth)": 77,
     "Purchase Super Gonk (1-1)": 78,
-    "Purchase Fertilizer (1-2)": 79,
+    "Purchase Poo Money (1-2)": 79,
     "Purchase Walkie Talkie Disable (1-3)": 80,
     "Purchase Red Brick Detector (1-4)": 81,
     "Purchase Super Slap (1-5)": 82,
@@ -104,7 +152,7 @@ LOCATION_NAME_TO_ID = {
     "Purchase Vehicle Smart Bomb (3-1)": 90,
     "Purchase Super Astromech (3-2)": 91,
     "Purchase Super Jedi Slam (3-3)": 92,
-    "Purchase Super Thermal Detector (3-4)": 93,
+    "Purchase Super Thermal Detonator (3-4)": 93,
     "Purchase Deflect Bolts (3-5)": 94,
     "Purchase Dark Side (3-6)": 95,
     "Purchase Super Blasters (4-1)": 96,
@@ -554,11 +602,11 @@ LOCATION_NAME_TO_ID = {
     "6-5 Completion": 540,
     "6-6 Completion": 541,
     "Slave I": 542,
-    "Purchase Score x4": 543,
-    "Purchase Score x6": 544,
-    "Purchase Score x8": 545,
-    "Purchase Score x10": 546,
-    "Mos Espa Podrace (Original)": 547,
+    "Purchase Score x4 (5-3)": 543,
+    "Purchase Score x6 (5-5)": 544,
+    "Purchase Score x8 (6-3)": 545,
+    "Purchase Score x10 (6-5)": 546,
+    "Mos Espa Pod Race (Original)": 547,
     "Anakin's Flight": 548,
     "Gunship Cavalry (Original)": 549,
     "A New Hope (Bonus Level)": 550,

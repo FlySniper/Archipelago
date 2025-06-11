@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass, field
 
 
@@ -20,6 +21,9 @@ class EpisodeGameLevelArea:
     # level_ids: set[int]
     # The address in the in-memory save data that stores most of the Area information.
     address: int
+    # The level ID of the 'status' screen used when tallying up collected studs/minikits/etc., either from
+    # "Save and Exit to Cantina", or from completing the level.
+    status_level_id: int
     ## The address of each level in the area with minikits, and the names of the minikits in that level.
     #minikit_address_to_names: dict[int, set[str]]
     short_name: str = field(init=False)
@@ -33,6 +37,15 @@ class EpisodeGameLevelArea:
         else:
             item_requirements = frozenset(character_requirements.union({f"Episode {self.episode} Unlock"}))
         object.__setattr__(self, "item_requirements", item_requirements)
+
+
+@dataclass(frozen=True)
+class BonusGameLevelArea:
+    name: str
+    address: int
+    completion_offset: int
+    status_level_id: int  # todo: probably not needed
+    item_requirements: Counter[str]
 
 
 # GameLevelArea short_name to the set of characters needed to unlock that GameLevelArea
@@ -245,42 +258,82 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
 # TODO: Record level IDs, these would mostly be there to help make map switching in the tracker easier, and would serve
 #  as a record of data that might be useful for others.
 GAME_LEVEL_AREAS = [
-    EpisodeGameLevelArea("Negotiations", 1, 1, 0x86E0F4),
-    EpisodeGameLevelArea("Invasion of Naboo", 1, 2, 0x86E100),
-    EpisodeGameLevelArea("Escape From Naboo", 1, 3, 0x86E10C),
-    EpisodeGameLevelArea("Mos Espa Podrace", 1, 4, 0x86E118),
-    EpisodeGameLevelArea("Retake Theed Palace", 1, 5, 0x86E130),
-    EpisodeGameLevelArea("Darth Maul", 1, 6, 0x86E13C),
-    EpisodeGameLevelArea("Bounty Hunter Pursuit", 2, 1, 0x86E16C),
-    EpisodeGameLevelArea("Discovery On Kamino", 2, 2, 0x86E178),
-    EpisodeGameLevelArea("Droid Factory", 2, 3, 0x86E184),
-    EpisodeGameLevelArea("Jedi Battle", 2, 4, 0x86E190),
-    EpisodeGameLevelArea("Gunship Cavalry", 2, 5, 0x86E19C),
-    EpisodeGameLevelArea("Count Dooku", 2, 6, 0x86E1B4),
-    EpisodeGameLevelArea("Battle Over Coruscant", 3, 1, 0x86E1E4),
-    EpisodeGameLevelArea("Chancellor In Peril", 3, 2, 0x86E1F0),
-    EpisodeGameLevelArea("General Grievous", 3, 3, 0x86E1FC),
-    EpisodeGameLevelArea("Defense Of Kashyyyk", 3, 4, 0x86E208),
-    EpisodeGameLevelArea("Ruin Of The Jedi", 3, 5, 0x86E214),
-    EpisodeGameLevelArea("Darth Vader", 3, 6, 0x86E220),
-    EpisodeGameLevelArea("Secret Plans", 4, 1, 0x86E25C),
-    EpisodeGameLevelArea("Through The Jundland Wastes", 4, 2, 0x86E268),
-    EpisodeGameLevelArea("Mos Eisley Spaceport", 4, 3, 0x86E274),
-    EpisodeGameLevelArea("Rescue The Princess", 4, 4, 0x86E280),
-    EpisodeGameLevelArea("Death Star Escape", 4, 5, 0x86E28C),
-    EpisodeGameLevelArea("Rebel Attack", 4, 6, 0x86E298),
-    EpisodeGameLevelArea("Hoth Battle", 5, 1, 0x86E2C8),
-    EpisodeGameLevelArea("Escape From Echo Base", 5, 2, 0x86E2D4),
-    EpisodeGameLevelArea("Falcon Flight", 5, 3, 0x86E2E0),
-    EpisodeGameLevelArea("Dagobah", 5, 4, 0x86E2EC),
-    EpisodeGameLevelArea("Betrayal Over Bespin", 5, 5, 0x86E2F8),
-    EpisodeGameLevelArea("Cloud City Trap", 5, 6, 0x86E304),
-    EpisodeGameLevelArea("Jabba's Palace", 6, 1, 0x86E334),
-    EpisodeGameLevelArea("The Great Pit Of Carkoon", 6, 2, 0x86E340),
-    EpisodeGameLevelArea("Speeder Showdown", 6, 3, 0x86E34C),
-    EpisodeGameLevelArea("The Battle Of Endor", 6, 4, 0x86E358),
-    EpisodeGameLevelArea("Jedi Destiny", 6, 5, 0x86E364),
-    EpisodeGameLevelArea("Into The Death Star", 6, 6, 0x86E370),
+    EpisodeGameLevelArea("Negotiations", 1, 1, 0x86E0F4, 7),
+    EpisodeGameLevelArea("Invasion of Naboo", 1, 2, 0x86E100, 15),
+    EpisodeGameLevelArea("Escape From Naboo", 1, 3, 0x86E10C, 24),
+    EpisodeGameLevelArea("Mos Espa Pod Race", 1, 4, 0x86E118, 37),
+    EpisodeGameLevelArea("Retake Theed Palace", 1, 5, 0x86E130, 48),
+    EpisodeGameLevelArea("Darth Maul", 1, 6, 0x86E13C, 55),
+    EpisodeGameLevelArea("Bounty Hunter Pursuit", 2, 1, 0x86E16C, 68),
+    EpisodeGameLevelArea("Discovery On Kamino", 2, 2, 0x86E178, 78),
+    EpisodeGameLevelArea("Droid Factory", 2, 3, 0x86E184, 88),
+    EpisodeGameLevelArea("Jedi Battle", 2, 4, 0x86E190, 92),
+    EpisodeGameLevelArea("Gunship Cavalry", 2, 5, 0x86E19C, 95),
+    EpisodeGameLevelArea("Count Dooku", 2, 6, 0x86E1B4, 103),
+    EpisodeGameLevelArea("Battle Over Coruscant", 3, 1, 0x86E1E4, 111),
+    EpisodeGameLevelArea("Chancellor In Peril", 3, 2, 0x86E1F0, 121),
+    EpisodeGameLevelArea("General Grievous", 3, 3, 0x86E1FC, 123),
+    EpisodeGameLevelArea("Defense Of Kashyyyk", 3, 4, 0x86E208, 128),
+    EpisodeGameLevelArea("Ruin Of The Jedi", 3, 5, 0x86E214, 134),
+    EpisodeGameLevelArea("Darth Vader", 3, 6, 0x86E220, 139),
+    EpisodeGameLevelArea("Secret Plans", 4, 1, 0x86E25C, 159),
+    EpisodeGameLevelArea("Through The Jundland Wastes", 4, 2, 0x86E268, 167),
+    EpisodeGameLevelArea("Mos Eisley Spaceport", 4, 3, 0x86E274, 177),
+    EpisodeGameLevelArea("Rescue The Princess", 4, 4, 0x86E280, 185),
+    EpisodeGameLevelArea("Death Star Escape", 4, 5, 0x86E28C, 192),
+    EpisodeGameLevelArea("Rebel Attack", 4, 6, 0x86E298, 203),
+    EpisodeGameLevelArea("Hoth Battle", 5, 1, 0x86E2C8, 219),
+    EpisodeGameLevelArea("Escape From Echo Base", 5, 2, 0x86E2D4, 228),
+    EpisodeGameLevelArea("Falcon Flight", 5, 3, 0x86E2E0, 236),
+    EpisodeGameLevelArea("Dagobah", 5, 4, 0x86E2EC, 244),
+    EpisodeGameLevelArea("Betrayal Over Bespin", 5, 5, 0x86E2F8, 251),
+    EpisodeGameLevelArea("Cloud City Trap", 5, 6, 0x86E304, 257),
+    EpisodeGameLevelArea("Jabba's Palace", 6, 1, 0x86E334, 271),
+    EpisodeGameLevelArea("The Great Pit Of Carkoon", 6, 2, 0x86E340, 277),
+    EpisodeGameLevelArea("Speeder Showdown", 6, 3, 0x86E34C, 279),
+    EpisodeGameLevelArea("The Battle Of Endor", 6, 4, 0x86E358, 286),
+    EpisodeGameLevelArea("Jedi Destiny", 6, 5, 0x86E364, 301),
+    EpisodeGameLevelArea("Into The Death Star", 6, 6, 0x86E370, 297),
+]
+
+BONUS_GAME_LEVEL_AREAS = [
+    BonusGameLevelArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, Counter({
+        "Anakin's Podracer": 1,
+        "Progressive Bonus Level": 1,
+    })),
+    # There are a number of test levels in LEVELS.TXT that seem to not be counted, so the level IDs for Anakin's Flight
+    # do not match what is expected:
+    # Intro = 327
+    # A = 328
+    # B = 329
+    # C = 330
+    # Outro1 = 331
+    # Outro2 = 332
+    # Status = 333
+    BonusGameLevelArea("Anakin's Flight", 0x86E3AC, 0x1, 333, Counter({
+        "Naboo Starfighter": 1,
+        "Progressive Bonus Level": 2,
+    })),
+    BonusGameLevelArea("Gunship Cavalry (Original)", 0x86E1A8, 0x1, 98, Counter({
+        "Republic Gunship": 1,
+        "Progressive Bonus Level": 3,
+    })),
+    BonusGameLevelArea("A New Hope (Bonus Level)", 0x86E3B8, 0x8, 150, Counter({
+        "Darth Vader": 1,
+        "Stormtrooper": 1,
+        "C-3PO": 1,
+        "Progressive Bonus Level": 4,
+    })),
+    BonusGameLevelArea("LEGO City", 0x86E3B8, 0x1, 311, Counter({
+        "Progressive Bonus Level": 5,
+    })),
+    BonusGameLevelArea("New Town", 0x86E3A0, 0x1, 309, Counter({
+        "Progressive Bonus Level": 6,
+    })),
+    # The bonus level was never completed, so there is just the trailer to watch (which can be skipped immediately).
+    BonusGameLevelArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, Counter({
+        "Progressive Bonus Level": 1,
+    }))
 ]
 
 SHORT_NAME_TO_LEVEL_AREA = {area.short_name: area for area in GAME_LEVEL_AREAS}
