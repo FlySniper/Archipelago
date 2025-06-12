@@ -3,6 +3,7 @@ import logging
 from ..common_addresses import CHARACTERS_SHOP_START, ShopType
 from ..type_aliases import TCSContext, ApItemId
 from ...items import CHARACTERS_AND_VEHICLES_BY_NAME, GenericCharacterData, CHARACTER_SHOP_SLOTS
+from . import ItemReceiver
 
 
 UNLOCKED_CHARACTERS_ADDRESS = 0x86E5C0
@@ -32,7 +33,8 @@ SHOP_INDEX_TO_CHARACTER_INDEX: dict[int, int] = {
 logger = logging.getLogger("Client")
 
 
-class AcquiredCharacters:
+class AcquiredCharacters(ItemReceiver):
+    receivable_ap_ids = RECEIVABLE_CHARACTERS_BY_AP_ID
 
     # Buying a character from the shop unlocks a character even though it shouldn't because it is supposed to be a
     # randomized location check, so unlockable characters need to be reset occasionally.

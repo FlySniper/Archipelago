@@ -4,6 +4,7 @@ from typing import Mapping, Sequence
 from ..common_addresses import ShopType, EXTRAS_SHOP_START
 from ..type_aliases import TCSContext, ApItemId, BitMask, MemoryOffset
 from ...items import ExtraData, EXTRAS_BY_NAME
+from . import ItemReceiver
 
 
 logger = logging.getLogger("Client")
@@ -74,7 +75,8 @@ NON_RANDOMIZED_BITS_IN_RANDOMIZED_BYTES, RANDOMIZED_EXTRAS_IN_PARTIALLY_RANDOMIZ
 START_ADDRESS = UNLOCKED_EXTRAS_ADDRESS + MIN_RANDOMIZED_BYTE
 
 
-class AcquiredExtras:
+class AcquiredExtras(ItemReceiver):
+    receivable_ap_ids = RECEIVABLE_EXTRAS_BY_AP_ID
     unlocked_extras: bytearray
 
     def __init__(self):

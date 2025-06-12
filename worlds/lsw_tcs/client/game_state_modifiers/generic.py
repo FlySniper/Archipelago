@@ -1,11 +1,12 @@
 import logging
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, AbstractSet
 
 from ..type_aliases import TCSContext
 from ...items import GENERIC_BY_NAME, ExtraData, EXTRAS_BY_NAME, CHARACTERS_AND_VEHICLES_BY_NAME, GenericItemData
+from . import ItemReceiver
 
 RECEIVABLE_GENERIC_BY_AP_ID: Mapping[int, GenericItemData] = {
-    item.code: item for item in GENERIC_BY_NAME.values() if item.code != -1
+    item.code: item for item in GENERIC_BY_NAME.values() if item.code != -1 and not item.name.endswith("Stud")
 }
 EPISODE_UNLOCKS: Mapping[int, int] = {
     GENERIC_BY_NAME[f"Episode {i} Unlock"].code: i for i in range(2, 6+1)
@@ -33,14 +34,6 @@ BONUS_CHARACTER_REQUIREMENTS: Mapping[int, AbstractSet[int]] = {
     4: {CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index
         for name in ("Darth Vader", "Stormtrooper", "C-3PO")},
 }
-STUDS: Mapping[int, int] = {
-    GENERIC_BY_NAME["Purple Stud"].code: 10000
-}
-
-
-# Note, this is not the in-level stud count. We don't add to that, because it is not saved.
-STUD_COUNT_ADDRESS = 0x86E4DC
-MAX_STUD_COUNT = 4_000_000_000
 
 BONUSES_BASE_ADDRESS = 0x86E4E4
 
@@ -48,7 +41,9 @@ BONUSES_BASE_ADDRESS = 0x86E4E4
 logger = logging.getLogger("Client")
 
 
-class AcquiredGeneric:
+class AcquiredGeneric(ItemReceiver):
+    receivable_ap_ids = RECEIVABLE_GENERIC_BY_AP_ID
+
     unlocked_episodes: set[int]
     progressive_bonus_count: int
     progressive_score_count: int
@@ -61,11 +56,8 @@ class AcquiredGeneric:
         self.minikit_count = 0
 
     def receive_generic(self, ctx: TCSContext, ap_item_id: int):
-        # Studs are handled separately as part of the game watcher.
-        if ap_item_id in STUDS:
-            pass
         # Minikits
-        elif ap_item_id in MINIKIT_ITEMS:
+        if ap_item_id in MINIKIT_ITEMS:
             self.minikit_count += 1
         # Progressive Bonus Unlock
         elif ap_item_id == PROGRESSIVE_BONUS_CODE:
@@ -86,20 +78,6 @@ class AcquiredGeneric:
             ctx.unlocked_level_manager.on_character_or_episode_unlocked(ap_item_id)
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
-
-    def give_studs(self, ctx: TCSContext, ap_item_id: int):
-        """
-        Grant Studs to the player. Unlike other items, Studs are a consumable resource, so cannot simply be set to the
-        number of received studs and instead must use the last/next item index from AP to determine when a Studs item is
-        newly received by the current save file.
-        """
-        studs_to_add = STUDS.get(ap_item_id)
-        if studs_to_add is None:
-            logger.warning("Tried to receive unknown Studs item with item ID %i", ap_item_id)
-            return
-        current_stud_count = ctx.read_uint(STUD_COUNT_ADDRESS)
-        new_stud_count = min(current_stud_count + studs_to_add, MAX_STUD_COUNT)
-        ctx.write_uint(STUD_COUNT_ADDRESS, new_stud_count)
 
     async def update_game_state(self, ctx: TCSContext):
         # TODO: Is it even possible to close the bonus door? The individual bonus doors cannot be built until the player

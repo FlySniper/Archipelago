@@ -26,6 +26,7 @@ from .game_state_modifiers.extras import AcquiredExtras
 from .game_state_modifiers.characters import AcquiredCharacters
 from .game_state_modifiers.generic import AcquiredGeneric
 from .game_state_modifiers.levels import UnlockedLevelManager
+from .game_state_modifiers.studs import STUDS_AP_ID_TO_VALUE, give_studs
 
 
 logger = logging.getLogger("Client")
@@ -409,12 +410,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             return 0
 
     def give_item(self, code: int) -> bool:
-        if code in self.acquired_generic.STUDS:
+        if code in STUDS_AP_ID_TO_VALUE:
             # Studs are directly given to the player as they are received, so it is necessary to check that the player
             # is currently in-game.
             if not self.is_in_game():
                 return False
-            self.acquired_generic.give_studs(self, code)
+            give_studs(self, code)
         else:
             self.receive_item(code)
         return True
@@ -423,12 +424,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         from .. import LegoStarWarsTCSWorld
         item_name = LegoStarWarsTCSWorld.item_id_to_name.get(code, f"Unknown {code}")
         debug_logger.info(f"Receiving item {item_name} from AP")
-        if code in self.acquired_generic.RECEIVABLE_GENERIC_BY_AP_ID:
+        if code in self.acquired_generic.receivable_ap_ids:
             self.acquired_generic.receive_generic(self, code)
-        elif code in self.acquired_characters.RECEIVABLE_CHARACTERS_BY_AP_ID:
+        elif code in self.acquired_characters.receivable_ap_ids:
             self.acquired_characters.receive_character(code)
             self.unlocked_level_manager.on_character_or_episode_unlocked(code)
-        elif code in self.acquired_extras.RECEIVABLE_EXTRAS_BY_AP_ID:
+        elif code in self.acquired_extras.receivable_ap_ids:
             self.acquired_extras.receive_extra(code)
         else:
             logger.warning(f"Received unknown item with AP ID {code}")
