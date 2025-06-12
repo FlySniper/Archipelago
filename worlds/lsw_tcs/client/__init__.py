@@ -1,11 +1,9 @@
 import asyncio
 import traceback
 import colorama
-from enum import IntEnum
 
 import ModuleUpdate
 import Utils
-from NetUtils import NetworkItem
 
 ModuleUpdate.update()
 
@@ -15,7 +13,7 @@ import struct
 import typing
 from pymem import pymem
 from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIError
-from typing import ClassVar, AbstractSet, cast, Iterable
+from typing import ClassVar, AbstractSet
 
 from CommonClient import CommonContext, server_loop, gui_enabled
 
@@ -24,12 +22,10 @@ from ..items import (
     ITEM_DATA_BY_NAME,
     ITEM_DATA_BY_ID,
     ExtraData,
-    GenericCharacterData,
     CHARACTERS_AND_VEHICLES_BY_NAME,
     EXTRAS_BY_NAME,
     GENERIC_BY_NAME,
     GenericItemData,
-    CHARACTER_SHOP_SLOTS,
 )
 from ..levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea, SHORT_NAME_TO_LEVEL_AREA
 from .common_addresses import ShopType
@@ -38,6 +34,7 @@ from .location_checkers.bonus_level_completion import BonusLevelCompletionChecke
 from .location_checkers.true_jedi_and_minikits import TrueJediAndMinikitChecker
 from .location_checkers.shop_purchases import PurchasedExtrasChecker, PurchasedCharactersChecker
 from .game_state_modifiers.extras import AcquiredExtras
+from .game_state_modifiers.characters import AcquiredCharacters
 
 
 logger = logging.getLogger("Client")
@@ -103,11 +100,6 @@ SHOP_CHECK_IS_IN_SHOP = b"\x00"
 # Appears to be 1 while in the shop, and 0 otherwise. But becomes 0 when playing a cutscene from within the shop.
 # SHOP_CHECK2 = 0x880474  # byte
 ACTIVE_SHOP_TYPE_ADDRESS = 0x8801AC
-
-
-CHARACTERS_SHOP_START = 0x86E4A8  # See CHARACTER_SHOP_SLOTS in items.py for the mapping
-CHARACTERS_UNLOCKED_START = 0x86E5C0
-CHARACTERS_SHOP_ACTIVE_INDEX = 0x87BDF8
 
 
 CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable characters
@@ -416,107 +408,6 @@ class AcquiredGeneric:
                 if not character_requirements or character_requirements <= ctx.acquired_characters.unlocked_characters:
                     unlocked_bonuses_byte |= (1 << (i - 1))
         ctx.write_byte(BONUSES_BASE_ADDRESS, unlocked_bonuses_byte)
-
-
-class AcquiredCharacters:
-    ALL_CHARACTERS = CHARACTERS_AND_VEHICLES_BY_NAME
-    RECEIVABLE_CHARACTERS_BY_AP_ID: ClassVar[dict[int, GenericCharacterData]] = {
-        extra.code: extra for extra in CHARACTERS_AND_VEHICLES_BY_NAME.values() if extra.code != -1
-    }
-    MIN_CHARACTER_NUMBER: ClassVar[int] = min(char.character_index for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values())
-    MAX_CHARACTER_NUMBER: ClassVar[int] = max(char.character_index for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values())
-    RANDOMIZED_BYTES_RANGE: ClassVar[range] = range(MIN_CHARACTER_NUMBER, MAX_CHARACTER_NUMBER + 1)
-    NUM_RANDOMIZED_BYTES: ClassVar[int] = len(RANDOMIZED_BYTES_RANGE)
-    START_ADDRESS: ClassVar[int] = CHARACTERS_UNLOCKED_START + MIN_CHARACTER_NUMBER
-    # Each Character Shop index to the character index of the Character in that slot.
-    SHOP_INDEX_TO_CHARACTER_INDEX: ClassVar[dict[int, int]] = {
-        i: CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index for i, name in enumerate(CHARACTER_SHOP_SLOTS.keys())
-    }
-
-    # Buying a character from the shop unlocks a character even though it shouldn't because it is supposed to be a
-    # randomized location check, so unlockable characters need to be reset occasionally.
-    # todo: This is probably only necessary to do while in the Cantina, but currently it is always being done.
-    # Completing a story mode level will also probably unlock a character, maybe only if the story mode has not already
-    # been completed.
-    unlocked_characters: set[int]
-
-    def __init__(self):
-        self.unlocked_characters = set()
-        self.locked_characters = {char.character_index for char in self.RECEIVABLE_CHARACTERS_BY_AP_ID.values()}
-
-    def unlock_character(self, character: GenericCharacterData):
-        self.unlocked_characters.add(character.character_index)
-
-    def receive_character(self, ap_item_id: int):
-        """Receive a Character from AP, to be given to the player the next time the game state is updated."""
-        if ap_item_id not in self.RECEIVABLE_CHARACTERS_BY_AP_ID:
-            logger.warning("Tried to receive unknown character with item ID %i", ap_item_id)
-            return
-
-        char = self.RECEIVABLE_CHARACTERS_BY_AP_ID[ap_item_id]
-
-        # While there are not normally duplicate characters, receiving duplicates does nothing.
-        self.unlock_character(char)
-
-    async def update_game_state(self, ctx: "LegoStarWarsTheCompleteSagaContext") -> None:
-        """
-        Update the game memory that stores which Characters are unlocked, with all the currently unlocked/locked
-        Characters according to Archipelago.
-
-        This is done constantly because the game has not been modified to disable vanilla Character unlocks from Story
-        completion, shop purchases and other means (see CHARS/COLLECTION.TXT in an unpacked game).
-
-        At least already purchased Characters do not re-unlock themselves automatically like with already purchased
-        Extras.
-        """
-        # todo: See if there is a performance hit to doing all 137 (or more once we add more vehicles) writes
-        #  separately. It would technically be safer.
-        chars = ctx.read_bytes(self.START_ADDRESS, self.NUM_RANDOMIZED_BYTES)
-        chars_array = bytearray(chars)
-
-        for char in self.RECEIVABLE_CHARACTERS_BY_AP_ID.values():
-            character_index = char.character_index
-            if character_index in self.unlocked_characters:
-                # 0b01 controls whether the character shows in the Free Play character picker.
-                # 0b10's use is unknown, but seemingly all unlocked characters use both bits.
-                chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 3
-            else:
-                chars_array[character_index - self.MIN_CHARACTER_NUMBER] = 0
-
-        # TC-14 is unlocked by completing Negotiations Story Mode, so we need to manually unlock them as they are
-        # required to complete Negotiations Free Play (assuming C-3PO/IG-88/4-LOM have not been unlocked).
-        # TODO: Once random starting level is implemented, remove this (and make TC-14 an AP item alongside Qui-Gon and
-        #  Obi-Wan).
-        chars_array[CHARACTERS_AND_VEHICLES_BY_NAME["TC-14"].character_index - self.MIN_CHARACTER_NUMBER] = 3
-
-        # If the player is in the Character Shop, temporarily lock the character they have selected for purchase if that
-        # Character has already been unlocked through receiving that Character from Archipelago.
-        if ctx.is_in_shop(ShopType.CHARACTERS):
-            current_character_shop_slot_index = ctx.read_uchar(CHARACTERS_SHOP_ACTIVE_INDEX)
-            slot_byte = current_character_shop_slot_index // 8
-            slot_bit_mask = 1 << (current_character_shop_slot_index % 8)
-
-            character_index_for_slot = self.SHOP_INDEX_TO_CHARACTER_INDEX[current_character_shop_slot_index]
-
-            # Check if the Character at the currents shop slot is in the range of bytes for randomized Characters.
-            if character_index_for_slot in self.RANDOMIZED_BYTES_RANGE:
-                # Check if the Character at the current shop slot is already unlocked.
-                byte_index = character_index_for_slot - self.MIN_CHARACTER_NUMBER
-                if chars_array[byte_index] == 3:
-                    # Check if the Character at the current shop slot has not been purchased.
-                    character_shop_byte = ctx.read_uchar(CHARACTERS_SHOP_START + slot_byte)
-                    if not (character_shop_byte & slot_bit_mask):
-                        # The Character is unlocked, but not purchased yet, so lock the character temporarily to allow
-                        # purchase.
-                        chars_array[byte_index] = 0
-
-        ctx.write_bytes(self.START_ADDRESS, bytes(chars_array), self.NUM_RANDOMIZED_BYTES)
-
-
-
-
-
-
 
 
 # class PurchasedGoldBricks:
