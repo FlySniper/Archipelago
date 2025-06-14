@@ -24,9 +24,15 @@ MAX_RANDOMIZED_BYTE: int = max(char.character_index for char in RECEIVABLE_CHARA
 RANDOMIZED_BYTES_RANGE: range = range(MIN_RANDOMIZED_BYTE, MAX_RANDOMIZED_BYTE + 1)
 NUM_RANDOMIZED_BYTES: int = len(RANDOMIZED_BYTES_RANGE)
 START_ADDRESS: int = UNLOCKED_CHARACTERS_ADDRESS + MIN_RANDOMIZED_BYTE
+CHARACTER_TO_SHOP_INDEX: dict[str, int] = {name: i for i, name in enumerate(CHARACTER_SHOP_SLOTS.keys())}
 # Each Character Shop index to the character index of the Character in that slot.
 SHOP_INDEX_TO_CHARACTER_INDEX: dict[int, int] = {
-    i: CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index for i, name in enumerate(CHARACTER_SHOP_SLOTS.keys())
+    i: CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index for name, i in CHARACTER_TO_SHOP_INDEX.items()
+}
+
+SHOP_INDICES_UNLOCKED_WHEN_ALL_EPISODES_UNLOCKED: set[int] = {
+    CHARACTER_TO_SHOP_INDEX[name] for name, unlock_method in CHARACTER_TO_SHOP_INDEX.items()
+    if unlock_method == "ALL_EPISODES"
 }
 
 
@@ -60,6 +66,12 @@ class AcquiredCharacters(ItemReceiver):
 
         # While there are not normally duplicate characters, receiving duplicates does nothing.
         self.unlock_character(char)
+
+    @staticmethod
+    def is_all_episodes_character_selected_in_shop(ctx: TCSContext) -> bool:
+        return (ctx.is_in_shop(ShopType.CHARACTERS)
+                and ctx.read_uchar(
+                    CHARACTERS_SHOP_ACTIVE_INDEX_ADDRESS) in SHOP_INDICES_UNLOCKED_WHEN_ALL_EPISODES_UNLOCKED)
 
     async def update_game_state(self, ctx: TCSContext) -> None:
         """

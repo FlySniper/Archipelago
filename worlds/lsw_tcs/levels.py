@@ -1,5 +1,6 @@
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 
 @dataclass(frozen=True)
@@ -9,6 +10,41 @@ class EpisodeGameLevelArea:
 
     Does not include Character Bonus, Minikit Bonus, or Superstory.
     """
+    # Used as a bool or as `value > 0`. The bits other than the first get preserved, so it appears to be safe to store
+    # arbitrary data in the remaining 7 bits.
+    UNLOCKED_OFFSET: ClassVar[int] = 0
+
+    # Used as a bool or as `value > 0`. The bits other than the first get preserved, so it appears to be safe to store
+    # arbitrary data in the remaining 7 bits, which is where the client stores Free Play completion.
+    STORY_COMPLETE_OFFSET: ClassVar[int] = 1
+
+    # Used as a bool or as `value > 0`. The bits other than the first get preserved, so it appears to be safe to store
+    # arbitrary data in the remaining 7 bits.
+    TRUE_JEDI_COMPLETE_OFFSET: ClassVar[int] = 2
+
+    # The 3rd byte also gets set when True Jedi is completed. Having either the second byte or the second byte as
+    # nonzero counts for True Jedi being completed.
+    # Maybe one of the two bytes is a leftover from having separate True Jedi for Story and Free Play originally, like
+    # in some later, non-Star Wars games?
+    TRUE_JEDI_COMPLETE_2_OFFSET: ClassVar[int] = 3
+
+    # Used as a bool or as `value > 0`. The bits other than the first get preserved, so it appears to be safe to store
+    # arbitrary data in the remaining 7 bits.
+    MINIKIT_GOLD_BRICK_OFFSET: ClassVar[int] = 4
+
+    # Setting this to 10 or higher will prevent newly collected minikits from being saved as collected.
+    MINIKIT_COUNT_OFFSET: ClassVar[int] = 5
+
+    # Must be exactly `1`
+    POWER_BRICK_COLLECTED_OFFSET: ClassVar[int] = 6
+
+    # Used as a bool or as `value > 0`. The bits other than the first get preserved, so it appears to be safe to store
+    # arbitrary data in the remaining 7 bits.
+    CHALLENGE_COMPLETE_OFFSET: ClassVar[int] = 7
+
+    # Unused, 4-byte float that preserves NaN signal bits and appears to never be written to normally, so can be used to
+    # store arbitrary data.
+    UNUSED_CHALLENGE_BEST_TIME_OFFSET: ClassVar[int] = 8
 
     name: str
     # The episode this Area is in.
@@ -44,6 +80,10 @@ class BonusGameLevelArea:
     name: str
     address: int
     completion_offset: int
+    """
+    The cheat table listing the addresses listed a base address with unknown purpose for the bonus levels, and then an
+    offset from that address for the completion byte, so that is why there is an offset separate from the address.
+    """
     status_level_id: int  # todo: probably not needed
     item_requirements: Counter[str]
 

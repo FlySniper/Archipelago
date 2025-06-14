@@ -1,4 +1,4 @@
-from ...levels import GAME_LEVEL_AREAS
+from ...levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
 from ..type_aliases import ApLocationId, LevelId, TCSContext
 
@@ -26,6 +26,12 @@ CURRENT_GAME_MODE_FREE_PLAY = 1
 STATUS_LEVEL_ID_TO_AP_ID: dict[LevelId, ApLocationId] = {
     area.status_level_id: LOCATION_NAME_TO_ID[LEVEL_COMMON_LOCATIONS[area.short_name]["Completion"]]
     for area in GAME_LEVEL_AREAS
+}
+STATUS_LEVEL_ID_TO_AREA: dict[LevelId, EpisodeGameLevelArea] = {
+    area.status_level_id: area for area in GAME_LEVEL_AREAS
+}
+AP_ID_TO_AREA: dict[ApLocationId, EpisodeGameLevelArea] = {
+    ap_id: STATUS_LEVEL_ID_TO_AREA[level_id] for level_id, ap_id in STATUS_LEVEL_ID_TO_AP_ID.items()
 }
 
 
@@ -63,20 +69,40 @@ class FreePlayLevelCompletionChecker:
     """
 
     sent_locations: set[ApLocationId]
+    completed_free_play: set[EpisodeGameLevelArea]
+    initial_setup_complete: bool
 
     def __init__(self):
         self.sent_locations = set()
+        self.completed_free_play = set()
+        self.initial_setup_complete = False
+
+    def read_completed_free_play_from_save_data(self, ctx: TCSContext):
+        for area in GAME_LEVEL_AREAS:
+            unlocked_byte = ctx.read_uchar(area.address + area.UNLOCKED_OFFSET)
+            if unlocked_byte == 0b11:
+                self.completed_free_play.add(area)
+                self.sent_locations.add(STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id])
+
+    async def initialize(self, ctx: TCSContext):
+        if not self.initial_setup_complete:
+            self.read_completed_free_play_from_save_data(ctx)
+            self.initial_setup_complete = True
 
     async def check_completion(self, ctx: TCSContext, new_location_checks: list[ApLocationId]):
+
         # Level ID should be checked first because STATUS_LEVEL_TYPE_ADDRESS can be STATUS_LEVEL_TYPE_LEVEL_COMPLETION
         # during normal gameplay, so it would be possible for STATUS_LEVEL_TYPE_ADDRESS to match and then the player
         # does 'Save and Exit', changing the Level ID to a 'status' level and accidentally sending a location check.
-        completion_location_id = STATUS_LEVEL_ID_TO_AP_ID.get(ctx.get_current_level_id())
+        current_level_id = ctx.get_current_level_id()
+        completion_location_id = STATUS_LEVEL_ID_TO_AP_ID.get(current_level_id)
         if (completion_location_id is not None
                 and completion_location_id in ctx.missing_locations
                 and is_in_free_play(ctx)
                 and is_status_level_completion(ctx)):
             self.sent_locations.add(completion_location_id)
+            area = STATUS_LEVEL_ID_TO_AREA[current_level_id]
+            ctx.write_byte(area.address + area.UNLOCKED_OFFSET, 0b11)
 
         # Not required because only the intersection of ctx.missing_locations will be sent to the server, but removing
         # checked locations (server state) here helps with debugging by reducing self.sent_locations to only new checks.

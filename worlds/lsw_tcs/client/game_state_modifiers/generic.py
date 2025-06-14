@@ -50,7 +50,9 @@ class AcquiredGeneric(ItemReceiver):
     minikit_count: int
 
     def __init__(self):
-        self.unlocked_episodes = set()
+        # TODO: Allow Episode 1 to be randomized.
+        # TODO: Allow all Episodes to be unlocked from the start.
+        self.unlocked_episodes = {1}
         self.progressive_bonus_count = 0
         self.progressive_score_count = 0
         self.minikit_count = 0

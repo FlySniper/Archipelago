@@ -1,4 +1,5 @@
 import logging
+from typing import AbstractSet
 
 from ..type_aliases import TCSContext
 from ...items import ITEM_DATA_BY_NAME, ITEM_DATA_BY_ID
@@ -7,16 +8,17 @@ from ...levels import EpisodeGameLevelArea, GAME_LEVEL_AREAS, SHORT_NAME_TO_LEVE
 
 debug_logger = logging.getLogger("TCS Debug")
 
+ALL_GAME_LEVEL_AREAS_SET = frozenset(GAME_LEVEL_AREAS)
+
 
 class UnlockedLevelManager:
-    first_time_setup_complete: bool = False
-    pending_unlocks: list[EpisodeGameLevelArea]
     character_to_dependent_game_levels: dict[int, list[str]]
     remaining_level_item_requirements: dict[str, set[int]]
 
-    def __init__(self) -> None:
-        self.pending_unlocks = []
+    unlocked_levels_per_episode: dict[int, set[EpisodeGameLevelArea]]
 
+    def __init__(self) -> None:
+        self.unlocked_levels_per_episode = {}
         item_id_to_level_area_short_name: dict[int, list[str]] = {}
         remaining_level_item_requirements: dict[str, set[int]] = {}
         for level_area in GAME_LEVEL_AREAS:
@@ -32,7 +34,7 @@ class UnlockedLevelManager:
                 remaining_level_item_requirements[level_area.short_name] = code_requirements
             else:
                 # Immediately unlocked.
-                self.pending_unlocks.append(level_area)
+                self.unlocked_levels_per_episode.setdefault(level_area.episode, set()).add(level_area)
 
         self.character_to_dependent_game_levels = item_id_to_level_area_short_name
         self.remaining_level_item_requirements = remaining_level_item_requirements
@@ -45,49 +47,63 @@ class UnlockedLevelManager:
         for dependent_area_short_name in dependent_levels:
             remaining_requirements = self.remaining_level_item_requirements[dependent_area_short_name]
             assert remaining_requirements
-            assert character_ap_id in remaining_requirements, f"{ITEM_DATA_BY_ID[character_ap_id].name} not found in {sorted([ITEM_DATA_BY_ID[code] for code in remaining_requirements])}"
+            assert character_ap_id in remaining_requirements, (f"{ITEM_DATA_BY_ID[character_ap_id].name} not found in"
+                                                               f" {sorted([ITEM_DATA_BY_ID[code] for code in remaining_requirements], key=lambda data: data.name)}")
             remaining_requirements.remove(character_ap_id)
             debug_logger.info("Removed %s from %s requirements", ITEM_DATA_BY_ID[character_ap_id].name, dependent_area_short_name)
             if not remaining_requirements:
-                self.pending_unlocks.append(SHORT_NAME_TO_LEVEL_AREA[dependent_area_short_name])
+                self.unlock_level(SHORT_NAME_TO_LEVEL_AREA[dependent_area_short_name])
                 del self.remaining_level_item_requirements[dependent_area_short_name]
 
         del self.character_to_dependent_game_levels[character_ap_id]
 
-    def first_time_setup(self, ctx: TCSContext):
-        self.first_time_setup_complete = True
-        # Lock all levels to start with.
-        locked = b"\x00"
-        # FIXME: Story mode being completed results in the characters being unlocked in the shop.
-        #  Either going into the shop needs to clear Story Mode completion, or Story Mode completion needs to be added
-        #  when unlocking a level, ideally only temporarily until Free Play has been completed.
-        # Complete all Story Modes so that players can get straight into playing Free Play.
-        # If Story Mode would to be left required for players to play through, cutscenes would likely want to be modded
-        # out by unpacking and modifying the files, which is what the standalone TCS Randomizer does. Currently, this
-        # TCS AP client is implemented with memory modifications only, though a one-time setup for an AP mod could be
-        # viable in the near-ish future.
-        story_mode_complete = b"\x01"
-        to_write = locked + story_mode_complete
-        for level_area in GAME_LEVEL_AREAS:
-            # The first byte is whether the level is unlocked.
-            # The second byte is whether Story Mode has been completed (and the Gold Brick has been obtained).
-            ctx.write_bytes(level_area.address, to_write, 2)
-
-    @staticmethod
-    def unlock_level(ctx: TCSContext, level_area: EpisodeGameLevelArea):
-        # The first byte indicates whether the level is unlocked.
-        ctx.write_byte(level_area.address, 1)
+    def unlock_level(self, level_area: EpisodeGameLevelArea):
+        self.unlocked_levels_per_episode.setdefault(level_area.episode, set()).add(level_area)
         debug_logger.info("Unlocked level %s (%s)", level_area.name, level_area.short_name)
 
     async def update_game_state(self, ctx: TCSContext):
-        if not self.first_time_setup_complete:
-            self.first_time_setup(ctx)
-        # TODO: It might be necessary to constantly re-lock locked levels because playing a story level might cause the
-        #  next level to get unlocked. TODO: Try it out.
-        # TODO: The "All Episode" character purchases in the shop (4-LOM/Ghosts/etc.) might need all levels to be
-        #  temporarily set as completed when trying to buy the characters while the client has received all episode
-        #  unlocks, so that the characters can actually be purchased without completing every level.
-        if self.pending_unlocks:
-            for level_area in self.pending_unlocks:
-                self.unlock_level(ctx, level_area)
-            self.pending_unlocks.clear()
+        temporary_story_completion: AbstractSet[EpisodeGameLevelArea]
+        if (len(ctx.acquired_generic.unlocked_episodes) == 6
+                and ctx.acquired_characters.is_all_episodes_character_selected_in_shop(ctx)):
+            # In vanilla, the 'all episodes' characters unlock for purchase in the shop when the player has completed
+            # every level in Story mode. In the AP randomizer, they need to be unlocked once all Episode Unlocks have
+            # been acquired instead because completing all levels in Story mode would basically never happen in a
+            # playthrough of the randomized world.
+            # Unfortunately, levels being completed in Story mode is also what unlocks most other Character purchases in
+            # the shop.
+            # To work around this, all Story mode completions are temporarily set when all Episode Unlocks have been
+            # acquired and the player has selected one of the 'all episodes' characters for purchase in the shop.
+            temporary_story_completion = ALL_GAME_LEVEL_AREAS_SET
+        else:
+            cantina_room = ctx.get_current_cantina_room()
+            if cantina_room.value in self.unlocked_levels_per_episode:
+                # If the player is in an Episode's room, Story mode needs to be completed for all the player's unlocked
+                # levels so that the player can skip playing through Story mode and go straight to Free Play.
+                temporary_story_completion = self.unlocked_levels_per_episode[cantina_room.value]
+            else:
+                # Do not temporarily complete any Story modes.
+                temporary_story_completion = set()
+
+        completed_free_play = ctx.free_play_completion_checker.completed_free_play
+
+        # 36 writes on each game state update is undesirable, but necessary to easily allow for temporarily completing
+        # Story modes.
+        for area in GAME_LEVEL_AREAS:
+            if area in completed_free_play:
+                # Set the level as unlocked and Story mode completed because Free Play has been completed.
+                # The second bit in the third byte is custom to the AP client and signifies that Free Play has been
+                # completed.
+                ctx.write_bytes(area.address, b"\x03\x01", 2)
+            elif area in temporary_story_completion:
+                # Set the level as unlocked and Story mode completed because Story mode for this level needs to be
+                # temporarily set as completed for some purpose.
+                ctx.write_bytes(area.address, b"\x01\x01", 2)
+            else:
+                if area in self.unlocked_levels_per_episode[area.episode]:
+                    # Set the level as unlocked, but with Story mode incomplete because Free Play has not been
+                    # completed. This prevents characters being for sale in the shop without completing Free Play for
+                    # the level that unlocks those shop slots.
+                    ctx.write_bytes(area.address, b"\x01\x00", 2)
+                else:
+                    # Set the level as locked, with Story mode incomplete.
+                    ctx.write_bytes(area.address, b"\x00\x00", 2)

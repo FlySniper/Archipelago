@@ -403,6 +403,7 @@ ITEM_DATA: list[GenericItemData] = [
     _extra(-1, "Score x10", 0x2B, "6-5"),
     _generic(154, "Progressive Bonus Level"),
     _generic(155, "Restart Level Trap"),
+    _generic(-1, "Episode 1 Unlock"),
     _generic(156, "Episode 2 Unlock"),
     _generic(157, "Episode 3 Unlock"),
     _generic(158, "Episode 4 Unlock"),

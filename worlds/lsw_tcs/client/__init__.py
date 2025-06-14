@@ -17,7 +17,7 @@ from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIErr
 from CommonClient import CommonContext, server_loop, gui_enabled
 
 from ..constants import GAME_NAME
-from .common_addresses import ShopType
+from .common_addresses import ShopType, CantinaRoom
 from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
 from .location_checkers.bonus_level_completion import BonusLevelCompletionChecker
 from .location_checkers.true_jedi_and_minikits import TrueJediAndMinikitChecker
@@ -92,35 +92,6 @@ ACTIVE_SHOP_TYPE_ADDRESS = 0x8801AC
 
 CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable characters
 CUSTOM_CHARACTER_2_NAME = 0x86E538  # char[16], null-terminated, so 15 usable characters
-
-
-LEVEL_STORY_MODE_COMPLETE_OFFSET = 0x1 # byte
-LEVEL_TRUE_JEDI_COMPLETE_OFFSET = 0x2 # byte
-LEVEL_UNKNOWN_OFFSET = 0x3 # byte  # Free play complete?
-LEVEL_MINIKIT_GOLD_BRICK_OFFSET = 0x4 # byte
-LEVEL_MINIKIT_COUNT_OFFSET = 0x5 # byte
-LEVEL_RED_BRICK_COLLECTED_OFFSET = 0x6 # byte
-LEVEL_BLUE_CANISTERS_COLLECTED_OFFSET = 0x7 # byte
-LEVEL_BEST_TIME_OFFSET = 0x8  # float
-
-
-LEVEL_ADDRESSES: dict[str, int] = {
-    "1-1": 0x86E0F4,
-    "1-2": 0x86E100,
-    "1-3": 0x86E10C,
-    "1-4": 0x86E118,
-    # "Pod Race (Original)" bonus level has data in the middle here.
-    "1-5": 0x86E130,
-    "1-6": 0x86E13C,
-
-    "2-1": 0x86E16C,
-    "2-2": 0x86E178,
-    "2-3": 0x86E184,
-    "2-4": 0x86E190,
-    "2-5": 0x86E19C,
-    # "Gunship Cavalry" bonus level has data in the middle here.
-    "2-6": 0x86E1B4,
-}
 
 
 # Unverified, but seems to be the case.
@@ -372,6 +343,15 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def get_current_level_id(self) -> int:
         return self.read_ushort(CURRENT_LEVEL_ID)
 
+    def get_current_cantina_room(self) -> CantinaRoom:
+        if not self.get_current_level_id() == LEVEL_ID_CANTINA:
+            return CantinaRoom.NOT_IN_CANTINA
+        current_room_id = self.read_uchar(CANTINA_ROOM_ID)
+        if 0 <= current_room_id <= 8:
+            return CantinaRoom(current_room_id)
+        else:
+            return CantinaRoom.UNKNOWN
+
     def is_in_game(self) -> bool:
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
         return (process := self.game_process) is not None and process.read_ushort(self.memory_offset + CURRENT_LEVEL_ID) != 0
@@ -382,7 +362,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         #  if that byte is used for something more general than only the shop.
         return (self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
                 and self.get_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
-                and self.read_uchar(CANTINA_ROOM_ID) == CANTINA_ROOM_WITH_SHOP  # and in the room with the shops.
+                and self.read_uchar(CANTINA_ROOM_ID) == CantinaRoom.SHOP_ROOM.value  # and in the room with the shops.
                 and self.read_uchar(ACTIVE_SHOP_TYPE_ADDRESS) == shop_type.value)
 
     def set_game_expected_idx(self, idx: int) -> None:
@@ -522,6 +502,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                             last_message = msg
                     continue
                 if ctx.slot is not None and ctx.fully_connected:
+                    await ctx.free_play_completion_checker.initialize(ctx)
                     #logger.info("Checking items to give")
                     # todo: Store the multiworld seed name somewhere in the save file and check it before giving any
                     #  items or checking any locations. OR can we do this check when connecting and then immediately
