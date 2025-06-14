@@ -17,6 +17,7 @@ from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIErr
 from CommonClient import CommonContext, server_loop, gui_enabled
 
 from ..constants import GAME_NAME
+from ..levels import SHORT_NAME_TO_LEVEL_AREA
 from .common_addresses import ShopType, CantinaRoom
 from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
 from .location_checkers.bonus_level_completion import BonusLevelCompletionChecker
@@ -366,28 +367,14 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 and self.read_uchar(ACTIVE_SHOP_TYPE_ADDRESS) == shop_type.value)
 
     def set_game_expected_idx(self, idx: int) -> None:
-        # Storing this in Custom Character 1's name as a string for now.
-        to_write = str(idx).encode()
-        if len(to_write) > 15:
-            raise RuntimeError(f"Error: cannot set expected idx to {to_write}, integer is too large. Max of 15 digits.")
-        if len(to_write) < 15:
-            # Null terminate.
-            to_write += b"\x00" * (15 - len(to_write))
-        self.write_bytes(CUSTOM_CHARACTER_1_NAME, to_write, len(to_write))
+        # The expected idx is stored in the unused 4 bytes at the end of Negotiations' (1-1's) save data.
+        negotiations = SHORT_NAME_TO_LEVEL_AREA["1-1"]
+        self.write_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET, idx)
 
     def get_game_expected_idx(self) -> int:
-        # Storing this in Custom Character 1's name as a string for now.
-        # TODO: Investigate storing the expected idx in one of the unused 4-byte floats at the end of level data (those
-        #  ones that all default to 1200.0 (20 minutes) that presumably would have been used to store best Challenge
-        #  Mode times, but appear to be unused.
-        as_bytestring = self.read_bytes(CUSTOM_CHARACTER_1_NAME, 15)
-        # STRANGER 1
-        if as_bytestring[0] not in range(b"0"[0], b"9"[0] + 1):
-            return 0
-        try:
-            return int(as_bytestring.partition(b"\x00")[0])
-        except ValueError:
-            return 0
+        # Retrieve the expected idx from the unused 4 bytes at the end of Negotiations' (1-1's) save data.
+        negotiations = SHORT_NAME_TO_LEVEL_AREA["1-1"]
+        return self.read_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET)
 
     def give_item(self, code: int) -> bool:
         if code in STUDS_AP_ID_TO_VALUE:
