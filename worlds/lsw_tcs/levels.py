@@ -115,6 +115,7 @@ class BonusGameLevelArea:
     """
     status_level_id: int  # todo: probably not needed
     item_requirements: Counter[str]
+    gold_brick: bool = True
 
 
 # GameLevelArea short_name to the set of characters needed to unlock that GameLevelArea
@@ -646,9 +647,11 @@ BONUS_GAME_LEVEL_AREAS = [
         "Gold Brick": 50,
     })),
     # The bonus level was never completed, so there is just the trailer to watch (which can be skipped immediately).
+    # No gold brick for watching the trailer, but it does unlock the shop slot for purchasing Indiana Jones in vanilla
+    # todo: Add the Purchase Indiana Jones location.
     BonusGameLevelArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, Counter({
         "Progressive Bonus Level": 1,
-    }))
+    }), gold_brick=False)
 ]
 
 # todo: Rewrite this to be cleaner, probably by splitting the BonusGameLevelArea requirements into characters and other

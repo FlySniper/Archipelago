@@ -262,6 +262,8 @@ class LegoStarWarsTCSWorld(World):
             for area in areas:
                 location = LegoStarWarsTCSLocation(self.player, area.name, self.location_name_to_id[area.name], region)
                 region.locations.append(location)
+                if not area.gold_brick:
+                    continue
                 gold_brick_location = LegoStarWarsTCSLocation(self.player, f"{area.name} - Gold Brick", None, region)
                 gold_brick_location.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
                 region.locations.append(gold_brick_location)
