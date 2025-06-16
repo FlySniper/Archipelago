@@ -1,6 +1,7 @@
-from enum import Enum, auto, IntFlag
+from enum import auto, IntFlag
 
 GAME_NAME = "Lego Star Wars The Complete Saga"
+
 
 # todo: These are the abilities from the manual logic, not the real abilities.
 class CharacterAbility(IntFlag):
@@ -15,6 +16,13 @@ class CharacterAbility(IntFlag):
     PROTOCOL_DROID = auto()
     SHORTIE = auto()
     SITH = auto()
+    # todo: Lots more abilities to add to split up and replace the basic existing ones...
+    # GHOST = auto()
+    # DROID = auto()
+    # UNTARGETABLE = auto()  # Are there any characters other than Ghosts?
+    VEHICLE_IMPERIAL = auto()
+    VEHICLE_TOW = auto()
+    # VEHICLE_BLASTER = auto()
 
 
 ASTROMECH = CharacterAbility.ASTROMECH
@@ -27,16 +35,11 @@ JEDI = CharacterAbility.JEDI
 PROTOCOL_DROID = CharacterAbility.PROTOCOL_DROID
 SHORTIE = CharacterAbility.SHORTIE
 SITH = CharacterAbility.SITH
+VEHICLE_IMPERIAL = CharacterAbility.VEHICLE_IMPERIAL
+VEHICLE_TOW = CharacterAbility.VEHICLE_TOW
 
+# todo: VEHICLE_TOW can probably be included in the future too.
+# todo: GHOST can probably be included in the future too.
+RARE_AND_USEFUL_ABILITIES = ASTROMECH | BOUNTY_HUNTER | HIGH_JUMP | SHORTIE | SITH | PROTOCOL_DROID
 
-# todo: Unused currently
-class VehicleAbility(Enum):
-    NONE = 0
-    IMPERIAL = auto()
-    TOW = auto()
-    BLASTER = auto()
-
-
-V_IMPERIAL = VehicleAbility.IMPERIAL
-V_TOW = VehicleAbility.TOW
-V_BLASTER = VehicleAbility.BLASTER
+GOLD_BRICK_EVENT_NAME = "Gold Brick"

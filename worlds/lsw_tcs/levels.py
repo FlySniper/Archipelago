@@ -2,6 +2,20 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+from .constants import (
+    CharacterAbility,
+    HIGH_JUMP,
+    IMPERIAL,
+    SHORTIE,
+    SITH,
+    DROID_OR_FLY,
+    BOUNTY_HUNTER,
+    ASTROMECH,
+    BLASTER,
+    VEHICLE_IMPERIAL,
+    VEHICLE_TOW,
+)
+
 
 @dataclass(frozen=True)
 class EpisodeGameLevelArea:
@@ -62,17 +76,32 @@ class EpisodeGameLevelArea:
     status_level_id: int
     ## The address of each level in the area with minikits, and the names of the minikits in that level.
     #minikit_address_to_names: dict[int, set[str]]
+    # TODO: Convert this file mostly into a script that writes `print(repr(GAME_LEVEL_AREAS))`
     short_name: str = field(init=False)
-    item_requirements: frozenset[str] = field(init=False)
+    character_requirements: frozenset[str] = field(init=False)
+    shop_unlocks: frozenset[str] = field(init=False)
+    power_brick_ability_requirements: CharacterAbility = field(init=False)
+    power_brick_location_name: str = field(init=False)
+    all_minikits_ability_requirements: CharacterAbility = field(init=False)
 
     def __post_init__(self):
         object.__setattr__(self, "short_name", f"{self.episode}-{self.number_in_episode}")
+
         character_requirements = LEVEL_CHARACTER_REQUIREMENTS[self.short_name]
-        if self.episode == 1:
-            item_requirements = frozenset(character_requirements)
-        else:
-            item_requirements = frozenset(character_requirements.union({f"Episode {self.episode} Unlock"}))
-        object.__setattr__(self, "item_requirements", item_requirements)
+        object.__setattr__(self, "character_requirements", character_requirements)
+
+        shop_unlocks = frozenset([f"Purchase {character}" for character in LEVEL_SHOP_UNLOCKS[self.short_name]])
+        object.__setattr__(self, "shop_unlocks", shop_unlocks)
+
+        power_brick_location_name, power_brick_ability_requirements = POWER_BRICK_REQUIREMENTS[self.short_name]
+        power_brick_location_name = f"Purchase {power_brick_location_name} ({self.short_name})"
+        object.__setattr__(self, "power_brick_location_name", power_brick_location_name)
+        if power_brick_ability_requirements is None:
+            power_brick_ability_requirements = CharacterAbility.NONE
+        object.__setattr__(self, "power_brick_ability_requirements", power_brick_ability_requirements)
+
+        all_minikits_ability_requirements = ALL_MINIKITS_REQUIREMENTS[self.short_name]
+        object.__setattr__(self, "all_minikits_ability_requirements", all_minikits_ability_requirements)
 
 
 @dataclass(frozen=True)
@@ -295,6 +324,244 @@ LEVEL_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
     }.items()
 }
 
+IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS: frozenset[str] = frozenset({
+    "C-3PO",
+    "R2-D2",
+    "Chewbacca",
+})
+
+LEVEL_SHOP_UNLOCKS: dict[str, frozenset[str]] = {
+    k: frozenset(v) for k, v in {
+        "1-1": {
+            "Battle Droid",
+            "Battle Droid (Security)",
+            "Battle Droid (Commander)",
+            "Droideka",
+        },
+        "1-2": {
+            "Captain Tarpals",
+            "Boss Nass",
+        },
+        "1-3": {
+            "Royal Guard",
+            # "Padmé",  # FIXME: Missing
+        },
+        "1-4": {
+            "Watto",
+            "Pit Droid",
+            # "Sebulba's Podracer",
+        },
+        "1-5": set(),
+        "1-6": {
+            "Darth Maul",
+        },
+        "2-1": {
+            "Zam Wesell",
+            "Dexter Jettster",
+            # "Zam's Airspeeder",
+        },
+        "2-2": {
+            "Clone",
+            "Lama Su",
+            "Taun We",
+        },
+        "2-3": {
+            "Geonosian",
+            "Battle Droid (Geonosis)"
+        },
+        "2-4": {
+            "Super Battle Droid",
+            "Jango Fett",
+            "Boba Fett (Boy)",
+            "Luminara",
+            "Ki-Adi Mundi",
+            "Kit Fisto",
+            "Shaak Ti",
+            "Aayla Secura",
+            "Plo Koon",
+        },
+        "2-5": set(),
+        "2-6": set(),
+        "3-1": set(),
+        # "3-1": {
+        #     "Droid Trifighter",
+        #     "Vulture Droid",
+        #     "Clone Arcfighter",
+        # },
+        "3-2": {
+            "Count Dooku",
+            "Grievous' Bodyguard",
+        },
+        "3-3": {
+            "General Grievous",
+        },
+        "3-4": {
+            "Wookiee",
+            "Clone (Episode 3)",
+            "Clone (Episode 3, Pilot)",
+            "Clone (Episode 3, Swamp)",
+            "Clone (Episode 3, Walker)",
+        },
+        "3-5": {
+            "Mace Windu (Episode 3)",
+            "Disguised Clone",
+        },
+        "3-6": set(),
+        "4-1": {
+            "Rebel Trooper",
+            "Stormtrooper",
+            "Imperial Shuttle Pilot",
+        },
+        "4-2": {
+            "Tusken Raider",
+            "Jawa",
+        },
+        "4-3": {
+            "Sandtrooper",
+            "Greedo",
+            "Imperial Spy",
+        },
+        "4-4": {
+            "Beach Trooper",
+            "Death Star Trooper",
+            "TIE Fighter Pilot",
+            "Imperial Officer",
+            "Grand Moff Tarkin",
+        },
+        "4-5": set(),
+        "4-6": set(),
+        # "4-6": {
+        #     "TIE Fighter",
+        #     "TIE Fighter (Darth Vader)",
+        #     "TIE Interceptor",
+        # },
+        "5-1": {
+            # FIXME: All 3 of these are actually from 5-2.
+            "Rebel Trooper (Hoth)",
+            "Rebel Pilot",
+            "Snowtrooper",
+        },
+        "5-2": {
+            "Han Solo (Hood)",
+            "Luke Skywalker (Hoth)",
+        },
+        "5-3": set(),
+        # "5-3": {
+        #     "TIE Bomber",
+        #     "Imperial Shuttle",
+        # },
+        "5-4": set(),
+        "5-5": set(),
+        "5-6": {
+            "Lobot",
+            "Ugnaught",
+            "Bespin Guard",
+            # "Princess Leia (Prisoner)",  # FIXME: Missing
+        },
+        "6-1": {
+            "Gamorrean Guard",
+            "Bib Fortuna",
+            "Palace Guard",
+            "Bossk",
+        },
+        "6-2": {
+            "Skiff Guard",
+            "Boba Fett",
+        },
+        "6-3": set(),
+        "6-4": {
+            "Ewok",
+        },
+        "6-5": {
+            "Imperial Guard",
+            "The Emperor",
+        },
+        "6-6": {
+            "Admiral Ackbar",
+        }
+    }.items()
+}
+
+POWER_BRICK_REQUIREMENTS: dict[str, tuple[str, CharacterAbility | None]] = {
+    # fixme: Probably not required on normal logic.
+    # FIXME: Missing Astromech requirement.
+    "1-1": ("Super Gonk", HIGH_JUMP),
+    "1-2": ("Poo Money", BOUNTY_HUNTER),
+    "1-3": ("Walkie Talkie Disable", BOUNTY_HUNTER | SITH),
+    "1-4": ("Red Brick Detector", None),
+    "1-5": ("Super Slap", None),
+    "1-6": ("Force Grapple Leap", IMPERIAL),
+    "2-1": ("Stud Magnet", None),
+    "2-2": ("Disarm Troopers", IMPERIAL),
+    "2-3": ("Character Studs", None),
+    "2-4": ("Perfect Deflect", BOUNTY_HUNTER),
+    "2-5": ("Exploding Blaster Bolts", None),
+    "2-6": ("Force Pull", BOUNTY_HUNTER | SHORTIE),
+    "3-1": ("Vehicle Smart Bomb", None),
+    "3-2": ("Super Astromech", BOUNTY_HUNTER),
+    "3-3": ("Super Jedi Slam", None),
+    "3-4": ("Super Thermal Detonator", BOUNTY_HUNTER | SITH),
+    "3-5": ("Deflect Bolts", SITH | HIGH_JUMP),
+    "3-6": ("Dark Side", ASTROMECH),
+    "4-1": ("Super Blasters", None),
+    "4-2": ("Fast Force", BOUNTY_HUNTER),
+    "4-3": ("Super Lightsabers", None),
+    "4-4": ("Tractor Beam", None),
+    "4-5": ("Invincibility", None),
+    "4-6": ("Score x2", None),
+    "5-1": ("Self Destruct", VEHICLE_IMPERIAL),
+    "5-2": ("Fast Build", SITH),
+    "5-3": ("Score x4", None),
+    "5-4": ("Regenerate Hearts", SITH),
+    "5-5": ("Score x6", BOUNTY_HUNTER | DROID_OR_FLY),
+    "5-6": ("Minikit Detector", BOUNTY_HUNTER),
+    "6-1": ("Super Zapper", None),
+    "6-2": ("Bounty Hunter Rockets", None),
+    "6-3": ("Score x8", SHORTIE),
+    "6-4": ("Super Ewok Catapult", SHORTIE),
+    "6-5": ("Score x10", None),
+    "6-6": ("Infinite Torpedos", None),
+}
+
+ALL_MINIKITS_REQUIREMENTS: dict[str, CharacterAbility] = {
+    "1-1": HIGH_JUMP | ASTROMECH | DROID_OR_FLY | SHORTIE,
+    "1-2": SHORTIE,
+    "1-3": SITH | HIGH_JUMP | DROID_OR_FLY | BOUNTY_HUNTER | SHORTIE,
+    "1-4": VEHICLE_IMPERIAL,
+    "1-5": SITH | BOUNTY_HUNTER | HIGH_JUMP,
+    "1-6": SITH | HIGH_JUMP | BLASTER | BOUNTY_HUNTER | IMPERIAL,
+    "2-1": VEHICLE_IMPERIAL,
+    "2-2": SITH | HIGH_JUMP | BLASTER | BOUNTY_HUNTER | SHORTIE,
+    "2-3": HIGH_JUMP | IMPERIAL | SHORTIE,
+    "2-4": HIGH_JUMP,
+    "2-5": VEHICLE_IMPERIAL,
+    "2-6": HIGH_JUMP | BLASTER | ASTROMECH,
+    "3-1": CharacterAbility.NONE,
+    "3-2": HIGH_JUMP | BLASTER | SHORTIE,
+    "3-3": DROID_OR_FLY | BOUNTY_HUNTER,
+    "3-4": SITH | HIGH_JUMP,
+    "3-5": SITH | HIGH_JUMP | BLASTER | DROID_OR_FLY | BOUNTY_HUNTER | IMPERIAL,
+    "3-6": DROID_OR_FLY,
+    "4-1": SITH | BOUNTY_HUNTER | IMPERIAL,
+    "4-2": SITH | SHORTIE,
+    "4-3": SITH | HIGH_JUMP | BOUNTY_HUNTER | SHORTIE,
+    "4-4": SITH | BOUNTY_HUNTER | IMPERIAL,
+    "4-5": SITH | BOUNTY_HUNTER | IMPERIAL | SHORTIE,
+    "4-6": VEHICLE_TOW | VEHICLE_IMPERIAL,
+    "5-1": VEHICLE_IMPERIAL,
+    "5-2": SITH | DROID_OR_FLY | ASTROMECH | BOUNTY_HUNTER,
+    "5-3": VEHICLE_TOW | VEHICLE_IMPERIAL,
+    "5-4": SITH | BOUNTY_HUNTER,
+    "5-5": BOUNTY_HUNTER | IMPERIAL | SHORTIE,
+    "5-6": SITH | BOUNTY_HUNTER,
+    "6-1": SITH | BOUNTY_HUNTER | IMPERIAL | SHORTIE,
+    "6-2": SITH | DROID_OR_FLY | SHORTIE,
+    "6-3": SITH | HIGH_JUMP | BOUNTY_HUNTER | IMPERIAL | SHORTIE,
+    "6-4": BOUNTY_HUNTER,
+    "6-5": HIGH_JUMP | BLASTER | BOUNTY_HUNTER | SHORTIE,
+    "6-6": VEHICLE_IMPERIAL,
+}
+
 # TODO: Record level IDs, these would mostly be there to help make map switching in the tracker easier, and would serve
 #  as a record of data that might be useful for others.
 GAME_LEVEL_AREAS = [
@@ -336,10 +603,13 @@ GAME_LEVEL_AREAS = [
     EpisodeGameLevelArea("Into The Death Star", 6, 6, 0x86E370, 297),
 ]
 
+
+# todo: Need to consider the Gold Brick shop eventually. Also Bounty Hunter missions.
 BONUS_GAME_LEVEL_AREAS = [
     BonusGameLevelArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, Counter({
         "Anakin's Podracer": 1,
         "Progressive Bonus Level": 1,
+        "Gold Brick": 10,
     })),
     # There are a number of test levels in LEVELS.TXT that seem to not be counted, so the level IDs for Anakin's Flight
     # do not match what is expected:
@@ -353,22 +623,27 @@ BONUS_GAME_LEVEL_AREAS = [
     BonusGameLevelArea("Anakin's Flight", 0x86E3AC, 0x1, 333, Counter({
         "Naboo Starfighter": 1,
         "Progressive Bonus Level": 2,
+        "Gold Brick": 30,
     })),
     BonusGameLevelArea("Gunship Cavalry (Original)", 0x86E1A8, 0x1, 98, Counter({
         "Republic Gunship": 1,
         "Progressive Bonus Level": 3,
+        "Gold Brick": 10,
     })),
     BonusGameLevelArea("A New Hope (Bonus Level)", 0x86E3B8, 0x8, 150, Counter({
         "Darth Vader": 1,
         "Stormtrooper": 1,
         "C-3PO": 1,
         "Progressive Bonus Level": 4,
+        "Gold Brick": 20,
     })),
     BonusGameLevelArea("LEGO City", 0x86E3B8, 0x1, 311, Counter({
         "Progressive Bonus Level": 5,
+        "Gold Brick": 10,
     })),
     BonusGameLevelArea("New Town", 0x86E3A0, 0x1, 309, Counter({
         "Progressive Bonus Level": 6,
+        "Gold Brick": 50,
     })),
     # The bonus level was never completed, so there is just the trailer to watch (which can be skipped immediately).
     BonusGameLevelArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, Counter({
@@ -376,4 +651,17 @@ BONUS_GAME_LEVEL_AREAS = [
     }))
 ]
 
+# todo: Rewrite this to be cleaner, probably by splitting the BonusGameLevelArea requirements into characters and other
+#  items.
+BONUS_GAME_LEVEL_AREA_REQUIREMENT_CHARACTERS = [
+    [item for item in area.item_requirements.keys() if item not in ("Progressive Bonus Level", "Gold Brick")]
+    for area in BONUS_GAME_LEVEL_AREAS
+]
+
+ALL_LEVEL_REQUIREMENT_CHARACTERS: frozenset[str] = frozenset().union(
+    *LEVEL_CHARACTER_REQUIREMENTS.values(),
+    *BONUS_GAME_LEVEL_AREA_REQUIREMENT_CHARACTERS
+)
+
 SHORT_NAME_TO_LEVEL_AREA = {area.short_name: area for area in GAME_LEVEL_AREAS}
+EPISODE_TO_GAME_LEVEL_AREAS = {i + 1: GAME_LEVEL_AREAS[i * 6:(i + 1) * 6] for i in range(6)}

@@ -1,10 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Protocol, Optional, TYPE_CHECKING, ClassVar, Literal
+from typing import Optional, TYPE_CHECKING, ClassVar, Literal, Iterable
 
 from BaseClasses import Item, ItemClassification
 from .constants import (
     CharacterAbility,
-    VehicleAbility,
     GAME_NAME,
     ASTROMECH,
     BLASTER,
@@ -16,6 +15,8 @@ from .constants import (
     PROTOCOL_DROID,
     SHORTIE,
     SITH,
+    VEHICLE_IMPERIAL,
+    VEHICLE_TOW,
 )
 
 if TYPE_CHECKING:
@@ -33,9 +34,9 @@ class LegoStarWarsTCSItem(Item):
     collect_extras: tuple[str, ...] | None
 
     def __init__(self, name: str, classification: ItemClassification, code: Optional[int], player: int,
-                 collect_extras: tuple[str, ...] | None = None):
+                 collect_extras: Iterable[str] | None = None):
         super().__init__(name, classification, code, player)
-        self.collect_extras = collect_extras
+        self.collect_extras = tuple(collect_extras) if collect_extras is not None else None
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ class GenericItemData:
 @dataclass(frozen=True)
 class GenericCharacterData(GenericItemData):
     character_index: int
+    abilities: CharacterAbility = CharacterAbility.NONE
     shop_slot: int = field(init=False)
 
     def __post_init__(self):
@@ -57,13 +59,11 @@ class GenericCharacterData(GenericItemData):
 
 @dataclass(frozen=True)
 class CharacterData(GenericCharacterData):
-    abilities: CharacterAbility = CharacterAbility.NONE
     item_type: ClassVar[ItemType] = "Character"
 
 
 @dataclass(frozen=True)
 class VehicleData(GenericCharacterData):
-    abilities: VehicleAbility = VehicleAbility.NONE
     item_type: ClassVar[ItemType] = "Vehicle"
 
 
@@ -414,14 +414,14 @@ ITEM_DATA: list[GenericItemData] = [
     _char(163, "Princess Leia (Prisoner)", 205, abilities=BLASTER),
     _vehicle(164, "Anakin's Podracer", 259),
     _vehicle(165, "Naboo Starfighter", 272),
-    _vehicle(166, "Republic Gunship", 285),
+    _vehicle(166, "Republic Gunship", 285, abilities=VEHICLE_TOW),
     _vehicle(167, "Anakin's Starfighter", 221),
     _vehicle(168, "Obi-Wan's Starfighter", 291),
     _vehicle(169, "X-Wing", 36),
     _vehicle(170, "Y-Wing", 39),
     _vehicle(171, "Millennium Falcon", 38),
-    _vehicle(172, "TIE Interceptor", 128),
-    _vehicle(173, "Snowspeeder", 32),
+    _vehicle(172, "TIE Interceptor", 128, abilities=VEHICLE_IMPERIAL),
+    _vehicle(173, "Snowspeeder", 32, abilities=VEHICLE_TOW),
     _vehicle(174, "Anakin's Speeder", 3),
     _generic(175, "Purple Stud"),
     # NEW. Items below here did not exist in the manual.
@@ -448,11 +448,24 @@ ITEM_DATA: list[GenericItemData] = [
     _vehicle(-1, "Droid Trifighter", 292),
     _vehicle(-1, "Vulture Droid", 293),
     _vehicle(-1, "Clone Arcfighter", 295),
-    _vehicle(-1, "TIE Fighter", 37),
-    _vehicle(-1, "TIE Fighter (Darth Vader)", 182),
-    _vehicle(-1, "TIE Bomber", 209),
-    _vehicle(-1, "Imperial Shuttle", 198),
+    _vehicle(-1, "TIE Fighter", 37, abilities=VEHICLE_IMPERIAL),
+    _vehicle(-1, "TIE Fighter (Darth Vader)", 182, abilities=VEHICLE_IMPERIAL),
+    _vehicle(-1, "TIE Bomber", 209, abilities=VEHICLE_IMPERIAL),
+    _vehicle(-1, "Imperial Shuttle", 198, abilities=VEHICLE_IMPERIAL),
 ]
+
+USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {
+    # There is currently no Ghost logic for bypassing gas and other hazards, so give the Ghosts at least Useful
+    # classification.
+    "Ben Kenobi (Ghost)",
+    "Anakin Skywalker (Ghost)",
+    "Yoda (Ghost)",
+    # There is currently no glitch logic for the glitchy mess that is Yoda, so ensure Yoda is never excluded by making
+    # him Useful.
+    "Yoda",
+    # The fastest character.
+    "Droideka",
+}
 
 ITEM_DATA_BY_NAME: dict[str, GenericItemData] = {data.name: data for data in ITEM_DATA}
 ITEM_DATA_BY_ID: dict[int, GenericItemData] = {data.code: data for data in ITEM_DATA if data.code != -1}

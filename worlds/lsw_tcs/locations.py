@@ -1,6 +1,10 @@
 import itertools
 from typing import ClassVar, TypedDict
 
+from BaseClasses import Location
+
+from .constants import GAME_NAME
+
 EXTRA_SHOP_LOCATION_START = 1000
 
 # Watching the Indiana Jones trailer allows for Indiana Jones to be purchased from the shop, this should be a new
@@ -140,7 +144,7 @@ LOCATION_NAME_TO_ID = {
     "Purchase Super Gonk (1-1)": 78,
     "Purchase Poo Money (1-2)": 79,
     "Purchase Walkie Talkie Disable (1-3)": 80,
-    "Purchase Red Brick Detector (1-4)": 81,
+    "Purchase Red Brick Detector (1-4)": 81,  # todo: Is this actually called Power Brick Detector?
     "Purchase Super Slap (1-5)": 82,
     "Purchase Force Grapple Leap (1-6)": 83,
     "Purchase Stud Magnet (2-1)": 84,
@@ -614,3 +618,7 @@ LOCATION_NAME_TO_ID = {
     "New Town": 552,
     "Indiana Jones: Trailer": 553
 }
+
+
+class LegoStarWarsTCSLocation(Location):
+    game = GAME_NAME
