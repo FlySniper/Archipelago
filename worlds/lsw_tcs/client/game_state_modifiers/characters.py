@@ -90,8 +90,9 @@ class AcquiredCharacters(ItemReceiver):
         chars_array = bytearray(chars)
 
         for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values():
-            byte_index = char.character_index - MIN_RANDOMIZED_BYTE
-            if byte_index in self.unlocked_characters:
+            char_index = char.character_index
+            byte_index = char_index - MIN_RANDOMIZED_BYTE
+            if char_index in self.unlocked_characters:
                 # 0b01 controls whether the character shows in the Free Play character picker.
                 # 0b10's use is unknown, but seemingly all unlocked characters use both bits.
                 chars_array[byte_index] = UNLOCKED
