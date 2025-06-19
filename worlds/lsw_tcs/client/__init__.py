@@ -74,7 +74,8 @@ CURRENT_SAVE_SLOT = 0x802014  # byte, 255/-1 for no save file loaded. [0-5] for 
 
 # Unsure what this is, but it changes when moving between rooms in the cantina and appears to persist while in a level,
 # so this can be used to both see what room the player is in when they are in the cantina, and to see what Episode they
-# are in at a glance (the current Episode can be determined exactly from the current level ID)
+# are in at a glance (the current Episode can be determined exactly from the current level ID if this turns out to be
+# unreliable for checking the current episode)
 # 0: Main room with the shop (what we care about)
 # 1: Episode 1 room
 # 2: Episode 2 room
@@ -82,9 +83,9 @@ CURRENT_SAVE_SLOT = 0x802014  # byte, 255/-1 for no save file loaded. [0-5] for 
 # 4: Episode 4 room
 # 5: Episode 5 room
 # 6: Episode 6 room
-# 7: Outside courtyard
+# 7: Outside junkyard
 # 8: Bonuses room
-# ?: Bounty Hunter missions room
+# 9: Bounty Hunter missions room
 CANTINA_ROOM_ID = 0x87B460
 CANTINA_ROOM_WITH_SHOP = 0
 
