@@ -1,3 +1,4 @@
+import struct
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -59,6 +60,8 @@ class EpisodeGameLevelArea:
     # Unused, 4-byte float that preserves NaN signal bits and appears to never be written to normally, so can be used to
     # store arbitrary data.
     UNUSED_CHALLENGE_BEST_TIME_OFFSET: ClassVar[int] = 8
+    # The default, unused value is 1200 seconds, or 20 minutes, as a single-precision float.
+    UNUSED_CHALLENGE_BEST_TIME_VALUE: ClassVar[bytes] = struct.pack("f", 1200.0)
 
     name: str
     # The episode this Area is in.

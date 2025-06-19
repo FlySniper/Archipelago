@@ -341,6 +341,109 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def write_bytes(self, address: int, value: bytes, length: int) -> None:
         self._game_process.write_bytes(self.memory_offset + address, value, length)
 
+    @staticmethod
+    def hash_seed_name(seed_name: str) -> bytes:
+        encoded = seed_name.encode("utf-8", errors="replace")
+        # 16 bytes
+        hashed = hashlib.md5(encoded).digest()
+        # The default, unused values in each of the sections of 4 bytes we're writing to is 1200.0f.
+        # In the tiny chance that the seed name hashes to the same bytes as these default values
+        if hashed == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 4:
+            # Pick something else.
+            hashed = bytes(range(16))
+        return hashed
+
+    def write_seed_name_hash(self, seed_name: str):
+        hashed = self.hash_seed_name(seed_name)
+        assert len(hashed) == 16
+
+        # The normally unused 4 bytes for the first area are being used to store the expected item index, so start from
+        # the second area.
+        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS]
+        parts = [hashed[i * 4:i * 4 + 4] for i in range(4)]
+        for part, area in zip(parts, areas, strict=True):
+            address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
+
+            if __debug__:
+                # Ensure the bytes have not already been written to.
+                existing_bytes = self.read_bytes(address, 4)
+                assert existing_bytes == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE, (
+                    f"The unused bytes the seed hash is being written to at area {area.short_name} are not their"
+                    f" expected value of {EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE!r}, instead found"
+                    f" {existing_bytes!r}"
+                )
+
+            # Write the bytes for this part of the hashed seed name.
+            assert len(part) == 4
+            self.write_bytes(address, part, 4)
+
+    def read_seed_name_hash(self) -> bytes | None:
+        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS]
+        hashed = b""
+        for area in areas:
+            address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
+            hashed += self.read_bytes(address, 4)
+        if hashed == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 4:
+            return None
+        else:
+            return hashed
+
+    def write_slot_name(self, name: str) -> None:
+        assert len(name) <= 16, "Error: Slot name to write is too long, this should not happen."
+        encoded_name = name.encode("utf-8")
+        # Each UTF-8 character encodes to no more than 4 bytes.
+        assert len(encoded_name) <= 64, "Error: Slot name to write encodes to too many bytes, this should not happen."
+        # pad with 0xFF bytes. 0xFF never appears in UTF-8.
+        if len(encoded_name) < 64:
+            encoded_name += b"\xFF" * (64 - len(encoded_name))
+        assert len(encoded_name) == 64
+        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
+        parts = [encoded_name[i * 4: i * 4 + 4] for i in range(16)]
+        for part, area in zip(parts, areas, strict=True):
+            address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
+
+            if __debug__:
+                # Ensure the bytes have not already been written to.
+                existing_bytes = self.read_bytes(address, 4)
+                assert existing_bytes == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE, (
+                    f"The unused bytes the slot name is being written to at area {area.short_name} are not their"
+                    f" expected value of {EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE!r}, instead found"
+                    f" {existing_bytes!r}"
+                )
+
+            # Write the bytes for this part of the encoded name.
+            assert len(part) == 4
+            self.write_bytes(address, part, 4)
+            if b"\xFF" in part:
+                # Writing can stop once there are padding bytes in a part that was written.
+                break
+
+    def read_slot_name(self) -> str | None:
+        """
+        Read the slot name from the current save file.
+
+        self.is_in_game() should be checked to have returned True before calling this function.
+
+        :return: The slot name in the current save file, or None if no slot name has been written to the current save
+        file.
+        """
+        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
+        encoded_name = b""
+        for area in areas:
+            address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
+            read_bytes = self.read_bytes(address, 4)
+            encoded_name += read_bytes
+            if b"\xFF" in read_bytes:
+                # Reading can stop once there are padding bytes in a part that was read.
+                break
+        if encoded_name == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 16:
+            # The default value of the unused bytes is fortunately invalid UTF-8, so it is not possible for a slot name
+            # to produce the same bytes as the default values.
+            return None
+        # Strip any \xFF padding and return the decoded string.
+        debug_logger.info(f"Read slot_name bytes as {[hex(x)[2:] for x in encoded_name]}")
+        return encoded_name.partition(b"\xFF")[0].decode("utf-8")
+
     def read_current_level_id(self) -> int:
         """
         Read the current level ID from memory.
