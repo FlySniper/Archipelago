@@ -487,9 +487,8 @@ LEVEL_SHOP_UNLOCKS: dict[str, frozenset[str]] = {
 }
 
 POWER_BRICK_REQUIREMENTS: dict[str, tuple[str, CharacterAbility | None]] = {
-    # fixme: Probably not required on normal logic.
-    # FIXME: Missing Astromech requirement.
-    "1-1": ("Super Gonk", HIGH_JUMP),
+    # TODO: For future version, it is necessary to determine which Extras need Jedi/Protocol Droids to access.
+    "1-1": ("Super Gonk", ASTROMECH),
     "1-2": ("Poo Money", BOUNTY_HUNTER),
     "1-3": ("Walkie Talkie Disable", BOUNTY_HUNTER | SITH),
     "1-4": ("Red Brick Detector", None),
