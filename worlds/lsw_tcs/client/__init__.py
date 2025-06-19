@@ -618,6 +618,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.unlocked_level_manager.on_character_or_episode_unlocked(code)
         elif code in self.acquired_extras.receivable_ap_ids:
             self.acquired_extras.receive_extra(code)
+        elif code in STUDS_AP_ID_TO_VALUE:
+            # The client may be resetting its state after a save data rollback or after connecting to an existing seed.
+            pass
         else:
             logger.warning(f"Received unknown item with AP ID {code}")
 
