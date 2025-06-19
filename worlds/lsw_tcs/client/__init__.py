@@ -1,9 +1,12 @@
 import asyncio
 import traceback
 import colorama
+import hashlib
 
 import ModuleUpdate
 import Utils
+
+from worlds._bizhawk.context import AuthStatus
 
 ModuleUpdate.update()
 
@@ -17,7 +20,7 @@ from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIErr
 from CommonClient import CommonContext, server_loop, gui_enabled
 
 from ..constants import GAME_NAME
-from ..levels import SHORT_NAME_TO_LEVEL_AREA
+from ..levels import SHORT_NAME_TO_LEVEL_AREA, GAME_LEVEL_AREAS, EpisodeGameLevelArea
 from .common_addresses import ShopType, CantinaRoom
 from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
 from .location_checkers.bonus_level_completion import BonusLevelCompletionChecker
@@ -66,6 +69,8 @@ CURRENT_LEVEL_ID = 0x951BA0  # 2 bytes (or more)
 # the cantina will unlock all extras that have been purchased.
 # How was this 69 before????
 LEVEL_ID_CANTINA = 325
+
+CURRENT_SAVE_SLOT = 0x802014  # byte, 255/-1 for no save file loaded. [0-5] for save file [1-6]
 
 # Unsure what this is, but it changes when moving between rooms in the cantina and appears to persist while in a level,
 # so this can be used to both see what room the player is in when they are in the cantina, and to see what Episode they
@@ -190,9 +195,32 @@ class NoProcessError(RuntimeError):
     pass
 
 
+# Each EpisodeGameLevelArea has an unused single-precision float that is written to the save file. The client writes
+# arbitrary data to these bytes.
+# The first normally unused area float bytes are used to store the expected item index.
+UNUSED_AREA_DWORD_EXPECTED_IDX = 0
+# The next 4 normally unused area float bytes are used to store an MD5 hash of the seed name.
+UNUSED_AREA_DWORD_SEED_NAME_HASH_START = UNUSED_AREA_DWORD_EXPECTED_IDX + 1
+UNUSED_AREA_DWORD_SEED_NAME_HASH_END = UNUSED_AREA_DWORD_SEED_NAME_HASH_START + 4
+UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS = slice(UNUSED_AREA_DWORD_SEED_NAME_HASH_START,
+                                               UNUSED_AREA_DWORD_SEED_NAME_HASH_END)
+# The next 16 normally unused area float bytes are used to store the slot name for automatic authentication.
+# Slot names are up to 16 UTF-8 characters, and a UTF-8 character can be up to 4 bytes, so the bytes of 16 unused floats
+# are used.
+UNUSED_AREA_DWORD_SLOT_NAME_START = UNUSED_AREA_DWORD_SEED_NAME_HASH_END
+UNUSED_AREA_DWORD_SLOT_NAME_END = UNUSED_AREA_DWORD_SLOT_NAME_START + 16
+UNUSED_AREA_DWORD_SLOT_NAME_AREAS = slice(UNUSED_AREA_DWORD_SLOT_NAME_START,
+                                          UNUSED_AREA_DWORD_SLOT_NAME_END)
+
+
 class LegoStarWarsTheCompleteSagaContext(CommonContext):
     game = GAME_NAME
     items_handling = 0b111  # Fully remote
+
+    # Copied from BizHawkClientContext
+    server_seed_name: str | None = None
+    auth_status: AuthStatus
+    password_requested: bool
 
     game_process: pymem.Pymem | None = None
     previous_level_id: int = -1
@@ -213,9 +241,16 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     bonus_level_completion_checker: BonusLevelCompletionChecker
 
     fully_connected: bool
+    last_connected_slot: str | None = None
+    last_connected_seed_name: str | None = None
+    last_loaded_save_file: int | None = None
 
     def __init__(self, server_address: typing.Optional[str] = None, password: typing.Optional[str] = None) -> None:
         super().__init__(server_address, password)
+
+        # Copied from BizHawkClientContext
+        self.auth_status = AuthStatus.NOT_AUTHENTICATED
+        self.password_requested = False
 
         # todo: These assigned values shouldn't get used, can we safely remove them?
         self.acquired_extras = AcquiredExtras()
@@ -232,10 +267,42 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
-        if cmd == "Connected":
-            self.reset_client()
-            self.client_expected_idx = 0
-            self.fully_connected = True
+        if cmd == "RoomInfo":
+            new_seed_name = args["seed_name"]
+
+            expected_seed_name_hash = self.read_seed_name_hash()
+            if expected_seed_name_hash is not None:
+                new_seed_name_hash = self.hash_seed_name(new_seed_name)
+                if new_seed_name_hash != expected_seed_name_hash:
+                    asyncio.create_task(self.disconnect())
+                    logger.info("Connection aborted: The server's seed does not match the save file's seed.")
+                    return
+            else:
+                self.write_seed_name_hash(new_seed_name)
+
+            if self.last_connected_seed_name is not None and self.last_connected_seed_name != new_seed_name:
+                self.on_multiworld_or_slot_changed()
+                # The last connected slot is irrelevant if the multiworld itself has changed.
+                self.last_connected_slot = None
+            self.last_connected_seed_name = new_seed_name
+            self.seed_name = args["seed_name"]
+        elif cmd == "Connected":
+            new_slot = self.auth
+
+            if self.last_connected_slot is not None and self.last_connected_slot != new_slot:
+                self.on_multiworld_or_slot_changed()
+            if self.read_slot_name() is None:
+                self.write_slot_name(new_slot)
+            self.last_connected_slot = self.auth
+            self.auth_status = AuthStatus.AUTHENTICATED
+
+    def on_save_file_changed(self):
+        # The client is loading a different save file to before, so reset all persisted client data.
+        self.reset_persisted_client_data()
+
+    def on_multiworld_or_slot_changed(self):
+        # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
+        self.reset_persisted_client_data()
 
     def run_gui(self):
         from kvui import GameManager
@@ -250,24 +317,49 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.ui = LegoStarWarsTheCompleteSagaManager(self)
         self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
 
-    async def disconnect(self, allow_autoreconnect: bool = False):
-        # todo: What are the connect and disconnect methods to override?
-        # todo: When receiving item index 0, we also want to destroy and re-create the 'acquired' attributes.
-        # todo: Do we want to replace these when connecting instead?
-        self.reset_client()
-        self.fully_connected = False
-        return await super().disconnect(allow_autoreconnect)
-
     async def server_auth(self, password_requested: bool = False):
+        self.password_requested = password_requested
+
+        if self.game_process is None:
+            logger.info("Awaiting connection to game process before authenticating")
+            return
+
+        if not self.is_in_game():
+            logger.info("Awaiting a save file to be loaded, or a new game to be started, before authenticating")
+
+        if self.auth is None:
+            self.auth_status = AuthStatus.NEED_INFO
+            await self.set_auth()
+
+            if self.auth is None:
+                # If a new game was started, there will be no username stored in the save file, so the user will need to
+                # provide it.
+                await self.get_username()
+
         if password_requested and not self.password:
+            self.auth_status = AuthStatus.NEED_INFO
             await super().server_auth(password_requested)
-        await self.get_username()
+
         self.tags = set()
         await self.send_connect()
+        self.auth_status = AuthStatus.PENDING
+
+    async def disconnect(self, allow_autoreconnect: bool = False):
+        self.auth_status = AuthStatus.NOT_AUTHENTICATED
+        self.server_seed_name = None
+        await super().disconnect(allow_autoreconnect)
+
+    async def set_auth(self) -> None:
+        slot_name = self.read_slot_name()
+        if slot_name is not None:
+            self.auth = slot_name
+        else:
+            # No slot name has been written to the save file yet, so the player will need to provide it.
+            pass
 
     async def shutdown(self):
         logger.info("Shutting down client")
-        self.unhook_game_process()
+        await self.unhook_game_process()
         return await super().shutdown()
 
     def open_game_process(self):
@@ -302,7 +394,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.game_process = process
         return True
 
-    def unhook_game_process(self):
+    async def unhook_game_process(self):
         if self.game_process is not None:
             self.game_process.close_process()
             self.game_process = None
@@ -466,7 +558,15 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def is_in_game(self) -> bool:
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
-        return (process := self.game_process) is not None and process.read_ushort(self.memory_offset + CURRENT_LEVEL_ID) != 0
+        return ((process := self.game_process) is not None
+                and process.read_ushort(self.memory_offset + CURRENT_LEVEL_ID) != 0)
+
+    def get_current_save_file(self) -> int | None:
+        file_number = self.read_uchar(CURRENT_SAVE_SLOT)
+        if file_number == 255:
+            return None
+        else:
+            return file_number
 
     def is_in_shop(self, shop_type: ShopType) -> bool:
         """Check whether the player is currently in a shop. Does not check for being in-game."""
@@ -485,7 +585,15 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def get_game_expected_idx(self) -> int:
         # Retrieve the expected idx from the unused 4 bytes at the end of Negotiations' (1-1's) save data.
         negotiations = SHORT_NAME_TO_LEVEL_AREA["1-1"]
-        return self.read_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET)
+        expected_idx = self.read_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET)
+        # 1_150_681_088 == struct.unpack("i", struct.pack("f", 1200))
+        if expected_idx == 1_150_681_088:
+            # Yes, the client will break if you send it this many items, but that should never happen right?
+            # todo?: One of the area bytes only seems to care about the lowest bit, so we should be able to use the
+            #  higher bits of each of those area bytes to store flags, such as whether the expected_idx has been set.
+            return 0
+        else:
+            return expected_idx
 
     def give_item(self, code: int) -> bool:
         if code in STUDS_AP_ID_TO_VALUE:
@@ -512,7 +620,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             logger.warning(f"Received unknown item with AP ID {code}")
 
-    def reset_client(self):
+    def reset_persisted_client_data(self):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
@@ -540,14 +648,14 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
         # Check if the game rolled back its save data, the client needs to be reset and caught back up.
         if expected_idx_game < ctx.client_expected_idx:
             debug_logger.info("Resetting client received items due to game save data rollback")
-            ctx.reset_client()
+            ctx.reset_persisted_client_data()
             for idx, item in enumerate(received_items[:expected_idx_game]):
                 ctx.receive_item(item.item)
                 ctx.client_expected_idx = idx + 1
 
         # Check if we are resuming a seed where the client is fresh and needs to be caught up.
         if ctx.client_expected_idx < expected_idx_game:
-            debug_logger.info("Catching up client to game state")
+            debug_logger.info("Catching up client to game state. Client expected: %i. Game expected: %i.", ctx.client_expected_idx, expected_idx_game)
             for idx, item in enumerate(received_items[expected_idx_client:expected_idx_game],
                                        start=expected_idx_client):
                 ctx.receive_item(item.item)
@@ -569,9 +677,71 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
             ctx.client_expected_idx = idx + 1
 
 
+async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) -> None:
+    """
+    Check for changes to the current save file.
+
+    If the player loads a different save file, the client data needs to be reset and reloaded onto the new save file.
+
+    Except, this is not necessary if the player has gone from no save file (starting a new game), to creating a save
+    file.
+
+    If the player loads a save file for a different multiworld or slot, they need to be disconnected from the current
+    multiworld.
+
+    No save file -> save file:    OK
+    Save file -> no save file:    Reset client state and reload onto the new game that has yet to save
+    Save file -> other save file: Reset client state and disconnect if the other save is for a different
+                                  multiworld/slot.
+    :param ctx:
+    :return:
+    """
+    # If the player loads a different save file, re-check the multiworld seed and slot name and reset
+    # persistent client data if either the seed or slot name differ.
+    last_save_file = ctx.last_loaded_save_file
+    current_save_file = ctx.get_current_save_file()
+    if last_save_file is not None:
+        if current_save_file != last_save_file:
+            ctx.on_save_file_changed()
+
+            last_slot_name = ctx.last_connected_slot
+            last_seed_name = ctx.last_connected_seed_name
+
+            # The player is allowed to exit to the main menu and start a new game.
+            if current_save_file is None:
+                if last_slot_name is not None:
+                    ctx.write_slot_name(last_slot_name)
+                if last_seed_name is not None:
+                    ctx.write_seed_name_hash(last_seed_name)
+            else:
+                # The player *could* have another save file with the same seed and slot, which would be
+                # unusual, but acceptable.
+                # But if the player tries to load into a save file for a different seed/slot, then they need
+                # to be disconnected.
+                if (last_seed_name is not None
+                        and ctx.hash_seed_name(last_seed_name) != ctx.read_seed_name_hash()):
+                    if ctx.slot:
+                        logger.info("Disconnecting from the server because the newly loaded save file's"
+                                    " seed does not match the connected multiworld's seed.")
+                    await ctx.disconnect()
+                elif last_slot_name is not None and last_slot_name != ctx.read_slot_name():
+                    if ctx.slot:
+                        logger.info("Disconnecting from the server because the newly loaded save file's"
+                                    " slot name does not match the connected slot.")
+                    await ctx.disconnect()
+    ctx.last_loaded_save_file = current_save_file
+
+
 async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
     logger.info("Starting connection to game.")
     last_message = ""
+
+    def log_message(msg: str, always_log=False):
+        nonlocal last_message
+        if always_log or msg != last_message:
+            logger.info(msg)
+            last_message = msg
+
     sleep_time = 0.0
     while not ctx.exit_event.is_set():
         if sleep_time > 0.0:
@@ -584,22 +754,33 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
 
         try:
             game_process = ctx.game_process
-            if game_process is not None:
+            if game_process is None:
+                if not ctx.open_game_process():
+                    log_message("Connection to game failed, attempting again in 5 seconds...", True)
+                    sleep_time = 5
+                else:
+                    # No wait, start processing items/locations/etc. immediately if the client is connected to the
+                    # server.
+                    pass
+            else:
                 if not ctx.is_in_game():
                     # Need to wait for the player to load into a save file.
-                    sleep_time = 0.5 #0.1
                     # todo: Save the multiworld seed somewhere (custom character 2 name?) and check that before giving
                     #  items. Then, it won't be necessary to disconnect when not loaded into a save file.
-                    if ctx.slot:
-                        logger.info("Disconnected due to exiting to main menu.")
-                        await ctx.disconnect()
+                    if ctx.last_loaded_save_file:
+                        msg = "Load back into the game to continue"
                     else:
-                        msg = "Waiting for player to load into a save file"
-                        if last_message != msg:
-                            logger.info(msg)
-                            last_message = msg
+                        msg = "Waiting for the player to load into the game"
+                    log_message(msg)
+                    sleep_time = 0.5  # 0.1
                     continue
-                if ctx.slot is not None and ctx.fully_connected:
+
+                await game_watcher_check_save_file(ctx)
+
+                # Even if the client has disconnected from the server, it is still important to run a number of
+                # coroutines to allow the player to play while disconnected.
+                # todo: Is the `is_in_game()` check here still necessary now that there is an earlier check?
+                if ctx.is_in_game():
                     await ctx.free_play_completion_checker.initialize(ctx)
                     #logger.info("Checking items to give")
                     # todo: Store the multiworld seed name somewhere in the save file and check it before giving any
@@ -620,39 +801,44 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     #await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_level_manager.update_game_state(ctx)
 
-                    # Check for newly cleared locations.
-                    new_location_checks: list[int] = []
-                    await ctx.free_play_completion_checker.check_completion(ctx, new_location_checks)
-                    await ctx.true_jedi_and_minikit_checker.check_true_jedi_and_minikits(ctx, new_location_checks)
-                    await ctx.purchased_extras_checker.check_extra_purchases(ctx, new_location_checks)
-                    await ctx.purchased_characters_checker.check_extra_purchases(ctx, new_location_checks)
-                    await ctx.bonus_level_completion_checker.check_completion(ctx, new_location_checks)
+                    # Check for newly cleared locations while connected to a slot on a server.
+                    # todo: Some of these don't need to be checked very often because they are persisted in the save
+                    #  file.
+                    if ctx.slot:
+                        new_location_checks: list[int] = []
+                        # todo: Free play completion needs to be checked often (need to ensure that players cannot click
+                        #  through the status screen faster than we're polling the game to check for free play!)
+                        await ctx.free_play_completion_checker.check_completion(ctx, new_location_checks)
+                        # todo: True Jedi and Minikit counts (deprecated) do not need to be checked often.
+                        await ctx.true_jedi_and_minikit_checker.check_true_jedi_and_minikits(ctx, new_location_checks)
+                        # todo: Purchases do not need to be checked often
+                        await ctx.purchased_extras_checker.check_extra_purchases(ctx, new_location_checks)
+                        await ctx.purchased_characters_checker.check_extra_purchases(ctx, new_location_checks)
+                        # todo: This does not need to be checked often.
+                        await ctx.bonus_level_completion_checker.check_completion(ctx, new_location_checks)
 
-                    # Send newly cleared locations to the server, if there are any.
-                    await ctx.check_locations(new_location_checks)
+                        # Send newly cleared locations to the server, if there are any.
+                        await ctx.check_locations(new_location_checks)
                 sleep_time = 0.5 #0.1
-            else:
-                if not ctx.open_game_process():
-                    msg = "Connection to game failed, attempting again in 5 seconds..."
-                    logger.info(msg)
-                    last_message = msg
-                    await ctx.disconnect()
-                    sleep_time = 5
-                else:
-                    # No wait, start processing items/locations/etc. immediately if the client is connected to the
-                    # server.
-                    pass
         except Exception as e:
-            ctx.unhook_game_process()
+            await ctx.unhook_game_process()
             if isinstance(e, (PymemError, WinAPIError)):
-                msg = "Game connection failed, attempting again in 5 seconds..."
+                msg = "Lost connection to game, attempting re-connection in 5 seconds..."
+                debug_logger.error(traceback.format_exc())
             else:
-                msg = "Unexpected error occurred, attempting again in 5 seconds..."
+                msg = "Unexpected error occurred, attempting re-connection to game in 5 seconds..."
+                logger.error(traceback.format_exc())
             logger.info(msg)
             last_message = msg
-            logger.error(traceback.format_exc())
             await ctx.disconnect()
             sleep_time = 5
+            continue
+
+        if ctx.server is not None and not ctx.server.socket.closed:
+            if ctx.auth_status == AuthStatus.NOT_AUTHENTICATED:
+                Utils.async_start(ctx.server_auth(ctx.password_requested))
+        else:
+            ctx.auth_status = AuthStatus.NOT_AUTHENTICATED
 
 
 async def main():
@@ -673,7 +859,10 @@ async def main():
     ctx.watcher_event.set()
     ctx.server_address = None
 
-    await game_watcher_task
+    try:
+        await game_watcher_task
+    except Exception as e:
+        logger.exception(e)
     await ctx.shutdown()
 
 
