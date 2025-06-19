@@ -1,6 +1,11 @@
+import logging
+
 from ...levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
 from ..type_aliases import ApLocationId, LevelId, TCSContext
+
+
+debug_logger = logging.getLogger("TCS Debug")
 
 
 # The most stable byte I could find to determine the difference between the 'status' screen when using "Save and Exit
@@ -82,6 +87,7 @@ class FreePlayLevelCompletionChecker:
             unlocked_byte = ctx.read_uchar(area.address + area.UNLOCKED_OFFSET)
             if unlocked_byte == 0b11:
                 self.completed_free_play.add(area)
+                debug_logger.info("Read from save file that %s has been completed in Free Play", area.short_name)
                 self.sent_locations.add(STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id])
 
     async def initialize(self, ctx: TCSContext):
