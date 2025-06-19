@@ -18,7 +18,7 @@ class UnlockedLevelManager:
     unlocked_levels_per_episode: dict[int, set[EpisodeGameLevelArea]]
 
     def __init__(self) -> None:
-        self.unlocked_levels_per_episode = {}
+        self.unlocked_levels_per_episode = {i: set() for i in range(1, 7)}
         item_id_to_level_area_short_name: dict[int, list[str]] = {}
         remaining_level_item_requirements: dict[str, set[int]] = {}
         for level_area in GAME_LEVEL_AREAS:
@@ -34,7 +34,7 @@ class UnlockedLevelManager:
                 remaining_level_item_requirements[level_area.short_name] = code_requirements
             else:
                 # Immediately unlocked.
-                self.unlocked_levels_per_episode.setdefault(level_area.episode, set()).add(level_area)
+                self.unlocked_levels_per_episode[level_area.episode].add(level_area)
 
         self.character_to_dependent_game_levels = item_id_to_level_area_short_name
         self.remaining_level_item_requirements = remaining_level_item_requirements
@@ -58,7 +58,7 @@ class UnlockedLevelManager:
         del self.character_to_dependent_game_levels[character_ap_id]
 
     def unlock_level(self, level_area: EpisodeGameLevelArea):
-        self.unlocked_levels_per_episode.setdefault(level_area.episode, set()).add(level_area)
+        self.unlocked_levels_per_episode[level_area.episode].add(level_area)
         debug_logger.info("Unlocked level %s (%s)", level_area.name, level_area.short_name)
 
     async def update_game_state(self, ctx: TCSContext):
