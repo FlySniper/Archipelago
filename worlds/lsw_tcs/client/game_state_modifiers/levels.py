@@ -22,11 +22,11 @@ class UnlockedLevelManager:
         item_id_to_level_area_short_name: dict[int, list[str]] = {}
         remaining_level_item_requirements: dict[str, set[int]] = {}
         for level_area in GAME_LEVEL_AREAS:
-            item_requirements = level_area.item_requirements
+            character_requirements = level_area.character_requirements
             # TODO: Once Obi-Wan, Qui-Gon and TC-14 are added as real items, remove this if-statement.
-            if item_requirements:
+            if character_requirements:
                 code_requirements = set()
-                for item_name in item_requirements:
+                for item_name in character_requirements:
                     item_code = ITEM_DATA_BY_NAME[item_name].code
                     assert item_code != -1
                     item_id_to_level_area_short_name.setdefault(item_code, []).append(level_area.short_name)
