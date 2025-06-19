@@ -341,11 +341,19 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def write_bytes(self, address: int, value: bytes, length: int) -> None:
         self._game_process.write_bytes(self.memory_offset + address, value, length)
 
-    def get_current_level_id(self) -> int:
+    def read_current_level_id(self) -> int:
+        """
+        Read the current level ID from memory.
+
+        The ID of each level is determined incrementally, by the order of the levels in LEVELS/LEVELS.TXT, where the
+        first level (the title screen) has ID 0 and the next level has ID 1 etc.
+
+        :return: The current level ID.
+        """
         return self.read_ushort(CURRENT_LEVEL_ID)
 
-    def get_current_cantina_room(self) -> CantinaRoom:
-        if not self.get_current_level_id() == LEVEL_ID_CANTINA:
+    def read_current_cantina_room(self) -> CantinaRoom:
+        if not self.read_current_level_id() == LEVEL_ID_CANTINA:
             return CantinaRoom.NOT_IN_CANTINA
         current_room_id = self.read_uchar(CANTINA_ROOM_ID)
         if 0 <= current_room_id <= 8:
@@ -362,7 +370,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # todo: Just the SHOP_CHECK is probably enough to determine whether the player is in a shop, but it is not clear
         #  if that byte is used for something more general than only the shop.
         return (self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
-                and self.get_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
+                and self.read_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
                 and self.read_uchar(CANTINA_ROOM_ID) == CantinaRoom.SHOP_ROOM.value  # and in the room with the shops.
                 and self.read_uchar(ACTIVE_SHOP_TYPE_ADDRESS) == shop_type.value)
 

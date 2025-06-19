@@ -75,7 +75,7 @@ class UnlockedLevelManager:
             # acquired and the player has selected one of the 'all episodes' characters for purchase in the shop.
             temporary_story_completion = ALL_GAME_LEVEL_AREAS_SET
         else:
-            cantina_room = ctx.get_current_cantina_room()
+            cantina_room = ctx.read_current_cantina_room()
             if cantina_room.value in self.unlocked_levels_per_episode:
                 # If the player is in an Episode's room, Story mode needs to be completed for all the player's unlocked
                 # levels so that the player can skip playing through Story mode and go straight to Free Play.

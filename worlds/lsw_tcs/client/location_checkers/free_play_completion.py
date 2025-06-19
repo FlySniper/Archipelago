@@ -94,7 +94,7 @@ class FreePlayLevelCompletionChecker:
         # Level ID should be checked first because STATUS_LEVEL_TYPE_ADDRESS can be STATUS_LEVEL_TYPE_LEVEL_COMPLETION
         # during normal gameplay, so it would be possible for STATUS_LEVEL_TYPE_ADDRESS to match and then the player
         # does 'Save and Exit', changing the Level ID to a 'status' level and accidentally sending a location check.
-        current_level_id = ctx.get_current_level_id()
+        current_level_id = ctx.read_current_level_id()
         completion_location_id = STATUS_LEVEL_ID_TO_AP_ID.get(current_level_id)
         if (completion_location_id is not None
                 and completion_location_id in ctx.missing_locations
