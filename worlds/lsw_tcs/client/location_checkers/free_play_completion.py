@@ -102,6 +102,7 @@ class FreePlayLevelCompletionChecker:
                 and is_status_level_completion(ctx)):
             self.sent_locations.add(completion_location_id)
             area = STATUS_LEVEL_ID_TO_AREA[current_level_id]
+            self.completed_free_play.add(area)
             ctx.write_byte(area.address + area.UNLOCKED_OFFSET, 0b11)
 
         # Not required because only the intersection of ctx.missing_locations will be sent to the server, but removing
