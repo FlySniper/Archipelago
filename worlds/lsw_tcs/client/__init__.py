@@ -5,7 +5,7 @@ import hashlib
 
 import ModuleUpdate
 import Utils
-
+from NetUtils import ClientStatus
 from worlds._bizhawk.context import AuthStatus
 
 ModuleUpdate.update()
@@ -816,6 +816,13 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
 
                         # Send newly cleared locations to the server, if there are any.
                         await ctx.check_locations(new_location_checks)
+
+                        # Check for goal completion.
+                        if not ctx.finished_game:
+                            victory = ctx.acquired_generic.minikit_count >= ctx.acquired_generic.goal_minikit_count
+                            if victory:
+                                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+                                ctx.finished_game = True
                 sleep_time = 0.5 #0.1
         except Exception as e:
             await ctx.unhook_game_process()
