@@ -37,6 +37,9 @@ BONUS_CHARACTER_REQUIREMENTS: Mapping[int, AbstractSet[int]] = {
 
 BONUSES_BASE_ADDRESS = 0x86E4E4
 
+# Goal progress is written into Custom Character 2's name until a better place for this information is found.
+CUSTOM_CHARACTER2_NAME_OFFSET = 0x86E524 + 0x14  # string[15]
+
 
 logger = logging.getLogger("Client")
 
@@ -48,6 +51,7 @@ class AcquiredGeneric(ItemReceiver):
     progressive_bonus_count: int
     progressive_score_count: int
     minikit_count: int
+    goal_minikit_count: int = 54  # todo: to be controlled by an option in the future
 
     def __init__(self):
         # TODO: Allow Episode 1 to be randomized.
@@ -80,6 +84,21 @@ class AcquiredGeneric(ItemReceiver):
             ctx.unlocked_level_manager.on_character_or_episode_unlocked(ap_item_id)
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
+
+    def _update_goal_display(self, ctx: TCSContext):
+        goal_count = str(self.goal_minikit_count * 5)
+        digits_to_display = len(goal_count)
+
+        # noinspection PyStringFormat
+        current_minikit_count = f"{{:0{digits_to_display}d}}".format(self.minikit_count * 5)
+
+        # There are few available characters. The player is limited to "0-9A-Z -", but the names are capable of
+        # displaying more punctuation and lowercase letters. A few characters with ligatures are supported as part of
+        # localisation for other languages.
+        goal_display_text = f"{current_minikit_count}/{goal_count} GOAL".encode("ascii")
+        # The maximum size is 16 bytes, but the string must be null-terminated, so there are 15 usable bytes.
+        goal_display_text = goal_display_text[:15] + b"\x00"
+        ctx.write_bytes(CUSTOM_CHARACTER2_NAME_OFFSET, goal_display_text, len(goal_display_text))
 
     async def update_game_state(self, ctx: TCSContext):
         # TODO: Is it even possible to close the bonus door? The individual bonus doors cannot be built until the player

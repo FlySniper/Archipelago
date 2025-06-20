@@ -178,13 +178,6 @@ def _read_minikit_locations(process: pymem.Pymem) -> set[int]:
     return s
 
 
-# todo: Write the first 15 bytes of the multiworld seed into custom character 2's name.
-# todo: Maybe write a character that is impossible to put in a name normally (e.g. lowercase letter or one of \^<>[]
-#  etc. and use that to determine if a seed is 'new'. This could even go in custom character 1's name instead because
-#  the world should never be receiving enough items to use up 15 digits.
-CUSTOM_CHARACTER2_NAME_OFFSET = 0x86E524 + 0x14 # string[15]
-
-
 # class PurchasedGoldBricks:
 #     pass
 
