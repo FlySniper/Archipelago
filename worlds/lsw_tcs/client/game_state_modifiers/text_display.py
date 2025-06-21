@@ -35,6 +35,7 @@ DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES = max(map(len, REBEL_TROOPER_NAME
 # These offsets provide the offset from the anchor pattern to the start of the "Double Score Zone!" string.
 # The offsets are the sum of bytes of each string, encoded in utf-8, in that 87-102 range, plus 1 b"\x00" byte between
 # each string.
+# Steam only lets me pick from English, French, Italian, German and Spanish, so I cannot test the others.
 LANGUAGE_TO_START_OFFSET = {
     "ENGLISH": -482,
     "FRENCH": -619,
@@ -42,8 +43,8 @@ LANGUAGE_TO_START_OFFSET = {
     "GERMAN": -643,
     "ITALIAN": -670,
     "JAPANESE": -769,
-    "POLISH": -696,  # todo: Double check because string 92 is missing closing parenthesis
-    "RUSSIAN": -957,  # todo: Double check because string 92 is missing both opening and closing parentheses
+    "POLISH": -696,  # Needs checking because string 92 is missing closing quotes
+    "RUSSIAN": -957,  # Needs checking because string 92 is missing both opening and closing quotes
     "SPANISH": -639,
 }
 # If there is some problem with this means of determining the start offset, an alternative is to read bytes backwards
