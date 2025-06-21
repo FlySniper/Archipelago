@@ -10,10 +10,6 @@ from ..type_aliases import TCSContext
 logger = logging.getLogger("Client")
 debug_logger = logging.getLogger("TCS Debug")
 
-
-# This is the address that the "Double Score Zone!" text has been found at before in English localization, so is
-# probably good enough to find the correct page.
-DOUBLE_SCORE_ZONE_TEXT_PAGE_ADDRESS = 0x1917C67F
 # This pattern relies on the fact that R2-D2 and C-3PO's names do not change with localization.
 DOUBLE_SCORE_ZONE_TEXT_ANCHOR_PATTERN = b"\x00R2-D2\x00C-3PO\x00"
 
@@ -92,53 +88,42 @@ class InGameTextDisplay(GameStateUpdater):
         self.initialized = True
         process = ctx.game_process
         assert process is not None
-        _page, matched_addresses = pymem.pattern.scan_pattern_page(
-            process.process_handle,
-            DOUBLE_SCORE_ZONE_TEXT_PAGE_ADDRESS,
-            DOUBLE_SCORE_ZONE_TEXT_ANCHOR_PATTERN,
-            return_multiple=True,  # return_multiple is fast enough when scanning only a single page.
-        )
-        if not matched_addresses:
-            found_address = pymem.pattern.pattern_scan_all(process.process_handle,
-                                                           DOUBLE_SCORE_ZONE_TEXT_ANCHOR_PATTERN)
-            if found_address is None:
-                logger.warning("Text Display: Warning: Could not find the memory pattern needed for displaying item"
-                               " messages, item messages will not display in-game.")
-                return
-            matched_addresses = [found_address]
-            debug_logger.info("Text Display: Page scan failed, had to scan all.")
-        # Only one match is expected, but test each if there are somehow multiple.
-        for found_address in matched_addresses:
-            # The memory offset from the Steam version to the actual game version is applied to all reads/writes.
-            # Because the found address is an address for the actual game version, the memory offset needs to be
-            # subtracted.
-            found_address -= ctx.memory_offset
+        # Only one match is expected.
+        found_address = pymem.pattern.pattern_scan_all(process.process_handle,
+                                                       DOUBLE_SCORE_ZONE_TEXT_ANCHOR_PATTERN)
+        if found_address is None:
+            logger.warning("Text Display: Warning: Could not find the memory pattern needed for displaying item"
+                           " messages, item messages will not display in-game.")
+            return
 
-            # Look backwards from the anchor to find the Rebel Trooper name and determine the game language and
-            # therefore the offset to the "Double Score Zone!" text.
-            lookbehind = ctx.read_bytes(found_address - DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES,
-                                        DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES)
-            rebel_trooper_name = lookbehind.rpartition(b"\x00")[2]
-            if rebel_trooper_name in REBEL_TROOPER_NAME_TO_LANGUAGE:
-                game_language = REBEL_TROOPER_NAME_TO_LANGUAGE[rebel_trooper_name]
+        # The memory offset from the Steam version to the actual game version is applied to all reads/writes.
+        # Because the found address is an address for the actual game version, the memory offset needs to be
+        # subtracted.
+        found_address -= ctx.memory_offset
 
-                start_offset = LANGUAGE_TO_START_OFFSET[game_language]
-                self.double_score_zone_string_address = found_address + LANGUAGE_TO_START_OFFSET[game_language]
-                self.max_message_size = -start_offset - len(rebel_trooper_name)
-                # If the client crashed before returning the bytes back to vanilla, these read bytes might not be
-                # vanilla anymore if the game has not been restarted but the client has.
-                self.vanilla_bytes = ctx.read_bytes(self.double_score_zone_string_address, self.max_message_size)
+        # Look backwards from the anchor to find the Rebel Trooper name and determine the game language and
+        # therefore the offset to the "Double Score Zone!" text.
+        lookbehind = ctx.read_bytes(found_address - DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES,
+                                    DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES)
+        rebel_trooper_name = lookbehind.rpartition(b"\x00")[2]
+        if rebel_trooper_name in REBEL_TROOPER_NAME_TO_LANGUAGE:
+            game_language = REBEL_TROOPER_NAME_TO_LANGUAGE[rebel_trooper_name]
 
-                debug_logger.info("Text Display: Vanilla bytes as strings (should start with 'Double Score Zone!' and"
-                                  " end with 'Princess Leia (Hoth)':")
-                debug_logger.info(self.vanilla_bytes.replace(b"\x00", b"NULL\n").decode("utf-8", errors="replace"))
-                break
-            else:
-                debug_logger.warning("Text Display: Found, unknown language Rebel Trooper name: %s", rebel_trooper_name)
+            start_offset = LANGUAGE_TO_START_OFFSET[game_language]
+            self.double_score_zone_string_address = found_address + LANGUAGE_TO_START_OFFSET[game_language]
+            self.max_message_size = -start_offset - len(rebel_trooper_name)
+            # If the client crashed before returning the bytes back to vanilla, these read bytes might not be
+            # vanilla anymore if the game has not been restarted but the client has.
+            self.vanilla_bytes = ctx.read_bytes(self.double_score_zone_string_address, self.max_message_size)
+
+            debug_logger.info("Text Display: Vanilla bytes as strings (should start with 'Double Score Zone!' and"
+                              " end with 'Princess Leia (Hoth)':")
+            debug_logger.info(self.vanilla_bytes.replace(b"\x00", b"NULL\n").decode("utf-8", errors="replace"))
         else:
+            debug_logger.warning("Text Display: Found, unknown language Rebel Trooper name: %s", rebel_trooper_name)
             logger.warning("Text Display: Warning: Could not determine game language needed for displaying item"
                            " messages, item messages will not display in-game")
-            return
+            # todo: Try a second scan to find all addresses matching the pattern and then iterate any new addresses.
 
     def queue_message(self, message: str):
         self.message_queue.append(message)
