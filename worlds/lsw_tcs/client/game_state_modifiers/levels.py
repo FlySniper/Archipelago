@@ -1,5 +1,5 @@
 import logging
-from typing import AbstractSet
+from typing import AbstractSet, Iterable
 
 from ..type_aliases import TCSContext
 from ...items import ITEM_DATA_BY_NAME, ITEM_DATA_BY_ID
@@ -23,10 +23,19 @@ class UnlockedLevelManager:
         remaining_level_item_requirements: dict[str, set[int]] = {}
         for level_area in GAME_LEVEL_AREAS:
             character_requirements = level_area.character_requirements
-            # TODO: Once Obi-Wan, Qui-Gon and TC-14 are added as real items, remove this if-statement.
-            if character_requirements:
+            episode = level_area.episode
+            # TODO: Make an Episode 1 Unlock item, then just give it to the player when the client starts if random
+            #  starting level/episode is not implemented by the time the Episode 1 Unlock item is added..
+            item_requirements: Iterable[str]
+            if episode != 1:
+                item_requirements = [f"Episode {episode} Unlock", *character_requirements]
+            else:
+                item_requirements = character_requirements
+            # TODO: Once Obi-Wan, Qui-Gon and TC-14 are added as real items, remove this if-statement and precollect
+            #  starting characters instead. Then, all levels will start locked.
+            if item_requirements:
                 code_requirements = set()
-                for item_name in character_requirements:
+                for item_name in item_requirements:
                     item_code = ITEM_DATA_BY_NAME[item_name].code
                     assert item_code != -1
                     item_id_to_level_area_short_name.setdefault(item_code, []).append(level_area.short_name)
@@ -34,7 +43,7 @@ class UnlockedLevelManager:
                 remaining_level_item_requirements[level_area.short_name] = code_requirements
             else:
                 # Immediately unlocked.
-                self.unlocked_levels_per_episode[level_area.episode].add(level_area)
+                self.unlocked_levels_per_episode[episode].add(level_area)
 
         self.character_to_dependent_game_levels = item_id_to_level_area_short_name
         self.remaining_level_item_requirements = remaining_level_item_requirements
