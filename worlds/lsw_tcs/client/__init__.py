@@ -841,7 +841,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
                     # todo: Bonus level management.
-                    #await ctx.acquired_generic.update_game_state(ctx)
+                    await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_level_manager.update_game_state(ctx)
                     await ctx.text_display.update_game_state(ctx)
 

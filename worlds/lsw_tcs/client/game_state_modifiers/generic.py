@@ -167,3 +167,5 @@ class AcquiredGeneric(ItemReceiver):
                 if not character_requirements or character_requirements <= ctx.acquired_characters.unlocked_characters:
                     unlocked_bonuses_byte |= (1 << (i - 1))
         ctx.write_byte(BONUSES_BASE_ADDRESS, unlocked_bonuses_byte)
+
+        self._update_goal_display(ctx)
