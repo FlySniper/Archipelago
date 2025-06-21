@@ -5,6 +5,7 @@ from time import perf_counter_ns
 
 from . import GameStateUpdater
 from ..type_aliases import TCSContext
+from ...levels import STATUS_LEVEL_IDS
 
 
 logger = logging.getLogger("Client")
@@ -171,5 +172,8 @@ class InGameTextDisplay(GameStateUpdater):
                 ctx.write_bytes(self.double_score_zone_string_address, self.vanilla_bytes, len(self.vanilla_bytes))
                 self.memory_dirty = False
         else:
-            self._display_message(ctx, self.message_queue.popleft())
+            # Don't display a new message if the player is on a status screen because the player won't be able to see
+            # it.
+            if ctx.read_current_level_id() not in STATUS_LEVEL_IDS:
+                self._display_message(ctx, self.message_queue.popleft())
 

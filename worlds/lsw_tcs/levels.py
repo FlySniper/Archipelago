@@ -117,7 +117,7 @@ class BonusGameLevelArea:
     The cheat table listing the addresses listed a base address with unknown purpose for the bonus levels, and then an
     offset from that address for the completion byte, so that is why there is an offset separate from the address.
     """
-    status_level_id: int  # todo: probably not needed
+    status_level_id: int
     area_id: int
     item_requirements: Counter[str]
     gold_brick: bool = True
@@ -699,3 +699,7 @@ ALL_LEVEL_REQUIREMENT_CHARACTERS: frozenset[str] = frozenset().union(
 SHORT_NAME_TO_LEVEL_AREA = {area.short_name: area for area in GAME_LEVEL_AREAS}
 EPISODE_TO_GAME_LEVEL_AREAS = {i + 1: GAME_LEVEL_AREAS[i * 6:(i + 1) * 6] for i in range(6)}
 AREA_ID_TO_GAME_LEVEL_AREA = {area.area_id: area for area in GAME_LEVEL_AREAS}
+STATUS_LEVEL_IDS = (
+        {area.status_level_id for area in GAME_LEVEL_AREAS} | {area.status_level_id for area in BONUS_GAME_LEVEL_AREAS
+                                                               if area.status_level_id != -1}
+)
