@@ -155,6 +155,7 @@ class LegoStarWarsTCSWorld(World):
         item_pool = []
         count_overrides = {
             "Purple Stud": 0,
+            "Restart Level Trap": 0,
             "Progressive Bonus Level": 6,
             "Progressive Score Multiplier": 5,
             "5 Minikits": 360 // 5,
