@@ -17,7 +17,7 @@ import typing
 from pymem import pymem
 from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIError
 
-from CommonClient import CommonContext, server_loop, gui_enabled
+from CommonClient import CommonContext, server_loop, gui_enabled, ClientCommandProcessor
 
 from ..constants import GAME_NAME
 from ..levels import SHORT_NAME_TO_LEVEL_AREA, GAME_LEVEL_AREAS, EpisodeGameLevelArea
@@ -31,6 +31,7 @@ from .game_state_modifiers.characters import AcquiredCharacters
 from .game_state_modifiers.generic import AcquiredGeneric
 from .game_state_modifiers.levels import UnlockedLevelManager
 from .game_state_modifiers.studs import STUDS_AP_ID_TO_VALUE, give_studs
+from .game_state_modifiers.text_display import InGameTextDisplay
 
 
 logger = logging.getLogger("Client")
@@ -225,6 +226,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
     unlocked_level_manager: UnlockedLevelManager
+    text_display: InGameTextDisplay
     client_expected_idx: int
 
     # Location checkers.
@@ -250,6 +252,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
+        self.text_display = InGameTextDisplay()
+
         self.unlocked_level_manager = UnlockedLevelManager()
         self.free_play_completion_checker = FreePlayLevelCompletionChecker()
         self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
@@ -258,6 +262,38 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.bonus_level_completion_checker = BonusLevelCompletionChecker()
         self.client_expected_idx = 0
         self.fully_connected = False
+
+    def on_print_json(self, args: dict):
+        super().on_print_json(args)
+
+        if "type" in args and args["type"] == "ItemSend":
+            item = args["item"]
+            recipient = args["receiving"]
+
+            # Receiving an item from the server
+            if self.slot_concerns_self(recipient):
+                item_name = self.item_names.lookup_in_game(item.item)
+                if self.slot_concerns_self(item.player):
+                    location_name = self.location_names.lookup_in_game(item.location)
+                    message = f"Found {item_name} ({location_name})"
+                else:
+                    finder = self.player_names[item.player]
+                    location_name = self.location_names.lookup_in_slot(item.location, item.player)
+                    message = f"Received {item_name} from {finder} ({location_name})"
+                self.text_display.queue_message(message)
+            # Sending an item to the server.
+            elif self.slot_concerns_self(item.player):
+                item_name = self.item_names.lookup_in_slot(item.item, recipient)
+
+                if self.slot_concerns_self(recipient):
+                    # Should not happen?
+                    location_name = self.location_names.lookup_in_game(item.location)
+                    message = f"Sent {item_name} to myself? ({location_name})"
+                else:
+                    owner = self.player_names[recipient]
+                    location_name = self.location_names.lookup_in_game(item.location)
+                    message = f"Sent {item_name} to {owner} ({location_name})"
+                self.text_display.queue_message(message)
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
@@ -390,9 +426,15 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     async def unhook_game_process(self):
         if self.game_process is not None:
-            self.game_process.close_process()
-            self.game_process = None
-            logger.info("Unhooked game process")
+            try:
+                self.text_display.on_unhook_game_process(self)
+            except (PymemError, WinAPIError):
+                pass
+            finally:
+                self.text_display = InGameTextDisplay()
+                self.game_process.close_process()
+                self.game_process = None
+                logger.info("Unhooked game process")
 
     @property
     def _game_process(self) -> pymem.Pymem:
@@ -426,6 +468,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def write_bytes(self, address: int, value: bytes, length: int) -> None:
         self._game_process.write_bytes(self.memory_offset + address, value, length)
+
+    def write_float(self, address: int, value: float) -> None:
+        self._game_process.write_float(self.memory_offset + address, value)
 
     @staticmethod
     def hash_seed_name(seed_name: str) -> bytes:
@@ -628,6 +673,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.purchased_extras_checker = PurchasedExtrasChecker()
         self.purchased_characters_checker = PurchasedCharactersChecker()
         self.bonus_level_completion_checker = BonusLevelCompletionChecker()
+        self.text_display.message_queue.clear()
 
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
@@ -797,6 +843,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     # todo: Bonus level management.
                     #await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_level_manager.update_game_state(ctx)
+                    await ctx.text_display.update_game_state(ctx)
 
                     # Check for newly cleared locations while connected to a slot on a server.
                     # todo: Some of these don't need to be checked very often because they are persisted in the save
