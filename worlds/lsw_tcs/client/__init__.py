@@ -207,8 +207,31 @@ UNUSED_AREA_DWORD_SLOT_NAME_END = UNUSED_AREA_DWORD_SLOT_NAME_START + 16
 UNUSED_AREA_DWORD_SLOT_NAME_AREAS = slice(UNUSED_AREA_DWORD_SLOT_NAME_START,
                                           UNUSED_AREA_DWORD_SLOT_NAME_END)
 
+import random
+
+
+class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
+    def __init__(self, ctx: CommonContext):
+        super().__init__(ctx)
+
+    def _cmd_debug_message(self):
+        """Queue a debug message to be displayed in-game"""
+        if isinstance(self.ctx, LegoStarWarsTheCompleteSagaContext):
+            if self.ctx.slot:
+                self.ctx.text_display.queue_message(random.choice([
+                    "The quick brown fox jumps over the lazy dog!",  # English
+                    "Voix ambiguë d'un cœur qui, au zéphyr, préfère les jattes de kiwis.",  # French
+                    "Victor jagt zwölf Boxkämpfer quer über den großen Sylter Deich",  # German
+                    "Jeżu klątw, spłódź Finom część gry hańb!",  # Polish
+                    "В чащах юга жил бы цитрус? Да, но фальшивый экземпляр!",  # Russian
+                    # Japanese does not display, despite there being Japanese localization files...
+                    "いろはにほへと ちりぬるを わかよたれそ つねならむ うゐのおくやま けふこえて あさきゆめみし ゑひもせす（ん）",  # Japanese
+                    "(2)色は匂へど 散りぬるを 我が世誰ぞ 常ならむ 有為の奥山 今日越えて 浅き夢見じ 酔ひもせず（ん）",  # Japanese 2
+                ]))
+
 
 class LegoStarWarsTheCompleteSagaContext(CommonContext):
+    command_processor = LegoStarWarsTheCompleteSagaCommandProcessor
     game = GAME_NAME
     items_handling = 0b111  # Fully remote
 
