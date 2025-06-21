@@ -44,6 +44,51 @@ CUSTOM_CHARACTER2_NAME_OFFSET = 0x86E524 + 0x14  # string[15]
 logger = logging.getLogger("Client")
 
 
+COMBINED_SCORE_MULTIPLIERS: Sequence[int] = [
+    1,
+    2,
+    2 * 4,  # 8
+    2 * 4 * 6,  # 48
+    2 * 4 * 6 * 8,  # 384
+    2 * 4 * 6 * 8 * 10,  # 3840
+]
+COMBINED_SCORE_MULTIPLIER_MAX = COMBINED_SCORE_MULTIPLIERS[5]
+
+# todo: This is an idea for the future for slower scaling score multipliers.
+#  The score multiplier extras would want to be enabled/disabled automatically as progressive score multiplier items are
+#  received.
+STEP_SCORE_MULTIPLIERS: Sequence[tuple[tuple[int, ...], int]] = [
+    ((), 1),
+    ((2,), 2),  # +1
+    ((4,), 4),  # +2
+    ((6,), 6),  # +2
+    ((8,), 8),  # ((2, 4), 8),  # +2
+    ((10,), 10),  # +2
+    ((2, 6), 12),  # +2
+    ((2, 8), 16),  # +4
+    ((2, 10), 20),  # +4
+    ((4, 6), 24),  # +4
+    ((4, 8), 32),  # +8
+    ((4, 10), 40),  # +8
+    ((6, 8), 48),  # ((2, 4, 6), 48),  # +8
+    ((6, 10), 60),  # Suggested to skip  # +12
+    ((2, 4, 8), 64),  # +4 (no skip) or +16 (skip)
+    ((8, 10), 80),  # ((2, 4, 10), 80),  # +16
+    ((2, 6, 8), 96),  # +16
+    ((2, 6, 10), 120),  # Suggested cutoff #1 at 16 multipliers with (6, 10) skipped.  # +24
+    ((2, 8, 10), 160),  # +40
+    ((4, 6, 8), 192),  # +32
+    ((4, 6, 10), 240),  # +48
+    ((4, 8, 10), 320),  # +80
+    ((2, 4, 6, 8), 384),  # +64
+    ((6, 8, 10), 480),  # ((2, 4, 6, 10), 480),  # +96
+    ((2, 4, 8, 10), 640),  # +160
+    ((2, 6, 8, 10), 960),  # +320
+    ((4, 6, 8, 10), 1920),  # +960
+    ((2, 4, 6, 8, 10), 3840),  # +1920
+]
+
+
 class AcquiredGeneric(ItemReceiver):
     receivable_ap_ids = RECEIVABLE_GENERIC_BY_AP_ID
 
@@ -60,6 +105,11 @@ class AcquiredGeneric(ItemReceiver):
         self.progressive_bonus_count = 0
         self.progressive_score_count = 0
         self.minikit_count = 0
+
+    @property
+    def current_score_multiplier(self):
+        idx = min(self.progressive_score_count, len(COMBINED_SCORE_MULTIPLIERS) - 1)
+        return COMBINED_SCORE_MULTIPLIERS[idx]
 
     def receive_generic(self, ctx: TCSContext, ap_item_id: int):
         # Minikits

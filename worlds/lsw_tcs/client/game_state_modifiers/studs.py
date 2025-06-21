@@ -37,6 +37,10 @@ def give_studs(ctx: TCSContext, ap_item_id: int):
     if studs_to_add is None:
         logger.warning("Tried to receive unknown Studs item with item ID %i", ap_item_id)
         return
+
+    # Multiply by the player's current maximum score multiplier.
+    studs_to_add *= ctx.acquired_generic.current_score_multiplier
+
     current_stud_count = ctx.read_uint(STUD_COUNT_ADDRESS)
     new_stud_count = min(current_stud_count + studs_to_add, MAX_STUD_COUNT)
     ctx.write_uint(STUD_COUNT_ADDRESS, new_stud_count)
