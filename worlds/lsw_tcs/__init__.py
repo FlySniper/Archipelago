@@ -59,17 +59,26 @@ class LegoStarWarsTCSWorld(World):
 
     origin_region_name = "Cantina"
 
-    starting_character_abilities: CharacterAbility
+    starting_character_abilities: CharacterAbility = CharacterAbility.NONE
     effective_character_ability_names: dict[str, tuple[str, ...]]
     effective_character_abilities: dict[str, CharacterAbility]
     effective_item_classifications: dict[str, ItemClassification]
     effective_item_collect_extras: dict[str, list[str] | None]
 
-    def generate_early(self) -> None:
-        # TODO: Current starting characters are fixed and always have these abilities.
-        self.starting_character_abilities = CharacterAbility.JEDI | CharacterAbility.PROTOCOL_DROID
+    # Item Link worlds do not run generate early, but can create items, so it is necessary to know
+    generate_early_run: bool = False
+
+    def __init__(self, multiworld, player: int):
+        super().__init__(multiworld, player)
         self.effective_character_abilities = {}
         self.effective_character_ability_names = {}
+
+    def generate_early(self) -> None:
+        # TODO: Current starting characters are fixed and always have these abilities.
+        # FIXME: If starting characters are provided by adding them to start inventory, then most of this 'effective'
+        #  abilities will want to be removed. The Playthrough needs to be able to correctly display start inventory
+        #  characters that were actually needed to reach the goal.
+        self.starting_character_abilities = CharacterAbility.JEDI | CharacterAbility.PROTOCOL_DROID
 
         effective_ability_cache: dict[CharacterAbility, tuple[str, ...]] = {}
         for name, char in CHARACTERS_AND_VEHICLES_BY_NAME.items():
@@ -83,8 +92,12 @@ class LegoStarWarsTCSWorld(World):
                 self.effective_character_ability_names[name] = effective_ability_names
 
         self.prepare_items()
+        self.generate_early_run = True
 
-    def evaluate_effective_item(self, name: str):
+    @staticmethod
+    def evaluate_effective_item(name: str,
+                                effective_character_abilities_lookup: dict[str, CharacterAbility] | None = None,
+                                effective_character_ability_names_lookup: dict[str, tuple[str, ...]] | None = None):
         classification = ItemClassification.filler
         collect_extras: Iterable[str] = ()
 
@@ -95,8 +108,15 @@ class LegoStarWarsTCSWorld(World):
         if isinstance(item_data, ExtraData):
             classification = ItemClassification.useful
         elif isinstance(item_data, GenericCharacterData):
-            abilities = self.effective_character_abilities[name]
-            collect_extras = self.effective_character_ability_names[name]
+            if effective_character_abilities_lookup is not None:
+                abilities = effective_character_abilities_lookup[name]
+            else:
+                abilities = item_data.abilities
+
+            if effective_character_ability_names_lookup is not None:
+                collect_extras = effective_character_ability_names_lookup[name]
+            else:
+                collect_extras = cast(list[str], [ability.name for ability in abilities])
 
             if name in IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS:
                 classification = ItemClassification.progression | ItemClassification.useful
@@ -134,7 +154,9 @@ class LegoStarWarsTCSWorld(World):
         self.effective_item_collect_extras = {}
 
         for item in self.item_name_to_id:
-            classification, collect_extras = self.evaluate_effective_item(item)
+            classification, collect_extras = self.evaluate_effective_item(item,
+                                                                          self.effective_character_abilities,
+                                                                          self.effective_character_ability_names)
             self.effective_item_classifications[item] = classification
             self.effective_item_collect_extras[item] = collect_extras
 
@@ -142,8 +164,13 @@ class LegoStarWarsTCSWorld(World):
         return "Purple Stud"
 
     def create_item(self, name: str) -> LegoStarWarsTCSItem:
-        classification = self.effective_item_classifications[name]
-        collect_extras = self.effective_item_collect_extras[name]
+        if self.generate_early_run:
+            classification = self.effective_item_classifications[name]
+            collect_extras = self.effective_item_collect_extras[name]
+        else:
+            # Support for Item Link worlds creating items without calling generate_early.
+            assert self.player in self.multiworld.groups
+            classification, collect_extras = self.evaluate_effective_item(name)
         code = self.item_name_to_id[name]
 
         return LegoStarWarsTCSItem(name, classification, code, self.player, collect_extras)
