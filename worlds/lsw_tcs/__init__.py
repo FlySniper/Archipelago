@@ -395,6 +395,7 @@ class LegoStarWarsTCSWorld(World):
                 gold_brick = self.get_location(f"{area.name} - Gold Brick")
                 item_counts: Mapping[str, int] = dict(+requirements)
                 set_rule(completion, lambda state, items_=item_counts: state.has_all_counts(items_, player))
+                set_rule(gold_brick, completion.access_rule)
         # Locations with 0 Gold Bricks required are added to the base Bonuses region.
         gold_brick_requirements.discard(0)
 
