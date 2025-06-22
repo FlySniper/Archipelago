@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import cast, Iterable, Mapping
 
-from BaseClasses import Region, ItemClassification, CollectionState, Location, Entrance
+from BaseClasses import Region, ItemClassification, CollectionState, Location, Entrance, Tutorial
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type
 from worlds.generic.Rules import set_rule
@@ -44,6 +44,14 @@ components.append(Component("Lego Star Wars: The Complete Saga Client",
 
 class LegoStarWarsTCSWebWorld(WebWorld):
     theme = "partyTime"
+    tutorials = [Tutorial(
+        "Multiworld Setup Guide",
+        "A guide for setting up Lego Star Wars: The Complete Saga to be played in Archipelago.",
+        "English",
+        "lsw_tcs_en.md",
+        "setup/en",
+        ["Mysteryem"]
+    )]
 
 
 class LegoStarWarsTCSWorld(World):
