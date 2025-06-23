@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import cast, Iterable, Mapping, Any
 
-from BaseClasses import Region, ItemClassification, CollectionState, Location, Entrance, Tutorial
+from BaseClasses import Region, ItemClassification, CollectionState, Location, Entrance, Tutorial, Item
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type
 from worlds.generic.Rules import set_rule
@@ -424,6 +424,32 @@ class LegoStarWarsTCSWorld(World):
         set_rule(victory, lambda state: state.has("5 Minikits", player, 54))
 
         self.multiworld.completion_condition[self.player] = lambda state: state.has("Slave I", player)
+
+    @classmethod
+    def stage_fill_hook(cls, multiworld, progitempool, usefulitempool, filleritempool, fill_locations):
+        game_player_ids = set(multiworld.get_game_players(cls.game))
+        game_minimal_player_ids = {player for player in game_player_ids
+                                   if multiworld.worlds[player].options.accessibility == "minimal"}
+        minikits_item_id = ITEM_NAME_TO_ID["5 Minikits"]
+
+        def sort_func(item: Item):
+            if item.player in game_player_ids and item.code == minikits_item_id:
+                if item.player in game_minimal_player_ids:
+                    # TODO?: Only place extra Minikits first, then place all required Minikits last? Get the best of
+                    #  both worlds.
+                    # For minimal players, place Minikits first. This helps prevent fill from dumping logically relevant
+                    # items into unreachable locations and reducing the number of reachable locations to fewer than the
+                    # number of items remaining to be placed.
+                    return 1
+                else:
+                    # For non-minimal players, place Minikits last. The helps prevent fill from filling most/all
+                    # reachable locations with the Minikit macguffins that are only required for the goal.
+                    return -1
+            else:
+                # Python sorting is stable, so this will leave everything else in its original order.
+                return 0
+
+        progitempool.sort(key=sort_func)
 
     def collect(self, state: CollectionState, item: LegoStarWarsTCSItem) -> bool:
         changed = super().collect(state, item)
