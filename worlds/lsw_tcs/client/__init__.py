@@ -37,16 +37,6 @@ from .game_state_modifiers.text_display import InGameTextDisplay
 logger = logging.getLogger("Client")
 debug_logger = logging.getLogger("TCS Debug")
 
-
-# FIXME/TODO: Where can we write the last received item index?
-# FIXME: If an extra/character has already been unlocked, they cannot be bought from the shop.
-#   A. The client detects when the shop is open and temporarily locks all unlocked extras/characters that are
-#      purchasable and have yet to be purchased
-# FIXME: Buying an extra from the shop will re-unlock it when entering the cantina. The client will probably have to
-#  constantly disable any extras that are not unlocked according to AP.
-
-# todo: How to detect GOG executable and offset all addresses?
-
 # Aliases for clarity in typing.
 MemoryAddress = int
 MemoryOffset = int
@@ -102,87 +92,85 @@ CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable ch
 CUSTOM_CHARACTER_2_NAME = 0x86E538  # char[16], null-terminated, so 15 usable characters
 
 
-# Unverified, but seems to be the case.
-MINIKIT_NAME_LENGTH_BYTES = 8
-# todo: Need to include location IDs somewhere
-# todo: Can objects other than minikits get included in these lists? In which case, we might need to read more memory...
-#   Polly on the Lego TTGames modding discord seemed to have an idea of how minikits were laid out in memory.
-# todo: This dictionary will be long and will want to go in a different module.
-_MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {
-    # 1-1A
-    0x0: {
-        b"m_pup1": 1,
-        b"m_pup2": 2,
-        b"m_pup3": 3,
-        b"m_pup4": 4,
-        b"m_pup5": 5,
-        b"pup_2": 6,
-    },
-    # 1-1B
-    0x0: {
-        b"m_pup1": 7,
-        b"pup2": 8,
-    },
-    # 1-1C
-    0x0: {
-        b"m_pup1": 9,
-        b"m_pup2": 10,
-    },
+# # Unverified, but seems to be the case.
+# MINIKIT_NAME_LENGTH_BYTES = 8
+# # todo: Need to include location IDs somewhere
+# # todo: Can objects other than minikits get included in these lists? In which case, we might need to read more memory...
+# #   Polly on the Lego TTGames modding discord seemed to have an idea of how minikits were laid out in memory.
+# # todo: This dictionary will be long and will want to go in a different module.
+# _MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {
+#     # 1-1A
+#     0x0: {
+#         b"m_pup1": 1,
+#         b"m_pup2": 2,
+#         b"m_pup3": 3,
+#         b"m_pup4": 4,
+#         b"m_pup5": 5,
+#         b"pup_2": 6,
+#     },
+#     # 1-1B
+#     0x0: {
+#         b"m_pup1": 7,
+#         b"pup2": 8,
+#     },
+#     # 1-1C
+#     0x0: {
+#         b"m_pup1": 9,
+#         b"m_pup2": 10,
+#     },
+#
+#     0x0: {
+#         b"m_pup2": 11,
+#         b"m_pOOP1": 12,
+#         b"m_pOOP2": 13,
+#         b"m_pOOP3": 14,
+#         b"m_pup1": 15,
+#     },
+#     0x0: {
+#         b"m_pup1": 0,  # todo
+#     }
+# }
+#
+# def _s8(b: bytes) -> bytes:
+#     """Null terminate and pad an 8 byte string"""
+#     if len(b) >= 8:
+#         raise AssertionError(f"String {b} is too long")
+#     return b + b"\x00" * (8 - len(b))
+# MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {k: {_s8(k2): v2 for k2, v2 in v.items()}
+#                                                             for k, v in _MINIKIT_ADDRESSES_AND_NAMES.items()}
+#
+#
+# def _read_minikit_locations(process: pymem.Pymem) -> set[int]:
+#     s = set()
+#     for address, names_to_ap_locations in MINIKIT_ADDRESSES_AND_NAMES.items():
+#         # Read the bytes for the number of minikit names that can be at this address (the number of minikits in this
+#         # particular sublevel, e.g. Negotiations_A)
+#         length = len(names_to_ap_locations)
+#         names_bytes = process.read_bytes(address, length * MINIKIT_NAME_LENGTH_BYTES)
+#
+#         # Find all the names as 8-byte null-terminated strings.
+#         # names: set[bytes] = set(struct.unpack("8s" * length, names_bytes))
+#         # for name, ap_location in names_to_ap_locations.items():
+#         #     if name in names:
+#         #         s.add(ap_location)
+#
+#         # Alternative. todo: Which is faster?
+#         # Iterate the names as 8-byte null-terminated strings.
+#         for unpacked in struct.unpack("8s" * length, names_bytes):
+#             # The names in the mapping are null-terminated and padded to 8 bytes in advance.
+#             # todo: Could do this. It's faster to start with, but slower once more minikits have been collected.
+#             # if unpacked == b"\x00\x00\x00\x00\x00\x00\x00\x00":
+#             #     # No more to read.
+#             #     break
+#             if unpacked in names_to_ap_locations:
+#                 s.add(names_to_ap_locations[unpacked])
+#             else:
+#                 logger.warning("Unexpected unpacked minikit name %s for sublevel address %s", unpacked, address)
+#     return s
 
-    0x0: {
-        b"m_pup2": 11,
-        b"m_pOOP1": 12,
-        b"m_pOOP2": 13,
-        b"m_pOOP3": 14,
-        b"m_pup1": 15,
-    },
-    0x0: {
-        b"m_pup1": 0,  # todo
-    }
-}
-
-def _s8(b: bytes) -> bytes:
-    """Null terminate and pad an 8 byte string"""
-    if len(b) >= 8:
-        raise AssertionError(f"String {b} is too long")
-    return b + b"\x00" * (8 - len(b))
-MINIKIT_ADDRESSES_AND_NAMES: dict[int, dict[bytes, int]] = {k: {_s8(k2): v2 for k2, v2 in v.items()}
-                                                            for k, v in _MINIKIT_ADDRESSES_AND_NAMES.items()}
-
-
-def _read_minikit_locations(process: pymem.Pymem) -> set[int]:
-    s = set()
-    for address, names_to_ap_locations in MINIKIT_ADDRESSES_AND_NAMES.items():
-        # Read the bytes for the number of minikit names that can be at this address (the number of minikits in this
-        # particular sublevel, e.g. Negotiations_A)
-        length = len(names_to_ap_locations)
-        names_bytes = process.read_bytes(address, length * MINIKIT_NAME_LENGTH_BYTES)
-
-        # Find all the names as 8-byte null-terminated strings.
-        # names: set[bytes] = set(struct.unpack("8s" * length, names_bytes))
-        # for name, ap_location in names_to_ap_locations.items():
-        #     if name in names:
-        #         s.add(ap_location)
-
-        # Alternative. todo: Which is faster?
-        # Iterate the names as 8-byte null-terminated strings.
-        for unpacked in struct.unpack("8s" * length, names_bytes):
-            # The names in the mapping are null-terminated and padded to 8 bytes in advance.
-            # todo: Could do this. It's faster to start with, but slower once more minikits have been collected.
-            # if unpacked == b"\x00\x00\x00\x00\x00\x00\x00\x00":
-            #     # No more to read.
-            #     break
-            if unpacked in names_to_ap_locations:
-                s.add(names_to_ap_locations[unpacked])
-            else:
-                logger.warning("Unexpected unpacked minikit name %s for sublevel address %s", unpacked, address)
-    return s
-
-
+# todo: Add optional gold brick and hint purchase checks (they should go in a different module)
 # class PurchasedGoldBricks:
 #     pass
-
-
 # class PurchasedHints:
 #     pass
 
@@ -271,10 +259,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.auth_status = AuthStatus.NOT_AUTHENTICATED
         self.password_requested = False
 
-        # todo: These assigned values shouldn't get used, can we safely remove them?
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
+
         self.text_display = InGameTextDisplay()
 
         self.unlocked_level_manager = UnlockedLevelManager()
@@ -283,7 +271,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.purchased_extras_checker = PurchasedExtrasChecker()
         self.purchased_characters_checker = PurchasedCharactersChecker()
         self.bonus_level_completion_checker = BonusLevelCompletionChecker()
+
         self.client_expected_idx = 0
+
         self.fully_connected = False
 
     def on_print_json(self, args: dict):
@@ -634,6 +624,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         """Check whether the player is currently in a shop. Does not check for being in-game."""
         # todo: Just the SHOP_CHECK is probably enough to determine whether the player is in a shop, but it is not clear
         #  if that byte is used for something more general than only the shop.
+        # todo: text_display.GAME_STATE_ADDRESS looks like it can also be used to check if the player is in the shop.
         return (self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
                 and self.read_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
                 and self.read_uchar(CANTINA_ROOM_ID) == CantinaRoom.SHOP_ROOM.value  # and in the room with the shops.
@@ -648,11 +639,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # Retrieve the expected idx from the unused 4 bytes at the end of Negotiations' (1-1's) save data.
         negotiations = SHORT_NAME_TO_LEVEL_AREA["1-1"]
         expected_idx = self.read_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET)
+        # The default value for new save files is 1200.0f.
         # 1_150_681_088 == struct.unpack("i", struct.pack("f", 1200))
         if expected_idx == 1_150_681_088:
             # Yes, the client will break if you send it this many items, but that should never happen right?
-            # todo?: One of the area bytes only seems to care about the lowest bit, so we should be able to use the
-            #  higher bits of each of those area bytes to store flags, such as whether the expected_idx has been set.
             return 0
         else:
             return expected_idx
@@ -685,7 +675,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             logger.warning(f"Received unknown item with AP ID {code}")
 
-    def reset_persisted_client_data(self):
+    def reset_persisted_client_data(self, clear_text_display_queue=True):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
@@ -696,12 +686,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.purchased_extras_checker = PurchasedExtrasChecker()
         self.purchased_characters_checker = PurchasedCharactersChecker()
         self.bonus_level_completion_checker = BonusLevelCompletionChecker()
-        self.text_display.message_queue.clear()
+        if clear_text_display_queue:
+            self.text_display.message_queue.clear()
 
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
     if ctx.is_in_game():
-        #logger.info("Giving items")
         # The player can enter a level, receive items, and then exit back to the Cantina without saving, reverting their
         # expected_idx to an older value and undoing any studs that were given.
         # To ensure that given studs take into account the player's score multiplier at the time the studs were given,
@@ -714,18 +704,25 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
         # Check if the game rolled back its save data, the client needs to be reset and caught back up.
         if expected_idx_game < ctx.client_expected_idx:
             debug_logger.info("Resetting client received items due to game save data rollback")
-            ctx.reset_persisted_client_data()
+            # The text display queue does not need to be cleared.
+            ctx.reset_persisted_client_data(clear_text_display_queue=False)
             for idx, item in enumerate(received_items[:expected_idx_game]):
                 ctx.receive_item(item.item)
                 ctx.client_expected_idx = idx + 1
+            expected_idx_client = ctx.client_expected_idx
 
         # Check if we are resuming a seed where the client is fresh and needs to be caught up.
-        if ctx.client_expected_idx < expected_idx_game:
-            debug_logger.info("Catching up client to game state. Client expected: %i. Game expected: %i.", ctx.client_expected_idx, expected_idx_game)
-            for idx, item in enumerate(received_items[expected_idx_client:expected_idx_game],
-                                       start=expected_idx_client):
-                ctx.receive_item(item.item)
-                ctx.client_expected_idx = idx + 1
+        if expected_idx_client < expected_idx_game:
+            # The client may not have yet received the items to be able to catch up yet, so don't spam the debug log.
+            if len(received_items) > expected_idx_client:
+                debug_logger.info("Catching up client to game state. Client expected: %i. Game expected: %i.",
+                                  ctx.client_expected_idx, expected_idx_game)
+                for idx, item in enumerate(received_items[expected_idx_client:expected_idx_game],
+                                           start=expected_idx_client):
+                    ctx.receive_item(item.item)
+                    ctx.client_expected_idx = idx + 1
+                # If `expected_idx_client` is to be used beyond this point, it needs to be updated.
+                # expected_idx_client = ctx.client_expected_idx
 
         # Check if there are new items.
         if len(received_items) <= expected_idx_game:
@@ -831,8 +828,6 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
             else:
                 if not ctx.is_in_game():
                     # Need to wait for the player to load into a save file.
-                    # todo: Save the multiworld seed somewhere (custom character 2 name?) and check that before giving
-                    #  items. Then, it won't be necessary to disconnect when not loaded into a save file.
                     if ctx.last_loaded_save_file:
                         msg = "Load back into the game to continue"
                     else:
@@ -848,22 +843,11 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 # todo: Is the `is_in_game()` check here still necessary now that there is an earlier check?
                 if ctx.is_in_game():
                     await ctx.free_play_completion_checker.initialize(ctx)
-                    #logger.info("Checking items to give")
-                    # todo: Store the multiworld seed name somewhere in the save file and check it before giving any
-                    #  items or checking any locations. OR can we do this check when connecting and then immediately
-                    #  disconnect if the seed name does not match?
-                    # todo: If the save file number is set to -1/255, write the multiworld seed to custom character 2's
-                    #  name, otherwise, read from their name instead and reject connections that do not match.
-                    #  For safety, the written multiworld seed should only use characters that players can use, so
-                    #  capital letters, numbers, space (no trailing), and "-" (were there more?).
-                    # todo: Can we store the slot name somewhere too and check that also?
                     await give_items(ctx)
 
                     # Update game state for received items.
-                    # todo: These need to continue running following disconnection from the server.
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
-                    # todo: Bonus level management.
                     await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_level_manager.update_game_state(ctx)
                     await ctx.text_display.update_game_state(ctx)
@@ -876,12 +860,13 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                         # todo: Free play completion needs to be checked often (need to ensure that players cannot click
                         #  through the status screen faster than we're polling the game to check for free play!)
                         await ctx.free_play_completion_checker.check_completion(ctx, new_location_checks)
-                        # todo: True Jedi and Minikit counts (deprecated) do not need to be checked often.
+                        # todo: True Jedi and Minikit counts (deprecated) in the save data do not need to be checked
+                        #  often, but the in-level True Jedi and Minikit counts (deprecated) do need to be check often.
                         await ctx.true_jedi_and_minikit_checker.check_true_jedi_and_minikits(ctx, new_location_checks)
-                        # todo: Purchases do not need to be checked often
+                        # todo: Purchases do not need to be checked often.
                         await ctx.purchased_extras_checker.check_extra_purchases(ctx, new_location_checks)
                         await ctx.purchased_characters_checker.check_extra_purchases(ctx, new_location_checks)
-                        # todo: This does not need to be checked often.
+                        # todo: Bonus level completion is read from the save data, so does not need to be read often.
                         await ctx.bonus_level_completion_checker.check_completion(ctx, new_location_checks)
 
                         # Send newly cleared locations to the server, if there are any.
