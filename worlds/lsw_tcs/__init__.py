@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import cast, Iterable, Mapping
+from typing import cast, Iterable, Mapping, Any
 
 from BaseClasses import Region, ItemClassification, CollectionState, Location, Entrance, Tutorial
 from worlds.AutoWorld import WebWorld, World
@@ -442,3 +442,10 @@ class LegoStarWarsTCSWorld(World):
                 state.prog_items[self.player].subtract(item.collect_extras)
             return True
         return False
+
+    def fill_slot_data(self) -> Mapping[str, Any]:
+        return {
+            "apworld_version": constants.AP_WORLD_VERSION
+        }
+
+
