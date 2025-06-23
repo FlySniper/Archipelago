@@ -27,6 +27,18 @@ class CharacterAbility(IntFlag):
     # VEHICLE_BLASTER = auto()
 
 
+# Workaround for Python 3.10 support. Iterating Flag instances was only added in Python 3.11.
+# There is probably a better way to do this, but it will get the job done.
+if getattr(CharacterAbility.NONE, "__iter__", None) is None:
+    def __iter__(self: CharacterAbility):
+        none_flag = CharacterAbility.NONE
+        for flag in CharacterAbility:
+            if flag is not none_flag and flag in self:
+                yield flag
+    CharacterAbility.__iter__ = __iter__  # type: ignore
+    del __iter__
+
+
 ASTROMECH = CharacterAbility.ASTROMECH
 BLASTER = CharacterAbility.BLASTER
 BOUNTY_HUNTER = CharacterAbility.BOUNTY_HUNTER
