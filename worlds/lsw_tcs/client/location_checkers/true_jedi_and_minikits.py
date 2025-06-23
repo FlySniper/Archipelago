@@ -90,6 +90,8 @@ class TrueJediAndMinikitChecker:
         true_jedi_meter_studs = ctx.read_uint(CURRENT_AREA_STUDS_TRUE_JEDI)
         # fixme: This will only send the True Jedi check on the next stud collected after completing True Jedi, when it
         #  should instead send as soon as the True Jedi is completed.
+        #  The client can get the current Area ID, which means that if the structure of Areas in memory and the array of
+        #  area structures can be found, the True Jedi requirement could simply be looked up using the Area ID.
         # The True Jedi value stops increasing once True Jedi has been completed, so once both P1's and P2's Studs are
         # more than the True Jedi studs, it is known that True Jedi must have been completed.
         if (p1_studs + p2_studs) > true_jedi_meter_studs:

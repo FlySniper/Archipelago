@@ -44,9 +44,11 @@ class AcquiredCharacters(ItemReceiver):
 
     # Buying a character from the shop unlocks a character even though it shouldn't because it is supposed to be a
     # randomized location check, so unlockable characters need to be reset occasionally.
-    # todo: This is probably only necessary to do while in the Cantina, but currently it is always being done.
+    # Sometimes, unlocking a character will let the player immediately switch to that character while in Free Play, so
+    # this game state modifier should be run even outside the Cantina.
     # Completing a story mode level will also probably unlock a character, maybe only if the story mode has not already
-    # been completed.
+    # been completed, but this game state modifier will disable any characters unlocked this way that should not be
+    # unlocked.
     unlocked_characters: set[int]
 
     def __init__(self):

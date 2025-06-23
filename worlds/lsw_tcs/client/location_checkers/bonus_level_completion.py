@@ -21,13 +21,13 @@ class BonusLevelCompletionChecker:
         self.remaining_story_completion_checks = ALL_STORY_COMPLETION_CHECKS.copy()
 
     async def check_completion(self, ctx: TCSContext, new_location_checks: list[int]):
-        # As location checks get sent, the remaining bytes to gets reduced.
+        # As location checks get sent, the remaining bytes check to gets reduced.
         updated_remaining_story_completion_checks = {}
         for address, ap_id in self.remaining_story_completion_checks.items():
             # Memory reads are assumed to be the slowest part
             if ap_id in ctx.checked_locations:
-                # By skipping the location, it will not be added to the update dictionary, so will not be checked in the
-                # future.
+                # By skipping the location, it will not be added to the updated dictionary, so will not be checked in
+                # the future.
                 continue
             # It seems that the value is always `1` for a completed bonus and `0` otherwise. The client checks
             # truthiness in case it is possible that other bits could be set.
