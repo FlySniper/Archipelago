@@ -67,10 +67,35 @@ DISPLAY_MESSAGE_VALUE = b"\x80\x40"  # 16512
 WAIT_BETWEEN_MESSAGES_SECONDS = 2
 WAIT_BETWEEN_MESSAGES_NS = WAIT_BETWEEN_MESSAGES_SECONDS * 1_000_000_000
 
+# -- Game state addresses.
 
-# todo: Opening the pause menu clears the currently displayed message.
-# todo: New messages continue to be displayed while paused, while in 'status' levels etc.. Displaying new messages
-#  should stop while in these states.
+# This value is slightly unstable and occasionally changes to 0 while playing. It is also set to 2 in Mos Espa Pod Race
+# for some reason.
+# Importantly, this value is *not* 0 when watching a Story cutscene, and is instead 1.
+PAUSED_OR_STATUS_WHEN_0_ADDRESS = 0x9737D8
+# This address is usually -1/255 while playing or paused, 1 while tabbed out and 0 while both paused and tabbed out.
+# It is a more unstable than the previous value, while playing, however.
+TABBED_OUT_WHEN_1_ADDRESS = 0x9868C4
+
+# 0 when a menu is not open, 1 when a menu is open (pause screen, shop, custom character creator, select mode after
+# entering a level door). Increases to 2 when opening a submenu in the pause screen.
+OPENED_MENU_DEPTH_ADDRESS = 0x800944
+
+# 0 when playing, 1 when in a cutscene, same-level door transition, Indy trailer and title crawl.
+# Rarely unstable and seen as -1 briefly while playing
+IS_PLAYING_WHEN_0_ADDRESS = 0x297C0AC
+
+# 255: Cutscene
+# 1: Playing, Indy trailer, loading into Cantina, Title crawl
+# 2: In-level 'cutscene' where the player has no control
+# 6: Bounty Hunter missions select
+# 7: In custom character creator
+# 8: In Cantina shop
+# 9: Minikits display on outside scrapyard
+# There is another address at 0x925395
+GAME_STATE_ADDRESS = 0x925394
+
+
 class InGameTextDisplay(GameStateUpdater):
     max_message_size: int = 0
     double_score_zone_string_address: int = -1
@@ -172,8 +197,17 @@ class InGameTextDisplay(GameStateUpdater):
                 ctx.write_bytes(self.double_score_zone_string_address, self.vanilla_bytes, len(self.vanilla_bytes))
                 self.memory_dirty = False
         else:
-            # Don't display a new message if the player is on a status screen because the player won't be able to see
-            # it.
-            if ctx.read_current_level_id() not in STATUS_LEVEL_IDS:
+            # Don't display a new message if the game is paused, in a cutscene, in a status screen, or tabbed out.
+            if (
+                    # Handles pause and status screens.
+                    ctx.read_uchar(PAUSED_OR_STATUS_WHEN_0_ADDRESS) != 0
+                    # Handles tabbing out.
+                    and ctx.read_uchar(TABBED_OUT_WHEN_1_ADDRESS) != 1
+                    # Handles pause menu and other menus.
+                    and ctx.read_uchar(OPENED_MENU_DEPTH_ADDRESS) == 0
+                    # Handles same-level screen transitions.
+                    and ctx.read_uchar(IS_PLAYING_WHEN_0_ADDRESS) == 0
+                    and 1 <= ctx.read_uchar(GAME_STATE_ADDRESS) <= 2
+            ):
                 self._display_message(ctx, self.message_queue.popleft())
 
