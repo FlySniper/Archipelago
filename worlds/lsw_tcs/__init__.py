@@ -20,12 +20,12 @@ from .items import (
     USEFUL_NON_PROGRESSION_CHARACTERS,
 )
 from .levels import (
-    BonusGameLevelArea,
-    GAME_LEVEL_AREAS,
-    BONUS_GAME_LEVEL_AREAS,
-    EPISODE_TO_GAME_LEVEL_AREAS,
-    LEVEL_CHARACTER_REQUIREMENTS,
-    ALL_LEVEL_REQUIREMENT_CHARACTERS,
+    BonusArea,
+    CHAPTER_AREAS,
+    BONUS_AREAS,
+    EPISODE_TO_CHAPTER_AREAS,
+    CHAPTER_AREA_CHARACTER_REQUIREMENTS,
+    ALL_AREA_REQUIREMENT_CHARACTERS,
     IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS,
 )
 from .locations import LOCATION_NAME_TO_ID, LegoStarWarsTCSLocation
@@ -128,7 +128,7 @@ class LegoStarWarsTCSWorld(World):
 
             if name in IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS:
                 classification = ItemClassification.progression | ItemClassification.useful
-            elif name in ALL_LEVEL_REQUIREMENT_CHARACTERS:
+            elif name in ALL_AREA_REQUIREMENT_CHARACTERS:
                 classification = ItemClassification.progression
             elif abilities & constants.RARE_AND_USEFUL_ABILITIES:
                 classification = ItemClassification.progression
@@ -219,68 +219,68 @@ class LegoStarWarsTCSWorld(World):
             episode_room = self.create_region(f"Episode {episode_number} Room")
             cantina.connect(episode_room, f"Episode {episode_number} Door")
 
-            episode_chapters = EPISODE_TO_GAME_LEVEL_AREAS[episode_number]
-            for chapter_number, level in enumerate(episode_chapters, start=1):
-                level_region = self.create_region(level.name)
+            episode_chapters = EPISODE_TO_CHAPTER_AREAS[episode_number]
+            for chapter_number, chapter in enumerate(episode_chapters, start=1):
+                chapter_region = self.create_region(chapter.name)
 
                 entrance_name = f"Episode {episode_number} Room, Chapter {chapter_number} Door"
-                episode_room.connect(level_region, entrance_name)
+                episode_room.connect(chapter_region, entrance_name)
 
                 # Completion.
-                completion_name = f"{level.short_name} Completion"
+                completion_name = f"{chapter.short_name} Completion"
                 completion_loc = LegoStarWarsTCSLocation(self.player, completion_name,
-                                                         self.location_name_to_id[completion_name], level_region)
-                level_region.locations.append(completion_loc)
+                                                         self.location_name_to_id[completion_name], chapter_region)
+                chapter_region.locations.append(completion_loc)
                 # Completion Gold Brick event.
                 completion_gold_brick = LegoStarWarsTCSLocation(self.player, f"{completion_name} - Gold Brick",
-                                                                None, level_region)
+                                                                None, chapter_region)
                 completion_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                level_region.locations.append(completion_gold_brick)
+                chapter_region.locations.append(completion_gold_brick)
 
                 # True Jedi.
-                true_jedi_name = f"{level.short_name} True Jedi"
+                true_jedi_name = f"{chapter.short_name} True Jedi"
                 true_jedi_loc = LegoStarWarsTCSLocation(self.player, true_jedi_name,
-                                                        self.location_name_to_id[true_jedi_name], level_region)
-                level_region.locations.append(true_jedi_loc)
+                                                        self.location_name_to_id[true_jedi_name], chapter_region)
+                chapter_region.locations.append(true_jedi_loc)
                 # True Jedi Gold Brick event.
                 true_jedi_gold_brick = LegoStarWarsTCSLocation(self.player, f"{true_jedi_name} - Gold Brick",
-                                                               None, level_region)
+                                                               None, chapter_region)
                 true_jedi_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                level_region.locations.append(true_jedi_gold_brick)
+                chapter_region.locations.append(true_jedi_gold_brick)
 
                 # Power Brick.
-                power_brick_location_name = level.power_brick_location_name
+                power_brick_location_name = chapter.power_brick_location_name
                 power_brick_location = LegoStarWarsTCSLocation(self.player, power_brick_location_name,
                                                                self.location_name_to_id[power_brick_location_name],
-                                                               level_region)
-                level_region.locations.append(power_brick_location)
+                                                               chapter_region)
+                chapter_region.locations.append(power_brick_location)
 
                 # Character Purchases in the shop.
-                # Character purchases unlocked upon completing the level (normally in Story mode).
-                for shop_unlock in sorted(level.shop_unlocks):
+                # Character purchases unlocked upon completing the chapter (normally in Story mode).
+                for shop_unlock in sorted(chapter.shop_unlocks):
                     shop_location = LegoStarWarsTCSLocation(self.player, shop_unlock,
-                                                            self.location_name_to_id[shop_unlock], level_region)
-                    level_region.locations.append(shop_location)
+                                                            self.location_name_to_id[shop_unlock], chapter_region)
+                    chapter_region.locations.append(shop_location)
 
                 # Minikits.
-                level_minikits = self.create_region(f"{level.name} Minikits")
-                level_region.connect(level_minikits, f"{level.name} - Collect All Minikits")
+                chapter_minikits = self.create_region(f"{chapter.name} Minikits")
+                chapter_region.connect(chapter_minikits, f"{chapter.name} - Collect All Minikits")
                 for i in range(1, 11):
-                    loc_name = f"{level.short_name} Minikit {i}"
+                    loc_name = f"{chapter.short_name} Minikit {i}"
                     location = LegoStarWarsTCSLocation(self.player, loc_name, self.location_name_to_id[loc_name],
-                                                       level_minikits)
-                    level_minikits.locations.append(location)
+                                                       chapter_minikits)
+                    chapter_minikits.locations.append(location)
                 # All Minikits Gold Brick.
-                all_minikits_gold_brick = LegoStarWarsTCSLocation(self.player, f"{level_minikits.name} - Gold Brick",
-                                                                  None, level_minikits)
+                all_minikits_gold_brick = LegoStarWarsTCSLocation(self.player, f"{chapter_minikits.name} - Gold Brick",
+                                                                  None, chapter_minikits)
                 all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                level_minikits.locations.append(all_minikits_gold_brick)
+                chapter_minikits.locations.append(all_minikits_gold_brick)
 
         # Bonuses.
         bonuses = self.create_region("Bonuses")
         cantina.connect(bonuses, "Bonuses Door")
-        gold_brick_costs: dict[int, list[BonusGameLevelArea]] = {}
-        for area in BONUS_GAME_LEVEL_AREAS:
+        gold_brick_costs: dict[int, list[BonusArea]] = {}
+        for area in BONUS_AREAS:
             gold_brick_costs.setdefault(area.item_requirements["Gold Brick"], []).append(area)
 
         previous_gold_brick_region = bonuses
@@ -358,11 +358,11 @@ class LegoStarWarsTCSWorld(World):
                 set_rule(episode_entrance, lambda state, item_=item: state.has(item_, player))
 
             # Set chapter requirements.
-            episode_chapters = EPISODE_TO_GAME_LEVEL_AREAS[episode_number]
-            for chapter_number, level in enumerate(episode_chapters, start=1):
+            episode_chapters = EPISODE_TO_CHAPTER_AREAS[episode_number]
+            for chapter_number, chapter in enumerate(episode_chapters, start=1):
                 entrance = self.get_entrance(f"Episode {episode_number} Room, Chapter {chapter_number} Door")
 
-                required_character_names = LEVEL_CHARACTER_REQUIREMENTS[level.short_name]
+                required_character_names = CHAPTER_AREA_CHARACTER_REQUIREMENTS[chapter.short_name]
                 if required_character_names:
                     if len(required_character_names) == 1:
                         item = next(iter(required_character_names))
@@ -376,24 +376,24 @@ class LegoStarWarsTCSWorld(World):
                     generic_character = CHARACTERS_AND_VEHICLES_BY_NAME[character_name]
                     entrance_abilities |= generic_character.abilities
 
-                def set_level_spot_abilities_rule(spot: Location | Entrance, abilities: CharacterAbility):
-                    # Remove any requirements already satisfied by the level entrance before setting the rule.
+                def set_chapter_spot_abilities_rule(spot: Location | Entrance, abilities: CharacterAbility):
+                    # Remove any requirements already satisfied by the chapter entrance before setting the rule.
                     self.set_abilities_rule(spot, abilities & ~entrance_abilities)
 
                 # Set Power Brick logic
-                power_brick = self.get_location(level.power_brick_location_name)
-                set_level_spot_abilities_rule(power_brick, level.power_brick_ability_requirements)
+                power_brick = self.get_location(chapter.power_brick_location_name)
+                set_chapter_spot_abilities_rule(power_brick, chapter.power_brick_ability_requirements)
 
                 # Set Minikits logic
-                all_minikits_entrance = self.get_entrance(f"{level.name} - Collect All Minikits")
-                set_level_spot_abilities_rule(all_minikits_entrance, level.all_minikits_ability_requirements)
+                all_minikits_entrance = self.get_entrance(f"{chapter.name} - Collect All Minikits")
+                set_chapter_spot_abilities_rule(all_minikits_entrance, chapter.all_minikits_ability_requirements)
 
         # Bonus levels.
         entrance = self.get_entrance("Bonuses Door")
         set_rule(entrance, lambda state: state.has("Progressive Bonus Level", player))
         entrance_requirements = Counter(["Progressive Bonus Level"])
         gold_brick_requirements: set[int] = set()
-        for area in BONUS_GAME_LEVEL_AREAS:
+        for area in BONUS_AREAS:
             requirements = area.item_requirements - entrance_requirements
             gold_brick_requirements.add(requirements[GOLD_BRICK_EVENT_NAME])
             # Gold Brick requirements are set on the entrances.

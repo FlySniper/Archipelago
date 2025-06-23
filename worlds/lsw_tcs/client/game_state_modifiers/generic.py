@@ -131,7 +131,7 @@ class AcquiredGeneric(ItemReceiver):
         # Episode Unlocks
         elif ap_item_id in EPISODE_UNLOCKS:
             self.unlocked_episodes.add(EPISODE_UNLOCKS[ap_item_id])
-            ctx.unlocked_level_manager.on_character_or_episode_unlocked(ap_item_id)
+            ctx.unlocked_chapter_manager.on_character_or_episode_unlocked(ap_item_id)
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
 

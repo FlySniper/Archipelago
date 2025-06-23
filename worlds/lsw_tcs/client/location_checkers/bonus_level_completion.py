@@ -1,16 +1,16 @@
 from ..type_aliases import MemoryAddress, ApLocationId, TCSContext
-from ...levels import BONUS_GAME_LEVEL_AREAS
+from ...levels import BONUS_AREAS
 from ...locations import LOCATION_NAME_TO_ID
 
 
 ALL_STORY_COMPLETION_CHECKS: dict[MemoryAddress, ApLocationId] = {
-    bonus.address + bonus.completion_offset: LOCATION_NAME_TO_ID[bonus.name] for bonus in BONUS_GAME_LEVEL_AREAS
+    bonus.address + bonus.completion_offset: LOCATION_NAME_TO_ID[bonus.name] for bonus in BONUS_AREAS
 }
 
 
-class BonusLevelCompletionChecker:
+class BonusAreaCompletionChecker:
     """
-    Check if the player has completed a bonus level by reading the completion byte of each bonus level that has not
+    Check if the player has completed a bonus Area by reading the completion byte of each bonus Area that has not
     already been completed according to the server.
     """
     # Anakin's Flight and A New Hope support Free Play, but the rest are Story mode only, for now, this class only

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from ..items import ITEM_DATA, GenericCharacterData, CHARACTER_SHOP_SLOTS, CHARACTERS_AND_VEHICLES_BY_NAME
-from ..levels import SHORT_NAME_TO_LEVEL_AREA
+from ..levels import SHORT_NAME_TO_CHAPTER_AREA
 
 
 class TestItems(TestCase):
@@ -40,7 +40,8 @@ class TestItems(TestCase):
 
     def test_shop_slots_unlocks(self):
         possible_unlocks = {
-            *SHORT_NAME_TO_LEVEL_AREA.keys(),  # Complete a story level (story levels are auto-completed currently).
+            *SHORT_NAME_TO_CHAPTER_AREA.keys(),  # Complete a story chapter (story chapters are auto-completed by the
+            # client when free play is completed).
             "ALL_EPISODES",  # Complete all episode in vanilla, unlock all episodes in the rando.
             None,  # Available from the start.
             "INDY_TRAILER",  # Watch the Indy Trailer.

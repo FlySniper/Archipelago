@@ -20,16 +20,16 @@ from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIErr
 from CommonClient import CommonContext, server_loop, gui_enabled, ClientCommandProcessor
 
 from ..constants import GAME_NAME
-from ..levels import SHORT_NAME_TO_LEVEL_AREA, GAME_LEVEL_AREAS, EpisodeGameLevelArea
+from ..levels import SHORT_NAME_TO_CHAPTER_AREA, CHAPTER_AREAS, ChapterArea
 from .common_addresses import ShopType, CantinaRoom
-from .location_checkers.free_play_completion import FreePlayLevelCompletionChecker
-from .location_checkers.bonus_level_completion import BonusLevelCompletionChecker
+from .location_checkers.free_play_completion import FreePlayChapterCompletionChecker
+from .location_checkers.bonus_level_completion import BonusAreaCompletionChecker
 from .location_checkers.true_jedi_and_minikits import TrueJediAndMinikitChecker
 from .location_checkers.shop_purchases import PurchasedExtrasChecker, PurchasedCharactersChecker
 from .game_state_modifiers.extras import AcquiredExtras
 from .game_state_modifiers.characters import AcquiredCharacters
 from .game_state_modifiers.generic import AcquiredGeneric
-from .game_state_modifiers.levels import UnlockedLevelManager
+from .game_state_modifiers.levels import UnlockedChapterManager
 from .game_state_modifiers.studs import STUDS_AP_ID_TO_VALUE, give_studs
 from .game_state_modifiers.text_display import InGameTextDisplay
 
@@ -236,16 +236,16 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_characters: AcquiredCharacters
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
-    unlocked_level_manager: UnlockedLevelManager
+    unlocked_chapter_manager: UnlockedChapterManager
     text_display: InGameTextDisplay
     client_expected_idx: int
 
     # Location checkers.
-    free_play_completion_checker: FreePlayLevelCompletionChecker
+    free_play_completion_checker: FreePlayChapterCompletionChecker
     true_jedi_and_minikit_checker: TrueJediAndMinikitChecker
     purchased_extras_checker: PurchasedExtrasChecker
     purchased_characters_checker: PurchasedCharactersChecker
-    bonus_level_completion_checker: BonusLevelCompletionChecker
+    bonus_area_completion_checker: BonusAreaCompletionChecker
 
     fully_connected: bool
     last_connected_slot: str | None = None
@@ -265,12 +265,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         self.text_display = InGameTextDisplay()
 
-        self.unlocked_level_manager = UnlockedLevelManager()
-        self.free_play_completion_checker = FreePlayLevelCompletionChecker()
+        self.unlocked_chapter_manager = UnlockedChapterManager()
+        self.free_play_completion_checker = FreePlayChapterCompletionChecker()
         self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
         self.purchased_extras_checker = PurchasedExtrasChecker()
         self.purchased_characters_checker = PurchasedCharactersChecker()
-        self.bonus_level_completion_checker = BonusLevelCompletionChecker()
+        self.bonus_area_completion_checker = BonusAreaCompletionChecker()
 
         self.client_expected_idx = 0
 
@@ -492,7 +492,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         hashed = hashlib.md5(encoded).digest()
         # The default, unused values in each of the sections of 4 bytes we're writing to is 1200.0f.
         # In the tiny chance that the seed name hashes to the same bytes as these default values
-        if hashed == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 4:
+        if hashed == ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 4:
             # Pick something else.
             hashed = bytes(range(16))
         return hashed
@@ -503,7 +503,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         # The normally unused 4 bytes for the first area are being used to store the expected item index, so start from
         # the second area.
-        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS]
+        areas = CHAPTER_AREAS[UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS]
         parts = [hashed[i * 4:i * 4 + 4] for i in range(4)]
         for part, area in zip(parts, areas, strict=True):
             address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
@@ -511,9 +511,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if __debug__:
                 # Ensure the bytes have not already been written to.
                 existing_bytes = self.read_bytes(address, 4)
-                assert existing_bytes == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE, (
+                assert existing_bytes == ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE, (
                     f"The unused bytes the seed hash is being written to at area {area.short_name} are not their"
-                    f" expected value of {EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE!r}, instead found"
+                    f" expected value of {ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE!r}, instead found"
                     f" {existing_bytes!r}"
                 )
 
@@ -522,12 +522,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.write_bytes(address, part, 4)
 
     def read_seed_name_hash(self) -> bytes | None:
-        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS]
+        areas = CHAPTER_AREAS[UNUSED_AREA_DWORD_SEED_NAME_HASH_AREAS]
         hashed = b""
         for area in areas:
             address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
             hashed += self.read_bytes(address, 4)
-        if hashed == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 4:
+        if hashed == ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 4:
             return None
         else:
             return hashed
@@ -541,7 +541,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         if len(encoded_name) < 64:
             encoded_name += b"\xFF" * (64 - len(encoded_name))
         assert len(encoded_name) == 64
-        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
+        areas = CHAPTER_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
         parts = [encoded_name[i * 4: i * 4 + 4] for i in range(16)]
         for part, area in zip(parts, areas, strict=True):
             address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
@@ -549,9 +549,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if __debug__:
                 # Ensure the bytes have not already been written to.
                 existing_bytes = self.read_bytes(address, 4)
-                assert existing_bytes == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE, (
+                assert existing_bytes == ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE, (
                     f"The unused bytes the slot name is being written to at area {area.short_name} are not their"
-                    f" expected value of {EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE!r}, instead found"
+                    f" expected value of {ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE!r}, instead found"
                     f" {existing_bytes!r}"
                 )
 
@@ -571,7 +571,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         :return: The slot name in the current save file, or None if no slot name has been written to the current save
         file.
         """
-        areas = GAME_LEVEL_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
+        areas = CHAPTER_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
         encoded_name = b""
         for area in areas:
             address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
@@ -580,7 +580,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if b"\xFF" in read_bytes:
                 # Reading can stop once there are padding bytes in a part that was read.
                 break
-        if encoded_name == EpisodeGameLevelArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 16:
+        if encoded_name == ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE * 16:
             # The default value of the unused bytes is fortunately invalid UTF-8, so it is not possible for a slot name
             # to produce the same bytes as the default values.
             return None
@@ -632,12 +632,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def set_game_expected_idx(self, idx: int) -> None:
         # The expected idx is stored in the unused 4 bytes at the end of Negotiations' (1-1's) save data.
-        negotiations = SHORT_NAME_TO_LEVEL_AREA["1-1"]
+        negotiations = SHORT_NAME_TO_CHAPTER_AREA["1-1"]
         self.write_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET, idx)
 
     def get_game_expected_idx(self) -> int:
         # Retrieve the expected idx from the unused 4 bytes at the end of Negotiations' (1-1's) save data.
-        negotiations = SHORT_NAME_TO_LEVEL_AREA["1-1"]
+        negotiations = SHORT_NAME_TO_CHAPTER_AREA["1-1"]
         expected_idx = self.read_uint(negotiations.address + negotiations.UNUSED_CHALLENGE_BEST_TIME_OFFSET)
         # The default value for new save files is 1200.0f.
         # 1_150_681_088 == struct.unpack("i", struct.pack("f", 1200))
@@ -666,7 +666,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.acquired_generic.receive_generic(self, code)
         elif code in self.acquired_characters.receivable_ap_ids:
             self.acquired_characters.receive_character(code)
-            self.unlocked_level_manager.on_character_or_episode_unlocked(code)
+            self.unlocked_chapter_manager.on_character_or_episode_unlocked(code)
         elif code in self.acquired_extras.receivable_ap_ids:
             self.acquired_extras.receive_extra(code)
         elif code in STUDS_AP_ID_TO_VALUE:
@@ -679,13 +679,13 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
-        self.unlocked_level_manager = UnlockedLevelManager()
+        self.unlocked_chapter_manager = UnlockedChapterManager()
         self.client_expected_idx = 0
-        self.free_play_completion_checker = FreePlayLevelCompletionChecker()
+        self.free_play_completion_checker = FreePlayChapterCompletionChecker()
         self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
         self.purchased_extras_checker = PurchasedExtrasChecker()
         self.purchased_characters_checker = PurchasedCharactersChecker()
-        self.bonus_level_completion_checker = BonusLevelCompletionChecker()
+        self.bonus_area_completion_checker = BonusAreaCompletionChecker()
         if clear_text_display_queue:
             self.text_display.message_queue.clear()
 
@@ -849,7 +849,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
                     await ctx.acquired_generic.update_game_state(ctx)
-                    await ctx.unlocked_level_manager.update_game_state(ctx)
+                    await ctx.unlocked_chapter_manager.update_game_state(ctx)
                     await ctx.text_display.update_game_state(ctx)
 
                     # Check for newly cleared locations while connected to a slot on a server.
@@ -867,7 +867,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                         await ctx.purchased_extras_checker.check_extra_purchases(ctx, new_location_checks)
                         await ctx.purchased_characters_checker.check_extra_purchases(ctx, new_location_checks)
                         # todo: Bonus level completion is read from the save data, so does not need to be read often.
-                        await ctx.bonus_level_completion_checker.check_completion(ctx, new_location_checks)
+                        await ctx.bonus_area_completion_checker.check_completion(ctx, new_location_checks)
 
                         # Send newly cleared locations to the server, if there are any.
                         await ctx.check_locations(new_location_checks)

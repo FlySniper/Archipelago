@@ -1,6 +1,6 @@
 import logging
 
-from ...levels import GAME_LEVEL_AREAS, EpisodeGameLevelArea
+from ...levels import CHAPTER_AREAS, ChapterArea
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
 from ..type_aliases import ApLocationId, LevelId, TCSContext
 
@@ -9,9 +9,9 @@ debug_logger = logging.getLogger("TCS Debug")
 
 
 # The most stable byte I could find to determine the difference between the 'status' screen when using "Save and Exit
-# Cantina" and when completing a level, in Free Play. What this byte controls is unknown.
-# Seems to always be 0x8 when using "Save and Quit", and 0x0 when completing a level. Can be 0x8 when playing through a
-# normal game level with control of a character.
+# Cantina" and when completing a chapter, in Free Play. What this byte controls is unknown.
+# Seems to always be 0x8 when using "Save and Quit", and 0x0 when completing a chapter. Can be 0x8 when playing
+# through a normal chapter with control of a character.
 STATUS_LEVEL_TYPE_ADDRESS = 0x87A6D9
 # STATUS_LEVEL_TYPE_SAVE_AND_EXIT = 0x8
 STATUS_LEVEL_TYPE_LEVEL_COMPLETION = 0x0
@@ -22,7 +22,7 @@ CURRENT_GAME_MODE_ADDRESS = 0x87951C
 
 # CURRENT_GAME_MODE_STORY = 0
 CURRENT_GAME_MODE_FREE_PLAY = 1
-# Per-level Challenge mode as well as per-episode character bonus and Superstory.
+# Per-chapter Challenge mode as well as per-episode character bonus and Superstory.
 # TODO: What do vehicle bonuses and separate bonus levels count as? Separate bonus levels can have both Story and Free
 #  Play modes (Anakin's Flight), but can also be only Free Play (New Town).
 # CURRENT_GAME_MODE_CHALLENGE_BONUS = 2
@@ -30,12 +30,12 @@ CURRENT_GAME_MODE_FREE_PLAY = 1
 
 STATUS_LEVEL_ID_TO_AP_ID: dict[LevelId, ApLocationId] = {
     area.status_level_id: LOCATION_NAME_TO_ID[LEVEL_COMMON_LOCATIONS[area.short_name]["Completion"]]
-    for area in GAME_LEVEL_AREAS
+    for area in CHAPTER_AREAS
 }
-STATUS_LEVEL_ID_TO_AREA: dict[LevelId, EpisodeGameLevelArea] = {
-    area.status_level_id: area for area in GAME_LEVEL_AREAS
+STATUS_LEVEL_ID_TO_AREA: dict[LevelId, ChapterArea] = {
+    area.status_level_id: area for area in CHAPTER_AREAS
 }
-AP_ID_TO_AREA: dict[ApLocationId, EpisodeGameLevelArea] = {
+AP_ID_TO_AREA: dict[ApLocationId, ChapterArea] = {
     ap_id: STATUS_LEVEL_ID_TO_AREA[level_id] for level_id, ap_id in STATUS_LEVEL_ID_TO_AP_ID.items()
 }
 
@@ -44,37 +44,37 @@ def is_in_free_play(ctx: TCSContext) -> bool:
     """
     Return whether the player is currently in Free Play.
 
-    The result is undefined if the player is not currently in a game level Area.
+    The result is undefined if the player is not currently in a chapter Area.
     """
     return ctx.read_uchar(CURRENT_GAME_MODE_ADDRESS) == CURRENT_GAME_MODE_FREE_PLAY
 
 
 def is_status_level_completion(ctx: TCSContext) -> bool:
     """
-    Return whether the current status Level is being shown as part of level completion.
+    Return whether the current status Level is being shown as part of chapter completion.
 
-    The status Level for each game level Area is used when tallying up Studs/Minikits etc. when returning to the
-    Cantina, both for level completion and for 'Save and Exit'.
+    The status Level for each chapter Area is used when tallying up Studs/Minikits etc. when returning to the
+    Cantina, both for chapter completion and for 'Save and Exit'.
 
     The result is undefined if the player is not currently in a status Level.
     """
     return ctx.read_uchar(STATUS_LEVEL_TYPE_ADDRESS) == STATUS_LEVEL_TYPE_LEVEL_COMPLETION
 
 
-# TODO: How quickly can a player reasonably skip through the level completion screen? Do we need to check for level
+# TODO: How quickly can a player reasonably skip through the chapter completion screen? Do we need to check for chapter
 #  completion with a higher frequency than how often the game watcher is checking?
-class FreePlayLevelCompletionChecker:
+class FreePlayChapterCompletionChecker:
     """
-    Check if the player has completed a free play level by looking for the ending screen that tallies up new
+    Check if the player has completed a free play chapter by looking for the ending screen that tallies up new
     studs/minikits.
 
-    There appears to be no persistent storage in the game's memory or save data for whether a level has been completed
+    There appears to be no persistent storage in the game's memory or save data for whether a chapter has been completed
     in Free Play, so the client must poll the game state and track completions itself in the case of disconnecting from
     the server.
     """
 
     sent_locations: set[ApLocationId]
-    completed_free_play: set[EpisodeGameLevelArea]
+    completed_free_play: set[ChapterArea]
     initial_setup_complete: bool
 
     def __init__(self):
@@ -83,7 +83,7 @@ class FreePlayLevelCompletionChecker:
         self.initial_setup_complete = False
 
     def read_completed_free_play_from_save_data(self, ctx: TCSContext):
-        for area in GAME_LEVEL_AREAS:
+        for area in CHAPTER_AREAS:
             unlocked_byte = ctx.read_uchar(area.address + area.UNLOCKED_OFFSET)
             if unlocked_byte == 0b11:
                 self.completed_free_play.add(area)

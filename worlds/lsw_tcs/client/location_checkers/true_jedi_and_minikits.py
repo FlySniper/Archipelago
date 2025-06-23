@@ -1,5 +1,5 @@
 from ..type_aliases import TCSContext
-from ...levels import SHORT_NAME_TO_LEVEL_AREA, AREA_ID_TO_GAME_LEVEL_AREA, EpisodeGameLevelArea
+from ...levels import SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA, ChapterArea
 from ...locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
 
 
@@ -63,15 +63,15 @@ class TrueJediAndMinikitChecker:
 
     async def check_true_jedi_and_minikits(self, ctx: TCSContext, new_location_checks: list[int]):
         current_area_id = ctx.read_uchar(CURRENT_AREA_ADDRESS)
-        if current_area_id in AREA_ID_TO_GAME_LEVEL_AREA:
-            current_area = AREA_ID_TO_GAME_LEVEL_AREA[current_area_id]
+        if current_area_id in AREA_ID_TO_CHAPTER_AREA:
+            current_area = AREA_ID_TO_CHAPTER_AREA[current_area_id]
             self._check_minikits_from_current_area(current_area, ctx, new_location_checks)
             self._check_true_jedi_from_current_area(current_area, ctx, new_location_checks)
 
         self._check_true_jedi_and_minikits_from_save_data(ctx, new_location_checks)
 
     def _check_true_jedi_from_current_area(self,
-                                           current_area: EpisodeGameLevelArea,
+                                           current_area: ChapterArea,
                                            ctx: TCSContext,
                                            new_location_checks: list[int]
                                            ):
@@ -101,7 +101,7 @@ class TrueJediAndMinikitChecker:
             self.remaining_true_jedi_check_shortnames.remove(shortname)
 
     def _check_minikits_from_current_area(self,
-                                          current_area: EpisodeGameLevelArea,
+                                          current_area: ChapterArea,
                                           ctx: TCSContext,
                                           new_location_checks: list[int]):
         shortname = current_area.short_name
@@ -139,7 +139,7 @@ class TrueJediAndMinikitChecker:
             else:
                 # True Jedi seems to be at the 4th byte (maybe it is the 3rd because they both get activated?), Minikit
                 # count is at the 6th byte. To reduce memory reads, both are retrieved simultaneously.
-                read_bytes = ctx.read_bytes(SHORT_NAME_TO_LEVEL_AREA[short_name].address + 3, 3)
+                read_bytes = ctx.read_bytes(SHORT_NAME_TO_CHAPTER_AREA[short_name].address + 3, 3)
                 true_jedi_byte = read_bytes[0]
                 minikit_count_byte = read_bytes[2]
                 new_bytes = (true_jedi_byte, minikit_count_byte)
