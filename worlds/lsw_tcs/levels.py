@@ -192,8 +192,8 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
         "3-1": {
             "Anakin's Starfighter",
             "Obi-Wan's Starfighter",
-            # FIXME?: These non-vehicle characters are also listed as player characters in the file. Should they be
-            #  required?
+            # These non-vehicle characters are also listed as player characters in the file, but do not get unlocked
+            # when completing the chapter in Story mode, so should not be requirements to play the chapter:
             # "Obi-Wan Kenobi (Episode 3)",
             # "Anakin Skywalker (Jedi)",
         },
