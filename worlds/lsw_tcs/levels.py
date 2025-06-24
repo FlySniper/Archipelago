@@ -441,15 +441,13 @@ LEVEL_SHOP_UNLOCKS: dict[str, frozenset[str]] = {
         #     "TIE Fighter (Darth Vader)",
         #     "TIE Interceptor",
         # },
-        "5-1": {
-            # FIXME: All 3 of these are actually from 5-2.
-            "Rebel Trooper (Hoth)",
-            "Rebel Pilot",
-            "Snowtrooper",
-        },
+        "5-1": set(),
         "5-2": {
             "Han Solo (Hood)",
             "Luke Skywalker (Hoth)",
+            "Rebel Trooper (Hoth)",
+            "Rebel Pilot",
+            "Snowtrooper",
         },
         "5-3": set(),
         # "5-3": {

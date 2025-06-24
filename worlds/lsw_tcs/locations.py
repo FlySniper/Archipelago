@@ -13,7 +13,6 @@ EXTRA_SHOP_LOCATION_START = 1000
 # the grid)
 
 # FIXME: General Grevious is unlocked for purchase as part of 3-2 currently, but should be 3-3!
-# FIXME: Rebel Trooper (Hoth), Rebel Pilot, Snowtrooper are unlocked for purchase as part of 5-1 currently, but should be 5-2!
 
 LEVEL_SHORT_NAMES = [f"{episode}-{chapter}" for episode, chapter in itertools.product(range(1, 7), range(1, 7))]
 
