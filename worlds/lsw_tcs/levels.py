@@ -179,7 +179,7 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Mace Windu",
             "Padmé (Clawed)",
             "Obi-Wan Kenobi (Jedi Master)",
-            # R2-D2  # FIXME?: Missing R2-D2?
+            "R2-D2",
         },
         "2-5": {
             "Republic Gunship",
