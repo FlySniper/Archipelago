@@ -153,7 +153,7 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             # "Qui-Gon Jinn",
             "Anakin Skywalker (Boy)",
             "Captain Panaka",
-            "Queen Amidala",  # FIXME: Should be Padmé (Battle) instead?
+            "Padmé (Battle)",
             "R2-D2",
         },
         "1-6": set(),
