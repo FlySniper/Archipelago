@@ -7,12 +7,8 @@ from .constants import GAME_NAME
 
 EXTRA_SHOP_LOCATION_START = 1000
 
-# Watching the Indiana Jones trailer allows for Indiana Jones to be purchased from the shop, this should be a new
-# location.
 # See collection.txt for shop purchases (and how other characters unlock, and for the order characters are displayed in
 # the grid)
-
-# FIXME: General Grevious is unlocked for purchase as part of 3-2 currently, but should be 3-3!
 
 LEVEL_SHORT_NAMES = [f"{episode}-{chapter}" for episode, chapter in itertools.product(range(1, 7), range(1, 7))]
 
