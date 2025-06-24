@@ -833,7 +833,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     else:
                         msg = "Waiting for the player to load into the game"
                     log_message(msg)
-                    sleep_time = 0.5  # 0.1
+                    sleep_time = 1.0
                     continue
 
                 await game_watcher_check_save_file(ctx)
@@ -878,7 +878,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                             if victory:
                                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                                 ctx.finished_game = True
-                sleep_time = 0.5 #0.1
+                sleep_time = 0.1
         except Exception as e:
             await ctx.unhook_game_process()
             if isinstance(e, (PymemError, WinAPIError)):
