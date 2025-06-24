@@ -288,7 +288,7 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Lando Calrissian",
             "Princess Leia (Bespin)",
             "R2-D2",
-            # "Chewbacca",  # FIXME?: Missing Chewbacca?
+            "Chewbacca",
         },
         "6-1": {
             "Chewbacca",
