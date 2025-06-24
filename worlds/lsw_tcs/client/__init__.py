@@ -406,6 +406,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         if not self.is_in_game():
             logger.info("Awaiting a save file to be loaded, or a new game to be started, before authenticating")
+            return
 
         if self.auth is None:
             self.auth_status = AuthStatus.NEED_INFO
