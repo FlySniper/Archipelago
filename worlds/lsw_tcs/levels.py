@@ -148,7 +148,7 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Queen Amidala",
         },
         "1-4": {
-            "Anakin's Podracer",
+            "Anakin's Pod",
         },
         "1-5": {
             # "Obi-Wan Kenobi",
@@ -487,7 +487,7 @@ CHAPTER_AREAS = [
 # todo: Need to consider the Gold Brick shop eventually. Also Bounty Hunter missions.
 BONUS_AREAS = [
     BonusArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, 4, Counter({
-        "Anakin's Podracer": 1,
+        "Anakin's Pod": 1,
         "Progressive Bonus Level": 1,
         "Gold Brick": 10,
     })),

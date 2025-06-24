@@ -214,7 +214,7 @@ CHARACTER_SHOP_SLOTS: dict[str, str | None] = {
     "Indiana Jones": "INDY_TRAILER",
 
     # Episode 1 Vehicles
-    "Sebulba's Podracer": "1-4",
+    "Sebulba's Pod": "1-4",
 
     # Episode 2 Vehicles
     "Zam's Airspeeder": "2-1",
@@ -430,7 +430,7 @@ ITEM_DATA: list[GenericItemData] = [
     _char(161, "Anakin Skywalker (Ghost)", 226, abilities=JEDI),
     _char(162, "Indiana Jones", 317, abilities=BLASTER),
     _char(163, "Princess Leia (Prisoner)", 205, abilities=BLASTER),
-    _vehicle(164, "Anakin's Podracer", 259),
+    _vehicle(164, "Anakin's Pod", 259),
     _vehicle(165, "Naboo Starfighter", 272, abilities=VEHICLE_TOW),
     _vehicle(166, "Republic Gunship", 285, abilities=VEHICLE_TOW),
     _vehicle(167, "Anakin's Starfighter", 221),
@@ -460,7 +460,7 @@ ITEM_DATA: list[GenericItemData] = [
     # todo: Does this include lightsabers if there are no Jedi unlocked?
     _char(-1, "Custom Character 1", 168, abilities=BLASTER),
     _char(-1, "Custom Character 2", 169, abilities=BLASTER),
-    _vehicle(190, "Sebulba's Podracer", 261),
+    _vehicle(190, "Sebulba's Pod", 261),
     _vehicle(191, "Zam's Airspeeder", 277),
     _vehicle(192, "Droid Trifighter", 292),
     _vehicle(193, "Vulture Droid", 293),

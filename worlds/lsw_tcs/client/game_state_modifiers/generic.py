@@ -28,7 +28,7 @@ NOOP_ITEMS: tuple[int, ...] = tuple([
     GENERIC_BY_NAME["Restart Level Trap"].code
 ])
 BONUS_CHARACTER_REQUIREMENTS: Mapping[int, AbstractSet[int]] = {
-    1: {CHARACTERS_AND_VEHICLES_BY_NAME["Anakin's Podracer"].character_index},
+    1: {CHARACTERS_AND_VEHICLES_BY_NAME["Anakin's Pod"].character_index},
     2: {CHARACTERS_AND_VEHICLES_BY_NAME["Naboo Starfighter"].character_index},
     3: {CHARACTERS_AND_VEHICLES_BY_NAME["Republic Gunship"].character_index},
     4: {CHARACTERS_AND_VEHICLES_BY_NAME[name].character_index

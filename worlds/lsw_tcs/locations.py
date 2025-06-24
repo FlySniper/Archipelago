@@ -616,7 +616,7 @@ LOCATION_NAME_TO_ID = {
     "Indiana Jones: Trailer": 553,
     "Purchase Indiana Jones": 554,
     "Purchase Princess Leia (Prisoner)": 555,
-    "Purchase Sebulba's Podracer": 556,
+    "Purchase Sebulba's Pod": 556,
     "Purchase Zam's Airspeeder": 557,
     "Purchase Droid Trifighter": 558,
     "Purchase Vulture Droid": 559,
