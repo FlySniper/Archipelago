@@ -19,6 +19,7 @@ from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIErr
 
 from CommonClient import CommonContext, server_loop, gui_enabled, ClientCommandProcessor
 
+from .. import options
 from ..constants import GAME_NAME
 from ..levels import SHORT_NAME_TO_CHAPTER_AREA, CHAPTER_AREAS, ChapterArea
 from .common_addresses import ShopType, CantinaRoom
@@ -247,6 +248,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     purchased_characters_checker: PurchasedCharactersChecker
     bonus_area_completion_checker: BonusAreaCompletionChecker
 
+    # Customizable client behaviour
+    received_item_messages: bool = True
+    checked_location_messages: bool = True
+
     fully_connected: bool
     last_connected_slot: str | None = None
     last_connected_seed_name: str | None = None
@@ -276,8 +281,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         self.fully_connected = False
 
-    def on_print_json(self, args: dict):
+    def on_print_json(self, args: dict) -> None:
         super().on_print_json(args)
+
+        if not self.checked_location_messages and not self.received_item_messages:
+            return
 
         if "type" in args and args["type"] == "ItemSend":
             item = args["item"]
@@ -287,13 +295,17 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if self.slot_concerns_self(recipient):
                 item_name = self.item_names.lookup_in_game(item.item)
                 if self.slot_concerns_self(item.player):
-                    location_name = self.location_names.lookup_in_game(item.location)
-                    message = f"Found {item_name} ({location_name})"
+                    # This counts as both a checked location and a received item.
+                    if self.checked_location_messages or self.received_item_messages:
+                        location_name = self.location_names.lookup_in_game(item.location)
+                        message = f"Found {item_name} ({location_name})"
+                        self.text_display.queue_message(message)
                 else:
-                    finder = self.player_names[item.player]
-                    location_name = self.location_names.lookup_in_slot(item.location, item.player)
-                    message = f"Received {item_name} from {finder} ({location_name})"
-                self.text_display.queue_message(message)
+                    if self.received_item_messages:
+                        finder = self.player_names[item.player]
+                        location_name = self.location_names.lookup_in_slot(item.location, item.player)
+                        message = f"Received {item_name} from {finder} ({location_name})"
+                        self.text_display.queue_message(message)
             # Sending an item to the server.
             elif self.slot_concerns_self(item.player):
                 item_name = self.item_names.lookup_in_slot(item.item, recipient)
@@ -301,12 +313,26 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 if self.slot_concerns_self(recipient):
                     # Should not happen?
                     location_name = self.location_names.lookup_in_game(item.location)
-                    message = f"Sent {item_name} to myself? ({location_name})"
+                    message = f"Sent {item_name}...to myself? ({location_name}) Please report this."
+                    self.text_display.queue_message(message)
                 else:
-                    owner = self.player_names[recipient]
-                    location_name = self.location_names.lookup_in_game(item.location)
-                    message = f"Sent {item_name} to {owner} ({location_name})"
-                self.text_display.queue_message(message)
+                    if self.checked_location_messages:
+                        owner = self.player_names[recipient]
+                        location_name = self.location_names.lookup_in_game(item.location)
+                        message = f"Sent {item_name} to {owner} ({location_name})"
+                        self.text_display.queue_message(message)
+
+    def _read_slot_data(self, slot_data: typing.Mapping[str, typing.Any]):
+        received_item_messages = slot_data.get("received_item_messages")
+        if isinstance(received_item_messages, int):
+            self.received_item_messages = received_item_messages == options.ReceivedItemMessages.option_all
+        else:
+            logger.warning("Warning: 'received_item_messages' not found in slot data")
+        checked_location_messages = slot_data.get("checked_location_messages")
+        if isinstance(checked_location_messages, int):
+            self.checked_location_messages = checked_location_messages == options.CheckedLocationMessages.option_all
+        else:
+            logger.warning("Warning: 'checked_location_messages' not found in slot data")
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
@@ -331,6 +357,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.seed_name = args["seed_name"]
         elif cmd == "Connected":
             new_slot = self.auth
+
+            slot_data = args.get("slot_data")
+            if isinstance(slot_data, typing.Mapping):
+                self._read_slot_data(slot_data)
+            else:
+                logger.warning("Warning: slot_data missing from Connected message")
 
             if self.last_connected_slot is not None and self.last_connected_slot != new_slot:
                 self.on_multiworld_or_slot_changed()

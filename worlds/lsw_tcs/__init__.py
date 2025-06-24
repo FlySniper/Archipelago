@@ -477,7 +477,11 @@ class LegoStarWarsTCSWorld(World):
 
     def fill_slot_data(self) -> Mapping[str, Any]:
         return {
-            "apworld_version": constants.AP_WORLD_VERSION
+            "apworld_version": constants.AP_WORLD_VERSION,
+            **self.options.as_dict(
+                "received_item_messages",
+                "checked_location_messages",
+            )
         }
 
 

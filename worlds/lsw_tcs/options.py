@@ -103,9 +103,48 @@ class MostExpensivePurchaseWithNoMultiplier(Range):
     range_end = 20000
 
 
+class ReceivedItemMessages(Choice):
+    """
+    Determines whether an in-game notification is displayed when receiving an item.
+
+    Note: Dying while a message is displayed results in losing studs as normal, but the lost studs do not drop, so
+    cannot be recovered.
+    Note: Collecting studs while a message is displayed plays the audio for collecting Blue/Purple studs, but this has
+    no effect on the received value of the studs collected.
+
+    - All: Every item shows a message
+    - None: All items are received silently.
+    """
+    display_name = "Received Item Messages"
+    default = 0
+    option_all = 0
+    option_none = 1
+    # option_progression = 2  # Not Yet Implemented
+
+
+class CheckedLocationMessages(Choice):
+    """
+    Determines whether an in-game notification is displayed when checking a location.
+
+    Note: Dying while a message is displayed results in losing studs as normal, but the lost studs do not drop, so
+    cannot be recovered.
+    Note: Collecting studs while a message is displayed plays the audio for collecting Blue/Purple studs, but this has
+    no effect on the received value of the studs collected.
+
+    - All: Every checked location shows a message
+    - None: No checked locations show a message
+    """
+    display_name = "Checked Location Messages"
+    default = 0
+    option_all = 0
+    option_none = 1
+
+
 @dataclass
 class LegoStarWarsTCSOptions(PerGameCommonOptions):
     start_inventory_from_pool: StartInventoryPool
+    received_item_messages: ReceivedItemMessages
+    checked_location_messages: CheckedLocationMessages
     # Future options, not implemented yet.
     # starting_level: StartingLevel
     # random_starting_level_max_starting_characters: RandomStartingLevelMaxStartingCharacters
