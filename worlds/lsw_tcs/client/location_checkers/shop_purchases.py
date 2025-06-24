@@ -55,8 +55,8 @@ def _characters_to_shop_address() -> dict[MemoryOffset, dict[BitMask, ApLocation
         if character.code == -1:
             # Not implemented yet.
             continue
-        if character.name in ("Princess Leia (Prisoner)", "TIE Interceptor"):
-            # todo: These need to be added as Archipelago locations in addition to others Characters that do not even
+        if character.name == "TIE Interceptor":
+            # todo: This needs to be added as an Archipelago location, in addition to other Characters that do not even
             #   have items defined currently.
             continue
         byte_offset = character.shop_slot // 8

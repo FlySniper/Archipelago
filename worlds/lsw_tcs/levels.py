@@ -462,7 +462,7 @@ LEVEL_SHOP_UNLOCKS: dict[str, frozenset[str]] = {
             "Lobot",
             "Ugnaught",
             "Bespin Guard",
-            # "Princess Leia (Prisoner)",  # FIXME: Missing
+            "Princess Leia (Prisoner)",
         },
         "6-1": {
             "Gamorrean Guard",

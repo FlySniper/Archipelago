@@ -12,10 +12,8 @@ EXTRA_SHOP_LOCATION_START = 1000
 # See collection.txt for shop purchases (and how other characters unlock, and for the order characters are displayed in
 # the grid)
 
-# FIXME: Royal Guard is unlocked for purchase as part of 1-2 currently, but should be 1-3!
 # FIXME: General Grevious is unlocked for purchase as part of 3-2 currently, but should be 3-3!
 # FIXME: Rebel Trooper (Hoth), Rebel Pilot, Snowtrooper are unlocked for purchase as part of 5-1 currently, but should be 5-2!
-# FIXME: Purchase Princess Leia (Prisoner) should be unlocked for purchase as part of 5-6, but is missing as a location check
 
 LEVEL_SHORT_NAMES = [f"{episode}-{chapter}" for episode, chapter in itertools.product(range(1, 7), range(1, 7))]
 
@@ -618,6 +616,7 @@ LOCATION_NAME_TO_ID = {
     "New Town": 552,
     "Indiana Jones: Trailer": 553,
     "Purchase Indiana Jones": 554,
+    "Purchase Princess Leia (Prisoner)": 555,
 }
 
 
