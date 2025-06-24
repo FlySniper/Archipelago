@@ -15,7 +15,7 @@ from .constants import (
     PROTOCOL_DROID,
     SHORTIE,
     SITH,
-    VEHICLE_IMPERIAL,
+    VEHICLE_TIE,
     VEHICLE_TOW,
 )
 
@@ -438,7 +438,7 @@ ITEM_DATA: list[GenericItemData] = [
     _vehicle(169, "X-Wing", 36),
     _vehicle(170, "Y-Wing", 39),
     _vehicle(171, "Millennium Falcon", 38),
-    _vehicle(172, "TIE Interceptor", 128, abilities=VEHICLE_IMPERIAL),
+    _vehicle(172, "TIE Interceptor", 128, abilities=VEHICLE_TIE),
     _vehicle(173, "Snowspeeder", 32, abilities=VEHICLE_TOW),
     _vehicle(174, "Anakin's Speeder", 3),
     _generic(175, "Purple Stud"),
@@ -465,10 +465,10 @@ ITEM_DATA: list[GenericItemData] = [
     _vehicle(192, "Droid Trifighter", 292),
     _vehicle(193, "Vulture Droid", 293),
     _vehicle(194, "Clone Arcfighter", 295),
-    _vehicle(195, "TIE Fighter", 37, abilities=VEHICLE_IMPERIAL),
-    _vehicle(196, "TIE Fighter (Darth Vader)", 182, abilities=VEHICLE_IMPERIAL),
-    _vehicle(197, "TIE Bomber", 209, abilities=VEHICLE_IMPERIAL),
-    _vehicle(198, "Imperial Shuttle", 198, abilities=VEHICLE_IMPERIAL),
+    _vehicle(195, "TIE Fighter", 37, abilities=VEHICLE_TIE),
+    _vehicle(196, "TIE Fighter (Darth Vader)", 182, abilities=VEHICLE_TIE),
+    _vehicle(197, "TIE Bomber", 209, abilities=VEHICLE_TIE),
+    _vehicle(198, "Imperial Shuttle", 198, abilities=VEHICLE_TIE),
 ]
 
 USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {

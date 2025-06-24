@@ -22,7 +22,7 @@ class CharacterAbility(IntFlag):
     # GHOST = auto()
     # DROID = auto()
     # UNTARGETABLE = auto()  # Are there any characters other than Ghosts?
-    VEHICLE_IMPERIAL = auto()
+    VEHICLE_TIE = auto()
     VEHICLE_TOW = auto()
     # VEHICLE_BLASTER = auto()
 
@@ -49,7 +49,7 @@ JEDI = CharacterAbility.JEDI
 PROTOCOL_DROID = CharacterAbility.PROTOCOL_DROID
 SHORTIE = CharacterAbility.SHORTIE
 SITH = CharacterAbility.SITH
-VEHICLE_IMPERIAL = CharacterAbility.VEHICLE_IMPERIAL
+VEHICLE_TIE = CharacterAbility.VEHICLE_TIE
 VEHICLE_TOW = CharacterAbility.VEHICLE_TOW
 
 # todo: VEHICLE_TOW can probably be included in the future too.
