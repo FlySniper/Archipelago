@@ -383,10 +383,15 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         from kvui import GameManager
 
         class LegoStarWarsTheCompleteSagaManager(GameManager):
-            logging_pairs = [
-                ("Client", "Archipelago"),
-                ("TCS Debug", "Debug"),
-            ]
+            if not Utils.is_frozen():
+                logging_pairs = [
+                    ("Client", "Archipelago"),
+                    ("TCS Debug", "Debug"),
+                ]
+            else:
+                logging_pairs = [
+                    ("Client", "Archipelago"),
+                ]
             base_title = "Archipelago Lego Star Wars: The Complete Saga Client"
 
         self.ui = LegoStarWarsTheCompleteSagaManager(self)
