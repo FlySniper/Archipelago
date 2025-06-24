@@ -345,6 +345,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 if new_seed_name_hash != expected_seed_name_hash:
                     asyncio.create_task(self.disconnect())
                     logger.info("Connection aborted: The server's seed does not match the save file's seed.")
+                    self.last_connected_seed_name = None
+                    self.last_connected_slot = None
                     return
             else:
                 self.write_seed_name_hash(new_seed_name)
@@ -356,6 +358,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.last_connected_seed_name = new_seed_name
             self.seed_name = args["seed_name"]
         elif cmd == "Connected":
+            if self.last_connected_seed_name is None:
+                # The client should be just about to disconnect from failing to match the server's seed.
+                # Disconnect again just in-case.
+                asyncio.create_task(self.disconnect())
+                return
+
             new_slot = self.auth
 
             slot_data = args.get("slot_data")
@@ -879,7 +887,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 # Even if the client has disconnected from the server, it is still important to run a number of
                 # coroutines to allow the player to play while disconnected.
                 # todo: Is the `is_in_game()` check here still necessary now that there is an earlier check?
-                if ctx.is_in_game():
+                if ctx.is_in_game() and ctx.last_connected_slot and ctx.last_connected_seed_name:
                     await ctx.free_play_completion_checker.initialize(ctx)
                     await give_items(ctx)
 
