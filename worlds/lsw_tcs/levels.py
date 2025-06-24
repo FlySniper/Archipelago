@@ -350,7 +350,7 @@ LEVEL_SHOP_UNLOCKS: dict[str, frozenset[str]] = {
         },
         "1-3": {
             "Royal Guard",
-            # "Padmé",  # FIXME: Missing
+            "Padmé",
         },
         "1-4": {
             "Watto",
