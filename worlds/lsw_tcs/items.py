@@ -431,7 +431,7 @@ ITEM_DATA: list[GenericItemData] = [
     _char(162, "Indiana Jones", 317, abilities=BLASTER),
     _char(163, "Princess Leia (Prisoner)", 205, abilities=BLASTER),
     _vehicle(164, "Anakin's Podracer", 259),
-    _vehicle(165, "Naboo Starfighter", 272),
+    _vehicle(165, "Naboo Starfighter", 272, abilities=VEHICLE_TOW),
     _vehicle(166, "Republic Gunship", 285, abilities=VEHICLE_TOW),
     _vehicle(167, "Anakin's Starfighter", 221),
     _vehicle(168, "Obi-Wan's Starfighter", 291),
