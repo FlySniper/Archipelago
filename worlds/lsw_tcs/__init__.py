@@ -304,6 +304,12 @@ class LegoStarWarsTCSWorld(World):
                 gold_brick_location.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
                 region.locations.append(gold_brick_location)
 
+        # Indiana Jones shop purchase. Unlocks in the shop after watching the Lego Indiana Jones trailer.
+        purchase_indy_name = "Purchase Indiana Jones"
+        purchase_indy = LegoStarWarsTCSLocation(self.player, purchase_indy_name,
+                                                self.location_name_to_id[purchase_indy_name], bonuses)
+        bonuses.locations.append(purchase_indy)
+
         # 'All Episodes' character purchases.
         all_episodes = self.create_region("All Episodes Unlocked")
         cantina.connect(all_episodes, "Unlock All Episodes")

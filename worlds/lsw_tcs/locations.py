@@ -616,7 +616,8 @@ LOCATION_NAME_TO_ID = {
     "A New Hope (Bonus Level)": 550,
     "LEGO City": 551,
     "New Town": 552,
-    "Indiana Jones: Trailer": 553
+    "Indiana Jones: Trailer": 553,
+    "Purchase Indiana Jones": 554,
 }
 
 
