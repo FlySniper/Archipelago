@@ -616,6 +616,16 @@ LOCATION_NAME_TO_ID = {
     "Indiana Jones: Trailer": 553,
     "Purchase Indiana Jones": 554,
     "Purchase Princess Leia (Prisoner)": 555,
+    "Purchase Sebulba's Podracer": 556,
+    "Purchase Zam's Airspeeder": 557,
+    "Purchase Droid Trifighter": 558,
+    "Purchase Vulture Droid": 559,
+    "Purchase Clone Arcfighter": 560,
+    "Purchase TIE Fighter": 561,
+    "Purchase TIE Fighter (Darth Vader)": 562,
+    "Purchase TIE Interceptor": 563,
+    "Purchase TIE Bomber": 564,
+    "Purchase Imperial Shuttle": 565,
 }
 
 

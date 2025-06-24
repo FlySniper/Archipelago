@@ -233,6 +233,24 @@ CHARACTER_SHOP_SLOTS: dict[str, str | None] = {
     "TIE Bomber": "5-3",
     "Imperial Shuttle": "5-3",
 }
+
+
+def _make_shop_slot_requirement_to_unlocks() -> dict[str | None, frozenset[str]]:
+    d: dict[str | None, set[str]] = {}
+    for character_name, unlock_requirement in CHARACTER_SHOP_SLOTS.items():
+        if unlock_requirement not in d:
+            names = set()
+            d[unlock_requirement] = names
+        else:
+            names = d[unlock_requirement]
+        names.add(character_name)
+
+    return {k: frozenset(v) for k, v in d.items()}
+
+
+SHOP_SLOT_REQUIREMENT_TO_UNLOCKS: dict[str | None, frozenset[str]] = _make_shop_slot_requirement_to_unlocks()
+del _make_shop_slot_requirement_to_unlocks
+
 CHARACTER_TO_SHOP_SLOT = {name: i for i, name in enumerate(CHARACTER_SHOP_SLOTS.keys())}
 
 
@@ -426,7 +444,6 @@ ITEM_DATA: list[GenericItemData] = [
     _generic(175, "Purple Stud"),
     # NEW. Items below here did not exist in the manual.
     # TODO: Redo all the item IDs to make more sense. Either internal order in chars.txt, or in character grid order.
-    # TODO: Add in all the missing vehicles.
     _char(-1, "Qui-Gon Jinn", 104, abilities=JEDI),
     _char(-1, "Obi-Wan Kenobi", 1, abilities=JEDI),
     _char(-1, "TC-14", 71, abilities=PROTOCOL_DROID),
@@ -443,15 +460,15 @@ ITEM_DATA: list[GenericItemData] = [
     # todo: Does this include lightsabers if there are no Jedi unlocked?
     _char(-1, "Custom Character 1", 168, abilities=BLASTER),
     _char(-1, "Custom Character 2", 169, abilities=BLASTER),
-    _vehicle(-1, "Sebulba's Podracer", 261),
-    _vehicle(-1, "Zam's Airspeeder", 277),
-    _vehicle(-1, "Droid Trifighter", 292),
-    _vehicle(-1, "Vulture Droid", 293),
-    _vehicle(-1, "Clone Arcfighter", 295),
-    _vehicle(-1, "TIE Fighter", 37, abilities=VEHICLE_IMPERIAL),
-    _vehicle(-1, "TIE Fighter (Darth Vader)", 182, abilities=VEHICLE_IMPERIAL),
-    _vehicle(-1, "TIE Bomber", 209, abilities=VEHICLE_IMPERIAL),
-    _vehicle(-1, "Imperial Shuttle", 198, abilities=VEHICLE_IMPERIAL),
+    _vehicle(190, "Sebulba's Podracer", 261),
+    _vehicle(191, "Zam's Airspeeder", 277),
+    _vehicle(192, "Droid Trifighter", 292),
+    _vehicle(193, "Vulture Droid", 293),
+    _vehicle(194, "Clone Arcfighter", 295),
+    _vehicle(195, "TIE Fighter", 37, abilities=VEHICLE_IMPERIAL),
+    _vehicle(196, "TIE Fighter (Darth Vader)", 182, abilities=VEHICLE_IMPERIAL),
+    _vehicle(197, "TIE Bomber", 209, abilities=VEHICLE_IMPERIAL),
+    _vehicle(198, "Imperial Shuttle", 198, abilities=VEHICLE_IMPERIAL),
 ]
 
 USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {

@@ -16,6 +16,7 @@ from .constants import (
     VEHICLE_IMPERIAL,
     VEHICLE_TOW,
 )
+from .items import SHOP_SLOT_REQUIREMENT_TO_UNLOCKS
 
 
 @dataclass(frozen=True)
@@ -94,7 +95,8 @@ class ChapterArea:
         character_requirements = CHAPTER_AREA_CHARACTER_REQUIREMENTS[self.short_name]
         object.__setattr__(self, "character_requirements", character_requirements)
 
-        shop_unlocks = frozenset([f"Purchase {character}" for character in LEVEL_SHOP_UNLOCKS[self.short_name]])
+        shop_unlocks = frozenset([f"Purchase {character}" for character
+                                  in SHOP_SLOT_REQUIREMENT_TO_UNLOCKS.get(self.short_name, ())])
         object.__setattr__(self, "shop_unlocks", shop_unlocks)
 
         power_brick_location_name, power_brick_ability_requirements = POWER_BRICK_REQUIREMENTS[self.short_name]
@@ -335,156 +337,6 @@ IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS: frozenset[str] = frozenset({
     "R2-D2",
     "Chewbacca",
 })
-
-LEVEL_SHOP_UNLOCKS: dict[str, frozenset[str]] = {
-    k: frozenset(v) for k, v in {
-        "1-1": {
-            "Battle Droid",
-            "Battle Droid (Security)",
-            "Battle Droid (Commander)",
-            "Droideka",
-        },
-        "1-2": {
-            "Captain Tarpals",
-            "Boss Nass",
-        },
-        "1-3": {
-            "Royal Guard",
-            "Padmé",
-        },
-        "1-4": {
-            "Watto",
-            "Pit Droid",
-            # "Sebulba's Podracer",
-        },
-        "1-5": set(),
-        "1-6": {
-            "Darth Maul",
-        },
-        "2-1": {
-            "Zam Wesell",
-            "Dexter Jettster",
-            # "Zam's Airspeeder",
-        },
-        "2-2": {
-            "Clone",
-            "Lama Su",
-            "Taun We",
-        },
-        "2-3": {
-            "Geonosian",
-            "Battle Droid (Geonosis)"
-        },
-        "2-4": {
-            "Super Battle Droid",
-            "Jango Fett",
-            "Boba Fett (Boy)",
-            "Luminara",
-            "Ki-Adi Mundi",
-            "Kit Fisto",
-            "Shaak Ti",
-            "Aayla Secura",
-            "Plo Koon",
-        },
-        "2-5": set(),
-        "2-6": set(),
-        "3-1": set(),
-        # "3-1": {
-        #     "Droid Trifighter",
-        #     "Vulture Droid",
-        #     "Clone Arcfighter",
-        # },
-        "3-2": {
-            "Count Dooku",
-            "Grievous' Bodyguard",
-        },
-        "3-3": {
-            "General Grievous",
-        },
-        "3-4": {
-            "Wookiee",
-            "Clone (Episode 3)",
-            "Clone (Episode 3, Pilot)",
-            "Clone (Episode 3, Swamp)",
-            "Clone (Episode 3, Walker)",
-        },
-        "3-5": {
-            "Mace Windu (Episode 3)",
-            "Disguised Clone",
-        },
-        "3-6": set(),
-        "4-1": {
-            "Rebel Trooper",
-            "Stormtrooper",
-            "Imperial Shuttle Pilot",
-        },
-        "4-2": {
-            "Tusken Raider",
-            "Jawa",
-        },
-        "4-3": {
-            "Sandtrooper",
-            "Greedo",
-            "Imperial Spy",
-        },
-        "4-4": {
-            "Beach Trooper",
-            "Death Star Trooper",
-            "TIE Fighter Pilot",
-            "Imperial Officer",
-            "Grand Moff Tarkin",
-        },
-        "4-5": set(),
-        "4-6": set(),
-        # "4-6": {
-        #     "TIE Fighter",
-        #     "TIE Fighter (Darth Vader)",
-        #     "TIE Interceptor",
-        # },
-        "5-1": set(),
-        "5-2": {
-            "Han Solo (Hood)",
-            "Luke Skywalker (Hoth)",
-            "Rebel Trooper (Hoth)",
-            "Rebel Pilot",
-            "Snowtrooper",
-        },
-        "5-3": set(),
-        # "5-3": {
-        #     "TIE Bomber",
-        #     "Imperial Shuttle",
-        # },
-        "5-4": set(),
-        "5-5": set(),
-        "5-6": {
-            "Lobot",
-            "Ugnaught",
-            "Bespin Guard",
-            "Princess Leia (Prisoner)",
-        },
-        "6-1": {
-            "Gamorrean Guard",
-            "Bib Fortuna",
-            "Palace Guard",
-            "Bossk",
-        },
-        "6-2": {
-            "Skiff Guard",
-            "Boba Fett",
-        },
-        "6-3": set(),
-        "6-4": {
-            "Ewok",
-        },
-        "6-5": {
-            "Imperial Guard",
-            "The Emperor",
-        },
-        "6-6": {
-            "Admiral Ackbar",
-        }
-    }.items()
-}
 
 POWER_BRICK_REQUIREMENTS: dict[str, tuple[str, CharacterAbility | None]] = {
     # TODO: For future version, it is necessary to determine which Extras need Jedi/Protocol Droids to access.
