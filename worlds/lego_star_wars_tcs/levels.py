@@ -461,8 +461,8 @@ CHAPTER_AREAS = [
     ChapterArea("Escape From Echo Base", 5, 2, 0x86E2D4, 228, 40),
     ChapterArea("Falcon Flight", 5, 3, 0x86E2E0, 236, 41),
     ChapterArea("Dagobah", 5, 4, 0x86E2EC, 244, 42),
-    ChapterArea("Betrayal Over Bespin", 5, 5, 0x86E2F8, 251, 43),
-    ChapterArea("Cloud City Trap", 5, 6, 0x86E304, 257, 44),
+    ChapterArea("Cloud City Trap", 5, 5, 0x86E2F8, 257, 43),  # 5-5 levels are after 5-6 levels for some reason.
+    ChapterArea("Betrayal Over Bespin", 5, 6, 0x86E304, 251, 44),
     # area 45 = EP5 Ending
     # area 46 = EP5 Character Bonus
     # area 47 = EP5 Minikit Bonus
