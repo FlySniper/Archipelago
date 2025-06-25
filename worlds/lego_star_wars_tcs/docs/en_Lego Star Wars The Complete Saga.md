@@ -133,3 +133,8 @@ If the True Jedi does not send while in a level because of the implementation no
 check send when saving and exiting to the Cantina or when completing the level regardless.
 
 It seems that True Jedi checks can also currently sometimes send early when in a level.
+
+### 5-5 and 5-6 completion are swapped
+
+5-5 and 5-6 completion are currently swapped by mistake, there might be some logic issues with these two levels that has
+also ended up swapped.
