@@ -92,6 +92,9 @@ that character/extra without having to farm an unreasonable number of studs.
 Dying while a received item/checked location message is displayed will cause you to lose studs, but no studs will spawn
 to be picked back up.
 
+Collecting studs while an in-game message is displayed will play the sound for collecting Blue/Purple studs, but the
+received value of the collected studs will be normal.
+
 ### Bonus levels/Indiana Jones Trailer
 
 There is currently no way to prevent access to Bonus Levels/Indiana Jones Trailer without the logically required
