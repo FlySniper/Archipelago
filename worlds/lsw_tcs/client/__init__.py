@@ -47,12 +47,52 @@ LocationId = int
 
 PROCESS_NAME = "LEGOStarWarsSaga"
 
-# This memory pattern was found in Dread Pony Roberts' cheat table.
-VERSION_CHECK_PATTERN = b"\x0F\xBE\xAE\x7F\x10\x00\x00"
-VERSION_CHECK_ADDRESS_STEAM = 0x4B894C
+# The STEAM and GOG versions have different memory addresses.
+# The client needs to determine which version is being used and adjust the addresses accordingly.
+VERSION_CHECK_PATTERN = (b"japanese\x00\x00\x00\x00"
+                         b"danish\x00\x00"
+                         b"spanish\x00"
+                         b"italian\x00"
+                         b"german\x00\x00"
+                         b"french\x00\x00"
+                         b"english\x00"
+                         b"Err\\.\\.\\.\x00")
+VERSION_CHECK_ADDRESS_GOG = 0x76161c
+VERSION_CHECK_ADDRESS_STEAM = 0x761634
+VERSION_CHECK_GOG_OFFSET = VERSION_CHECK_ADDRESS_STEAM - VERSION_CHECK_ADDRESS_GOG
+
+# A potential alternative version check
+# VERSION_CHECK_PATTERN = b"This program cannot be run in DOS mode"
+# VERSION_CHECK_ADDRESS_GOG = 0x40004e
+# VERSION_CHECK_ADDRESS_STEAM = None  # Not present in the executable.
 
 MEMORY_OFFSET_STEAM = 0
 MEMORY_OFFSET_GOG = 0x20
+# Addresses greater than this need to be offset by 0x20 when the GOG version is being used.
+# It is possible that the cutoff point is earlier, somewhere between 0x802000 and 0x855000
+GOG_MEMORY_OFFSET_START = 0x855000
+
+# class MemoryBlock(NamedTuple):
+#     base: int
+#     gog_offset: int
+#
+# memory_blocks = [
+#     MemoryBlock(0x761000, -0x18),
+#     # Somewhere in between 0x761634 and 0x7fd2c1, an early offset occurs, aligning the two versions.
+#     MemoryBlock(0x7FD000, 0x0),
+#     MemoryBlock(0x800000, 0x0),
+#     MemoryBlock(0x802000, 0x0),
+#     # Somewhere in between 0x800944 and 0x855F38, an offset occurs, misaligning the two versions.
+#     MemoryBlock(0x855000, 0x20),
+#     MemoryBlock(0x86E000, 0x20),
+#     MemoryBlock(0x87B000, 0x20),
+#     MemoryBlock(0x925000, 0x20),
+#     MemoryBlock(0x951000, 0x20),
+#     MemoryBlock(0x973000, 0x20),
+#     MemoryBlock(0x986000, 0x20),
+#     MemoryBlock(0x297C000, 0x20),
+# ]
+
 
 CURRENT_LEVEL_ID = 0x951BA0  # 2 bytes (or more)
 # While in the Cantina and in the shop room, all extras that have been received, but not purchased, must be locked,
@@ -232,8 +272,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     game_process: pymem.Pymem | None = None
     previous_level_id: int = -1
     current_level_id: int = 0  # Title screen
-    # Memory in the GOG version is offset 32 bytes. Memory in the retail version is offset ?? bytes.
-    memory_offset: int = 0
+    # Memory in the GOG version is offset 32 bytes after GOG_MEMORY_OFFSET_START.
+    # todo: Memory in the retail version is offset ?? bytes after ??.
+    _gog_memory_offset: int = 0
+    # In the case of an unrecognised version, an overall memory offset may be set.
+    _overall_memory_offset: int = 0
     acquired_characters: AcquiredCharacters
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
@@ -462,24 +505,31 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             return False
 
         # Find the address of a unique pattern to determine offsets.
-        found_address = pymem.pattern.pattern_scan_all(process.process_handle, VERSION_CHECK_PATTERN)
+        found_address = process.pattern_scan_module(VERSION_CHECK_PATTERN, process.process_base)
         if found_address is None:
             logger.info(f"Connected to process but could not determine memory offsets. Supported game versions are"
                         f" Steam and GOG, make sure your LegoStarWarsSaga.exe has not been modified.")
             return False
 
-        # All memory addresses in this file are for the STEAM version, so the offset is based on the STEAM version as
-        # the base.
-        memory_offset = found_address - VERSION_CHECK_ADDRESS_STEAM
-
-        if memory_offset == MEMORY_OFFSET_STEAM:
+        if found_address == VERSION_CHECK_ADDRESS_STEAM:
             logger.info("Connected to STEAM version successfully")
-        elif memory_offset == MEMORY_OFFSET_GOG:
+            # All memory addresses have been written with the STEAM version in mind.
+            self._gog_memory_offset = 0
+            self._overall_memory_offset = 0
+        elif found_address == VERSION_CHECK_ADDRESS_GOG:
             logger.info("Connected to GOG version successfully")
+            # The GOG version is offset after around GOG_MEMORY_OFFSET_START.
+            self._gog_memory_offset = MEMORY_OFFSET_GOG
+            self._overall_memory_offset = 0
         else:
-            logger.info(f"Connected to unknown game version with memory offset {memory_offset:X}")
+            # Assume a modified STEAM version that is offset by a fixed amount. todo: Try the 'Steamless' executable.
+            memory_offset = found_address - VERSION_CHECK_ADDRESS_STEAM
+            logger.warning(f"Connected to an unrecognised game version with memory offset {memory_offset:X}. Assuming"
+                           f" the game version is a modified STEAM version. Things could be very broken. Please report"
+                           f" this in the Lego Star Wars: The Complete Saga thread in the Archipelago discord server.")
+            self._gog_memory_offset = 0
+            self._overall_memory_offset = memory_offset
 
-        self.memory_offset = found_address - VERSION_CHECK_ADDRESS_STEAM
         self.game_process = process
         return True
 
@@ -503,33 +553,39 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             return process
 
-    def read_uint(self, address: int) -> int:
-        return self._game_process.read_uint(self.memory_offset + address)
+    def _adjust_address(self, address: int) -> int:
+        if address >= GOG_MEMORY_OFFSET_START:
+            return address + self._gog_memory_offset + self._overall_memory_offset
+        else:
+            return address + self._overall_memory_offset
 
-    def read_ushort(self, address: int) -> int:
-        return self._game_process.read_short(self.memory_offset + address)
+    def read_uint(self, address: int, raw=False) -> int:
+        return self._game_process.read_uint(address if raw else self._adjust_address(address))
 
-    def read_bytes(self, address: int, length: int) -> bytes:
-        return self._game_process.read_bytes(self.memory_offset + address, length)
+    def read_ushort(self, address: int, raw=False) -> int:
+        return self._game_process.read_short(address if raw else self._adjust_address(address))
 
-    def read_byte(self, address: int) -> bytes:
-        return self._game_process.read_bytes(self.memory_offset + address, 1)
+    def read_bytes(self, address: int, length: int, raw=False) -> bytes:
+        return self._game_process.read_bytes(address if raw else self._adjust_address(address), length)
 
-    def read_uchar(self, address: int) -> int:
-        return self._game_process.read_uchar(self.memory_offset + address)
-        #return self._game_process.read_bytes(self.memory_offset + address, 1)[0]
+    def read_byte(self, address: int, raw=False) -> bytes:
+        return self._game_process.read_bytes(address if raw else self._adjust_address(address), 1)
 
-    def write_uint(self, address: int, value: int) -> None:
-        self._game_process.write_uint(self.memory_offset + address, value)
+    def read_uchar(self, address: int, raw=False) -> int:
+        return self._game_process.read_uchar(address if raw else self._adjust_address(address))
+        #return self._game_process.read_bytes(address if raw else self._adjust_address(address), 1)[0]
 
-    def write_byte(self, address: int, value: int) -> None:
-        self._game_process.write_uchar(self.memory_offset + address, value)
+    def write_uint(self, address: int, value: int, raw=False) -> None:
+        self._game_process.write_uint(address if raw else self._adjust_address(address), value)
 
-    def write_bytes(self, address: int, value: bytes, length: int) -> None:
-        self._game_process.write_bytes(self.memory_offset + address, value, length)
+    def write_byte(self, address: int, value: int, raw=False) -> None:
+        self._game_process.write_uchar(address if raw else self._adjust_address(address), value)
 
-    def write_float(self, address: int, value: float) -> None:
-        self._game_process.write_float(self.memory_offset + address, value)
+    def write_bytes(self, address: int, value: bytes, length: int, raw=False) -> None:
+        self._game_process.write_bytes(address if raw else self._adjust_address(address), value, length)
+
+    def write_float(self, address: int, value: float, raw=False) -> None:
+        self._game_process.write_float(address if raw else self._adjust_address(address), value)
 
     @staticmethod
     def hash_seed_name(seed_name: str) -> bytes:
@@ -657,7 +713,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def is_in_game(self) -> bool:
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
         return ((process := self.game_process) is not None
-                and process.read_ushort(self.memory_offset + CURRENT_LEVEL_ID) != 0)
+                and process.read_ushort(self._adjust_address(CURRENT_LEVEL_ID)) != 0)
 
     def get_current_save_file(self) -> int | None:
         file_number = self.read_uchar(CURRENT_SAVE_SLOT)

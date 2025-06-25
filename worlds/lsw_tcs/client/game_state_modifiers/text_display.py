@@ -105,6 +105,7 @@ class InGameTextDisplay(GameStateUpdater):
     next_allowed_clean_time: int = -1
     # If the last write to memory was a custom message.
     memory_dirty: bool = False
+    messages_enabled: bool = False
 
     message_queue: deque[str]
 
@@ -123,15 +124,10 @@ class InGameTextDisplay(GameStateUpdater):
                            " messages, item messages will not display in-game.")
             return
 
-        # The memory offset from the Steam version to the actual game version is applied to all reads/writes.
-        # Because the found address is an address for the actual game version, the memory offset needs to be
-        # subtracted.
-        found_address -= ctx.memory_offset
-
         # Look backwards from the anchor to find the Rebel Trooper name and determine the game language and
         # therefore the offset to the "Double Score Zone!" text.
         lookbehind = ctx.read_bytes(found_address - DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES,
-                                    DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES)
+                                    DOUBLE_SCORE_ZONE_TEXT_ANCHOR_LOOKBEHIND_BYTES, raw=True)
         rebel_trooper_name = lookbehind.rpartition(b"\x00")[2]
         if rebel_trooper_name in REBEL_TROOPER_NAME_TO_LANGUAGE:
             game_language = REBEL_TROOPER_NAME_TO_LANGUAGE[rebel_trooper_name]
@@ -141,11 +137,12 @@ class InGameTextDisplay(GameStateUpdater):
             self.max_message_size = -start_offset - len(rebel_trooper_name)
             # If the client crashed before returning the bytes back to vanilla, these read bytes might not be
             # vanilla anymore if the game has not been restarted but the client has.
-            self.vanilla_bytes = ctx.read_bytes(self.double_score_zone_string_address, self.max_message_size)
+            self.vanilla_bytes = ctx.read_bytes(self.double_score_zone_string_address, self.max_message_size, raw=True)
 
             debug_logger.info("Text Display: Vanilla bytes as strings (should start with 'Double Score Zone!' and"
                               " end with 'Princess Leia (Hoth)':")
             debug_logger.info(self.vanilla_bytes.replace(b"\x00", b"NULL\n").decode("utf-8", errors="replace"))
+            self.messages_enabled = True
         else:
             debug_logger.warning("Text Display: Found, unknown language Rebel Trooper name: %s", rebel_trooper_name)
             logger.warning("Text Display: Warning: Could not determine game language needed for displaying item"
@@ -153,7 +150,11 @@ class InGameTextDisplay(GameStateUpdater):
             # todo: Try a second scan to find all addresses matching the pattern and then iterate any new addresses.
 
     def queue_message(self, message: str):
-        self.message_queue.append(message)
+        if self.messages_enabled:
+            self.message_queue.append(message)
+
+    def write_bytes_to_double_score_zone(self, ctx: TCSContext, string: bytes):
+        ctx.write_bytes(self.double_score_zone_string_address, string, len(string), raw=True)
 
     # A custom minimum duration of more than 4 seconds is irrelevant currently because the message fades out by that
     # point.
@@ -166,7 +167,7 @@ class InGameTextDisplay(GameStateUpdater):
         encoded = encoded[:self.max_message_size - 1] + b"\x00"
         encoded += self.vanilla_bytes[len(encoded):]
         assert len(encoded) == len(self.vanilla_bytes)
-        ctx.write_bytes(self.double_score_zone_string_address, encoded, len(encoded))
+        self.write_bytes_to_double_score_zone(ctx, encoded)
         self.memory_dirty = True
 
         # Set the timer.
@@ -181,7 +182,7 @@ class InGameTextDisplay(GameStateUpdater):
     def on_unhook_game_process(self, ctx: TCSContext) -> None:
         self.message_queue.clear()
         if self.memory_dirty:
-            ctx.write_bytes(self.double_score_zone_string_address, self.vanilla_bytes, len(self.vanilla_bytes))
+            self.write_bytes_to_double_score_zone(ctx, self.vanilla_bytes)
             self.memory_dirty = False
 
     async def update_game_state(self, ctx: TCSContext) -> None:
@@ -194,7 +195,7 @@ class InGameTextDisplay(GameStateUpdater):
         if not self.message_queue:
             if self.memory_dirty and now > self.next_allowed_clean_time:
                 debug_logger.info("Text Display: Clearing dirty memory")
-                ctx.write_bytes(self.double_score_zone_string_address, self.vanilla_bytes, len(self.vanilla_bytes))
+                self.write_bytes_to_double_score_zone(ctx, self.vanilla_bytes)
                 self.memory_dirty = False
         else:
             # Don't display a new message if the game is paused, in a cutscene, in a status screen, or tabbed out.
