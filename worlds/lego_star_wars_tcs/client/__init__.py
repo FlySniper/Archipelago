@@ -22,6 +22,7 @@ from CommonClient import CommonContext, server_loop, gui_enabled, ClientCommandP
 from .. import options
 from ..constants import GAME_NAME
 from ..levels import SHORT_NAME_TO_CHAPTER_AREA, CHAPTER_AREAS, ChapterArea
+from ..locations import LOCATION_NAME_TO_ID
 from .common_addresses import ShopType, CantinaRoom
 from .location_checkers.free_play_completion import FreePlayChapterCompletionChecker
 from .location_checkers.bonus_level_completion import BonusAreaCompletionChecker
@@ -269,6 +270,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     auth_status: AuthStatus
     password_requested: bool
 
+    disabled_locations: set[int]  # Server state.
+
     game_process: pymem.Pymem | None = None
     previous_level_id: int = -1
     current_level_id: int = 0  # Title screen
@@ -306,6 +309,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # Copied from BizHawkClientContext
         self.auth_status = AuthStatus.NOT_AUTHENTICATED
         self.password_requested = False
+
+        self.disabled_locations = set()
 
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
@@ -419,6 +424,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 self.on_multiworld_or_slot_changed()
             if self.read_slot_name() is None:
                 self.write_slot_name(new_slot)
+            self.disabled_locations = set(LOCATION_NAME_TO_ID.values()) - self.server_locations
             self.last_connected_slot = self.auth
             self.auth_status = AuthStatus.AUTHENTICATED
 
@@ -429,6 +435,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     def on_multiworld_or_slot_changed(self):
         # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
         self.reset_persisted_client_data()
+
+    def is_location_sendable(self, location_id: int):
+        return location_id not in self.checked_locations and location_id not in self.disabled_locations
 
     def run_gui(self):
         from kvui import GameManager

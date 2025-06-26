@@ -85,7 +85,7 @@ class TrueJediAndMinikitChecker:
 
         location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
         location_id = LOCATION_NAME_TO_ID[location_name]
-        if location_id in ctx.checked_locations:
+        if not ctx.is_location_sendable(location_id):
             self.remaining_true_jedi_check_shortnames.remove(shortname)
             return
 
@@ -108,7 +108,7 @@ class TrueJediAndMinikitChecker:
         updated_remaining_minikits: list[tuple[int, str]] = []
         for count, location_name in remaining_minikits:
             location_id = LOCATION_NAME_TO_ID[location_name]
-            if location_id not in ctx.checked_locations:
+            if ctx.is_location_sendable(location_id):
                 not_checked_minikit_checks.append(location_id)
                 updated_remaining_minikits.append((count, location_name))
         if updated_remaining_minikits:
@@ -144,7 +144,7 @@ class TrueJediAndMinikitChecker:
         for shortname in tuple(self.remaining_true_jedi_check_shortnames):
             location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
             location_id = LOCATION_NAME_TO_ID[location_name]
-            if location_id in ctx.checked_locations:
+            if not ctx.is_location_sendable(location_id):
                 self.remaining_true_jedi_check_shortnames.remove(shortname)
                 continue
             true_jedi = get_bytes_for_short_name(shortname)[0]
@@ -157,7 +157,7 @@ class TrueJediAndMinikitChecker:
             updated_remaining_minikits: list[tuple[int, str]] = []
             for count, location_name in remaining_minikits:
                 location_id = LOCATION_NAME_TO_ID[location_name]
-                if location_id not in ctx.checked_locations:
+                if ctx.is_location_sendable(location_id):
                     not_checked_minikit_checks.append(location_id)
                     updated_remaining_minikits.append((count, location_name))
             if updated_remaining_minikits:
