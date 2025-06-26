@@ -134,7 +134,8 @@ check send when saving and exiting to the Cantina or when completing the level r
 
 It seems that True Jedi checks can also currently sometimes send early when in a level.
 
-### 5-5 and 5-6 completion are swapped
+### Cantina Episode door lights
 
-5-5 and 5-6 completion are currently swapped by mistake, there might be some logic issues with these two levels that has
-also ended up swapped.
+If you are in the main room of the Cantina when you unlock your first level in an episode, the red lights above the
+episode door won't change to green, but the door can still be entered normally. The lights will become green the next
+time you enter the main room of the Cantina.
