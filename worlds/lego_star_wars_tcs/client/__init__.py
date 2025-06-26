@@ -476,6 +476,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         await self.send_connect()
         self.auth_status = AuthStatus.PENDING
 
+    async def disconnect_and_clear_last_connection(self):
+        await self.disconnect()
+        self.reset_persisted_client_data()
+        self.last_connected_slot = None
+        self.last_connected_seed_name = None
+
     async def disconnect(self, allow_autoreconnect: bool = False):
         self.auth_status = AuthStatus.NOT_AUTHENTICATED
         self.server_seed_name = None
@@ -842,7 +848,7 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
             ctx.client_expected_idx = idx + 1
 
 
-async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) -> None:
+async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) -> bool:
     """
     Check for changes to the current save file.
 
@@ -875,8 +881,10 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) 
             # The player is allowed to exit to the main menu and start a new game.
             if current_save_file is None:
                 if last_slot_name is not None:
+                    logger.info("Copied the last connected slot name to the new save file.")
                     ctx.write_slot_name(last_slot_name)
                 if last_seed_name is not None:
+                    logger.info("Copied the last connected multiworld seed hash to the new save file.")
                     ctx.write_seed_name_hash(last_seed_name)
             else:
                 # The player *could* have another save file with the same seed and slot, which would be
@@ -888,13 +896,16 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) 
                     if ctx.slot:
                         logger.info("Disconnecting from the server because the newly loaded save file's"
                                     " seed does not match the connected multiworld's seed.")
-                    await ctx.disconnect()
+                    await ctx.disconnect_and_clear_last_connection()
+                    return False
                 elif last_slot_name is not None and last_slot_name != ctx.read_slot_name():
                     if ctx.slot:
                         logger.info("Disconnecting from the server because the newly loaded save file's"
                                     " slot name does not match the connected slot.")
-                    await ctx.disconnect()
+                    await ctx.disconnect_and_clear_last_connection()
+                    return False
     ctx.last_loaded_save_file = current_save_file
+    return True
 
 
 async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
@@ -931,19 +942,33 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 if not ctx.is_in_game():
                     # Need to wait for the player to load into a save file.
                     if ctx.last_loaded_save_file:
-                        msg = "Load back into the game to continue"
+                        # There is a previously loaded save file, so the player has exited to the main menu.
+                        log_message("Load back into a save file or a new game to continue")
                     else:
-                        msg = "Waiting for the player to load into the game"
-                    log_message(msg)
+                        # There is no previously loaded save file, so the player has just started the game.
+                        log_message("Load into a save file or start a new game to continue")
                     sleep_time = 1.0
                     continue
 
-                await game_watcher_check_save_file(ctx)
+                if not await game_watcher_check_save_file(ctx):
+                    # The player changed save file to a save file for a different multiworld or slot.
+                    # A message will already have been logged.
+                    sleep_time = 1.0
+                    continue
+
+                if not ctx.last_connected_slot or not ctx.last_connected_seed_name:
+                    log_message("Connect to a server to continue")
+                    sleep_time = 1.0
+                    continue
 
                 # Even if the client has disconnected from the server, it is still important to run a number of
                 # coroutines to allow the player to play while disconnected.
                 # todo: Is the `is_in_game()` check here still necessary now that there is an earlier check?
-                if ctx.is_in_game() and ctx.last_connected_slot and ctx.last_connected_seed_name:
+                if ctx.is_in_game():
+                    msg = "Client is now fully connected and processing items and checking locations"
+                    if last_message != msg:
+                        log_message(msg)
+                        ctx.text_display.queue_message("Client activated")
                     await ctx.free_play_completion_checker.initialize(ctx)
                     await give_items(ctx)
 
@@ -983,6 +1008,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 sleep_time = 0.1
         except Exception as e:
             await ctx.unhook_game_process()
+            ctx.reset_persisted_client_data()
             if isinstance(e, (PymemError, WinAPIError)):
                 msg = "Lost connection to game, attempting re-connection in 5 seconds..."
                 debug_logger.error(traceback.format_exc())
@@ -991,7 +1017,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 logger.error(traceback.format_exc())
             logger.info(msg)
             last_message = msg
-            await ctx.disconnect()
+            await ctx.disconnect_and_clear_last_connection()
             sleep_time = 5
             continue
 
