@@ -974,10 +974,6 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 # coroutines to allow the player to play while disconnected.
                 # todo: Is the `is_in_game()` check here still necessary now that there is an earlier check?
                 if ctx.is_in_game():
-                    msg = "Client is now fully connected and processing items and checking locations"
-                    if last_message != msg:
-                        log_message(msg)
-                        ctx.text_display.queue_message("Client activated")
                     await ctx.free_play_completion_checker.initialize(ctx)
                     await give_items(ctx)
 
@@ -987,6 +983,13 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     await ctx.acquired_generic.update_game_state(ctx)
                     await ctx.unlocked_chapter_manager.update_game_state(ctx)
                     await ctx.text_display.update_game_state(ctx)
+
+                    # Queuing the message for the text display must be after the text_display has updated, so that it
+                    # can initialize itself.
+                    msg = "Client is now fully connected and processing items and checking locations"
+                    if last_message != msg:
+                        log_message(msg)
+                        ctx.text_display.queue_message("Client connected and running")
 
                     # Check for newly cleared locations while connected to a slot on a server.
                     # todo: Some of these don't need to be checked very often because they are persisted in the save
