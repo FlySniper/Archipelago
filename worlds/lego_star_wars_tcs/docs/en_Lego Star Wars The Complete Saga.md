@@ -124,16 +124,6 @@ progress.
 Receiving a Purple Stud while under the effect of a Power Up, or while in a Double Score Zone will not double the
 received studs.
 
-### True Jedi
-
-True Jedi checks sending while in a level were a last-minute addition and are implemented 'close-enough' in that they
-send on the first stud collected after the sum of Player 1's and Player 2's stud counts reach the True Jedi requirement.
-
-If the True Jedi does not send while in a level because of the implementation not being quite correct, the True Jedi
-check send when saving and exiting to the Cantina or when completing the level regardless.
-
-It seems that True Jedi checks can also currently sometimes send early when in a level.
-
 ### Cantina Episode door lights
 
 If you are in the main room of the Cantina when you unlock your first level in an episode, the red lights above the
