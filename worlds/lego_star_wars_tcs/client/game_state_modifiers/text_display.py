@@ -1,4 +1,5 @@
 import logging
+import re
 import struct
 from collections import deque
 from time import perf_counter_ns
@@ -118,6 +119,9 @@ class InGameTextDisplay(GameStateUpdater):
             # for consecutive pointers to these two addresses and then working backwards to the "Double Score Zone!"
             # pointer.
             rebel_trooper_in_pointer_array_pattern = rebel_trooper_pointer_bytes + r2d2_pointer_bytes
+            # The bytes have a chance to correspond to special characters, but it is the exact bytes that need to be
+            # searched for.
+            rebel_trooper_in_pointer_array_pattern = re.escape(rebel_trooper_in_pointer_array_pattern)
             rebel_trooper_pointer_address = process.pattern_scan_all(rebel_trooper_in_pointer_array_pattern)
             if rebel_trooper_pointer_address is None:
                 logger.warning("Text Display: Warning: Could not find the the pointer pattern needed for displaying"
