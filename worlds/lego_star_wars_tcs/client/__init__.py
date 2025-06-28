@@ -371,22 +371,36 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                         self.text_display.queue_message(message)
 
     def _read_and_validate_slot_data(self, slot_data: typing.Mapping[str, typing.Any]) -> bool:
-        # Ensure the read data from slot_data is a tuple rather than a list so that the comparisons with
-        # AP_WORLD_VERSION work as expected.
         # All versions of the TCS apworld should have written "apworld_version" into slot data, if it is absent then
         # there is an error.
+        # Ensure the read data from slot_data is a tuple rather than a list so that the comparisons with
+        # AP_WORLD_VERSION work as expected.
         server_apworld_version = tuple(slot_data["apworld_version"])
         if AP_WORLD_VERSION != server_apworld_version:
-            if AP_WORLD_VERSION[:2] == server_apworld_version[:2]:
-                # Major + minor match is OK
-                logger.info("Info: Connected to a multiworld generated with a different, but compatible, apworld"
-                            " version %s. The client apworld version is %s.",
-                            server_apworld_version, AP_WORLD_VERSION)
-            else:
+            # If the major version does not match, the versions are incompatible.
+            # If the minor version of the client is less than the server, then the versions are incompatible.
+            if AP_WORLD_VERSION[0] != server_apworld_version[0] or AP_WORLD_VERSION[1] < server_apworld_version[1]:
                 logger.error("Error: The multiworld was generated with apworld version %s, which is not compatible with"
                              " the client's apworld version %s. Disconnecting.",
                              server_apworld_version, AP_WORLD_VERSION)
                 return False
+            else:
+                # If the minor version of the client is equal, then the patch version needs to be compared.
+                if AP_WORLD_VERSION[1] == server_apworld_version[1] and AP_WORLD_VERSION[2] < server_apworld_version[2]:
+                    # The client has an older patch version than the server, this should just mean the client is
+                    # potentially missing some backwards compatible bug fixes, but the bug fixes are likely forwards
+                    # compatible, so the connection will be allowed, but with a warning message.
+                    logger.warning("Warning: Connected to a multiworld generated with a different, but probably"
+                                   " compatible, apworld version %s. The client apworld version is %s. Updating the"
+                                   " client version is recommended to avoid issues. Please update your apworld version"
+                                   " before reporting any issues.",
+                                   server_apworld_version, AP_WORLD_VERSION)
+                else:
+                    # The client has matching major version and newer minor+patch version, everything *should* be OK
+                    # because the client has only additional backwards compatible features and bug fixes.
+                    logger.info("Info: Connected to a multiworld generated with a different, but compatible, apworld"
+                                " version %s. The client apworld version is %s.",
+                                server_apworld_version, AP_WORLD_VERSION)
         else:
             logger.info("Info: Connected to multiworld generated on the same version as the client")
 
