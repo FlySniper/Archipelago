@@ -20,7 +20,7 @@ from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIErr
 from CommonClient import CommonContext, server_loop, gui_enabled, ClientCommandProcessor
 
 from .. import options
-from ..constants import GAME_NAME
+from ..constants import GAME_NAME, AP_WORLD_VERSION
 from ..levels import SHORT_NAME_TO_CHAPTER_AREA, CHAPTER_AREAS, ChapterArea
 from ..locations import LOCATION_NAME_TO_ID
 from .common_addresses import ShopType, CantinaRoom
@@ -370,7 +370,26 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                         message = f"Sent {item_name} to {owner} ({location_name})"
                         self.text_display.queue_message(message)
 
-    def _read_slot_data(self, slot_data: typing.Mapping[str, typing.Any]):
+    def _read_and_validate_slot_data(self, slot_data: typing.Mapping[str, typing.Any]) -> bool:
+        # Ensure the read data from slot_data is a tuple rather than a list so that the comparisons with
+        # AP_WORLD_VERSION work as expected.
+        # All versions of the TCS apworld should have written "apworld_version" into slot data, if it is absent then
+        # there is an error.
+        server_apworld_version = tuple(slot_data["apworld_version"])
+        if AP_WORLD_VERSION != server_apworld_version:
+            if AP_WORLD_VERSION[:2] == server_apworld_version[:2]:
+                # Major + minor match is OK
+                logger.info("Info: Connected to a multiworld generated with a different, but compatible, apworld"
+                            " version %s. The client apworld version is %s.",
+                            server_apworld_version, AP_WORLD_VERSION)
+            else:
+                logger.error("Error: The multiworld was generated with apworld version %s, which is not compatible with"
+                             " the client's apworld version %s. Disconnecting.",
+                             server_apworld_version, AP_WORLD_VERSION)
+                return False
+        else:
+            logger.info("Info: Connected to multiworld generated on the same version as the client")
+
         received_item_messages = slot_data.get("received_item_messages")
         if isinstance(received_item_messages, int):
             self.received_item_messages = received_item_messages == options.ReceivedItemMessages.option_all
@@ -426,9 +445,13 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
             slot_data = args.get("slot_data")
             if isinstance(slot_data, typing.Mapping):
-                self._read_slot_data(slot_data)
+                if not self._read_and_validate_slot_data(slot_data):
+                    # _read_and_validate_slot_data should have logged the appropriate message to the user.
+                    self.last_connected_seed_name = None
+                    asyncio.create_task(self.disconnect())
+                    return
             else:
-                logger.warning("Warning: slot_data missing from Connected message")
+                logger.error("Error: slot_data missing from Connected message, something is probably broken.")
 
             # It is assumed that the player must be loaded into a save file or a new game at this point.
             ok, server_seed_hash_to_write = self._validate_seed_name_against_save_data(self.last_connected_seed_name)
