@@ -32,6 +32,7 @@ from .game_state_modifiers.extras import AcquiredExtras
 from .game_state_modifiers.characters import AcquiredCharacters
 from .game_state_modifiers.generic import AcquiredGeneric
 from .game_state_modifiers.levels import UnlockedChapterManager
+from .game_state_modifiers.minikits import AcquiredMinikits
 from .game_state_modifiers.studs import STUDS_AP_ID_TO_VALUE, give_studs
 from .game_state_modifiers.text_display import InGameTextDisplay
 
@@ -283,6 +284,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_characters: AcquiredCharacters
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
+    acquired_minikits: AcquiredMinikits
     unlocked_chapter_manager: UnlockedChapterManager
     text_display: InGameTextDisplay
     client_expected_idx: int
@@ -315,6 +317,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
+        self.acquired_minikits = AcquiredMinikits()
 
         self.text_display = InGameTextDisplay()
 
@@ -442,9 +445,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         if multiworld_version < (0, 2, 0):
             # Older versions do not have the minikit count in slot data, and always required 270/360 minikits to goal.
-            self.acquired_generic.goal_minikit_count = 270
+            self.acquired_minikits.goal_minikit_count = 270
         else:
-            self.acquired_generic.goal_minikit_count = slot_data["minikit_goal_amount"]
+            self.acquired_minikits.goal_minikit_count = slot_data["minikit_goal_amount"]
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
@@ -875,6 +878,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         debug_logger.info(f"Receiving item {item_name} from AP")
         if code in self.acquired_generic.receivable_ap_ids:
             self.acquired_generic.receive_generic(self, code)
+        elif code in self.acquired_minikits.receivable_ap_ids:
+            self.acquired_minikits.receive_minikit(code)
         elif code in self.acquired_characters.receivable_ap_ids:
             self.acquired_characters.receive_character(code)
             self.unlocked_chapter_manager.on_character_or_episode_unlocked(code)
@@ -890,6 +895,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
+        self.acquired_minikits = AcquiredMinikits()
+
         self.unlocked_chapter_manager = UnlockedChapterManager()
         self.client_expected_idx = 0
         self.free_play_completion_checker = FreePlayChapterCompletionChecker()
@@ -1125,6 +1132,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     await ctx.acquired_characters.update_game_state(ctx)
                     await ctx.acquired_extras.update_game_state(ctx)
                     await ctx.acquired_generic.update_game_state(ctx)
+                    await ctx.acquired_minikits.update_game_state(ctx)
                     await ctx.unlocked_chapter_manager.update_game_state(ctx)
                     await ctx.text_display.update_game_state(ctx)
 
@@ -1166,7 +1174,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
 
                         # Check for goal completion.
                         if not ctx.finished_game:
-                            victory = ctx.acquired_generic.minikit_count >= ctx.acquired_generic.goal_minikit_count
+                            victory = ctx.acquired_minikits.minikit_count >= ctx.acquired_minikits.goal_minikit_count
                             if victory:
                                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                                 ctx.finished_game = True
