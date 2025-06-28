@@ -998,12 +998,20 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
             else:
                 if not ctx.is_in_game():
                     # Need to wait for the player to load into a save file.
-                    if ctx.last_loaded_save_file:
-                        # There is a previously loaded save file, so the player has exited to the main menu.
-                        log_message("Load back into a save file or a new game to continue")
+                    if (ctx.last_loaded_save_file is not None
+                            or ctx.last_connected_seed_name is not None
+                            or ctx.last_connected_slot is not None):
+                        # There is a previously loaded save file or connected seed/slot, so the player has exited to the
+                        # main menu.
+                        last_connected_slot_name = ctx.last_connected_slot
+                        if last_connected_slot_name is not None:
+                            log_message(f"Load back into the save file, or a new game (Gold Brick progress will be"
+                                        f" lost), to continue as {last_connected_slot_name}.")
+                        else:
+                            log_message("Load back into a save file or a new game to continue.")
                     else:
-                        # There is no previously loaded save file, so the player has just started the game.
-                        log_message("Load into a save file or start a new game to continue")
+                        # There is no previously loaded save file or seed/slot, so the player has just started the game.
+                        log_message("Load into a save file or start a new game to continue.")
                     sleep_time = 1.0
                     continue
 
@@ -1042,10 +1050,19 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
 
                     # Queuing the message for the text display must be after the text_display has updated, so that it
                     # can initialize itself.
-                    msg = "Client is now fully connected and processing items and checking locations"
+                    msg = "The client is now fully connected to the game, receiving items and checking locations."
                     if last_message != msg:
                         log_message(msg)
-                        ctx.text_display.queue_message("Client connected and running")
+                        slot_name = ctx.read_slot_name()
+                        if ctx.server is None or ctx.server.socket.closed:
+                            # A previous connection must have been made, but the server connection has been lost
+                            # unintentionally (it will attempt to auto-reconnect).
+                            # todo: Make these messages display for longer somehow (extra argument to queue_message?).
+                            ctx.text_display.queue_message(f"Client running in disconnected mode as {slot_name}")
+                            ctx.text_display.queue_message(f"Items and checks will be synced once the server connection"
+                                                           f" is reestablished")
+                        else:
+                            ctx.text_display.queue_message(f"Client running and connected as {slot_name}")
 
                     # Check for newly cleared locations while connected to a slot on a server.
                     # todo: Some of these don't need to be checked very often because they are persisted in the save
