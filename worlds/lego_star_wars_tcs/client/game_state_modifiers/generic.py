@@ -114,7 +114,7 @@ class AcquiredGeneric(ItemReceiver):
     def receive_generic(self, ctx: TCSContext, ap_item_id: int):
         # Minikits
         if ap_item_id in MINIKIT_ITEMS:
-            self.minikit_count += 1
+            self.minikit_count += MINIKIT_ITEMS[ap_item_id]
         # Progressive Bonus Unlock
         elif ap_item_id == PROGRESSIVE_BONUS_CODE:
             # if write_to_game:
@@ -136,11 +136,13 @@ class AcquiredGeneric(ItemReceiver):
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
 
     def _update_goal_display(self, ctx: TCSContext):
-        goal_count = str(self.goal_minikit_count * 5)
-        digits_to_display = len(goal_count)
+        goal_count = str(self.goal_minikit_count)
+        # Display the current count with as many digits as the goal count.
+        leading_digits_to_display = len(goal_count)
 
+        # PyCharm does not like the fact that an f-string is being used to format a format string.
         # noinspection PyStringFormat
-        current_minikit_count = f"{{:0{digits_to_display}d}}".format(self.minikit_count * 5)
+        current_minikit_count = f"{{:0{leading_digits_to_display}d}}".format(self.minikit_count)
 
         # There are few available characters. The player is limited to "0-9A-Z -", but the names are capable of
         # displaying more punctuation and lowercase letters. A few characters with ligatures are supported as part of

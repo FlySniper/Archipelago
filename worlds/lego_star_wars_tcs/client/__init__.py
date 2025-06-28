@@ -370,7 +370,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                         message = f"Sent {item_name} to {owner} ({location_name})"
                         self.text_display.queue_message(message)
 
-    def _read_and_validate_slot_data(self, slot_data: typing.Mapping[str, typing.Any]) -> bool:
+    @staticmethod
+    def _validate_version(slot_data: typing.Mapping[str, typing.Any]) -> bool:
         # All versions of the TCS apworld should have written "apworld_version" into slot data, if it is absent then
         # there is an error.
         # Ensure the read data from slot_data is a tuple rather than a list so that the comparisons with
@@ -404,17 +405,6 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             logger.info("Info: Connected to multiworld generated on the same version as the client")
 
-        received_item_messages = slot_data.get("received_item_messages")
-        if isinstance(received_item_messages, int):
-            self.received_item_messages = received_item_messages == options.ReceivedItemMessages.option_all
-        else:
-            logger.warning("Warning: 'received_item_messages' not found in slot data")
-        checked_location_messages = slot_data.get("checked_location_messages")
-        if isinstance(checked_location_messages, int):
-            self.checked_location_messages = checked_location_messages == options.CheckedLocationMessages.option_all
-        else:
-            logger.warning("Warning: 'checked_location_messages' not found in slot data")
-
         return True
 
     def _validate_seed_name_against_save_data(self, new_seed_name: str) -> tuple[bool, bytes | None]:
@@ -432,6 +422,29 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             else:
                 return True, None
         return True, server_seed_name_hash
+
+    def _read_slot_data(self, slot_data: dict):
+        # The connection to the server is assumed to be OK by this point, so slot_data can now be used to adjust client
+        # behaviour.
+        received_item_messages = slot_data.get("received_item_messages")
+        if isinstance(received_item_messages, int):
+            self.received_item_messages = received_item_messages == options.ReceivedItemMessages.option_all
+        else:
+            logger.warning("Warning: 'received_item_messages' not found in slot data")
+        checked_location_messages = slot_data.get("checked_location_messages")
+        if isinstance(checked_location_messages, int):
+            self.checked_location_messages = checked_location_messages == options.CheckedLocationMessages.option_all
+        else:
+            logger.warning("Warning: 'checked_location_messages' not found in slot data")
+
+        # Guaranteed to be valid after self._validate_version is called.
+        multiworld_version = tuple(slot_data["apworld_version"])
+
+        if multiworld_version < (0, 2, 0):
+            # Older versions do not have the minikit count in slot data, and always required 270/360 minikits to goal.
+            self.acquired_generic.goal_minikit_count = 270
+        else:
+            self.acquired_generic.goal_minikit_count = slot_data["minikit_goal_amount"]
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
@@ -459,8 +472,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
             slot_data = args.get("slot_data")
             if isinstance(slot_data, typing.Mapping):
-                if not self._read_and_validate_slot_data(slot_data):
-                    # _read_and_validate_slot_data should have logged the appropriate message to the user.
+                if not self._validate_version(slot_data):
+                    # _validate_version should have logged the appropriate message to the user.
                     self.last_connected_seed_name = None
                     asyncio.create_task(self.disconnect())
                     return
@@ -484,6 +497,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if self.read_slot_name() is None:
                 self.write_slot_name(new_slot)
             self.disabled_locations = set(LOCATION_NAME_TO_ID.values()) - self.server_locations
+
+            self._read_slot_data(slot_data)
+
+            # Setting this to non-None indicates to the game watcher loop to start fully running.
             self.last_connected_slot = self.auth
             self.auth_status = AuthStatus.AUTHENTICATED
 

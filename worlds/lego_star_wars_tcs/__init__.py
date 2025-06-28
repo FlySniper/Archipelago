@@ -427,7 +427,13 @@ class LegoStarWarsTCSWorld(World):
 
         # Victory.
         victory = self.get_location("Minikits Goal")
-        set_rule(victory, lambda state: state.has("5 Minikits", player, 54))
+        minikit_goal_amount = self.options.minikit_goal_amount.value
+        bundle_size = 5
+        bundle_goal_amount = minikit_goal_amount // bundle_size
+        # Only whole bundles are counted for logic, so any partial bundles require an extra whole bundle to goal.
+        if minikit_goal_amount % bundle_size != 0:
+            bundle_goal_amount += 1
+        set_rule(victory, lambda state: state.has("5 Minikits", player, bundle_goal_amount))
 
         self.multiworld.completion_condition[self.player] = lambda state: state.has("Slave I", player)
 
@@ -481,6 +487,7 @@ class LegoStarWarsTCSWorld(World):
             **self.options.as_dict(
                 "received_item_messages",
                 "checked_location_messages",
+                "minikit_goal_amount",
             )
         }
 
