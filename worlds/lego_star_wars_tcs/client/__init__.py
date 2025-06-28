@@ -692,6 +692,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             return hashed
 
+    def is_seed_name_hash_set(self) -> bool:
+        # There is no more efficient way to check this, without forcing the first 4 bytes of seed hashes to not match
+        # the default unused value in the save data, then only the first 4 bytes would need to be checked.
+        return self.read_seed_name_hash() is not None
+
     def write_slot_name(self, name: str) -> None:
         assert len(name) <= 16, "Error: Slot name to write is too long, this should not happen."
         encoded_name = name.encode("utf-8")
@@ -747,6 +752,21 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # Strip any \xFF padding and return the decoded string.
         debug_logger.info(f"Read slot_name bytes as {[hex(x)[2:] for x in encoded_name]}")
         return encoded_name.partition(b"\xFF")[0].decode("utf-8")
+
+    def is_slot_name_set(self) -> bool:
+        """
+        Return whether the current save data has a slot name set.
+
+        More efficient than checking `self.read_slot_name is not None`.
+        """
+        areas = CHAPTER_AREAS[UNUSED_AREA_DWORD_SLOT_NAME_AREAS]
+        # Only the first unused bytes need to be checked.
+        area = areas[0]
+        address = area.address + area.UNUSED_CHALLENGE_BEST_TIME_OFFSET
+        read_bytes = self.read_bytes(address, 4)
+        # The default value is not valid UTF-8, so the default value is not possible to be part of a slot name, so
+        # if the default value is found, then the slot name has not been set and vice versa.
+        return read_bytes != ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE
 
     def read_current_level_id(self) -> int:
         """
@@ -900,7 +920,8 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
             ctx.client_expected_idx = idx + 1
 
 
-async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) -> bool:
+async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext,
+                                       only_just_loaded_into_game: bool) -> bool:
     """
     Check for changes to the current save file.
 
@@ -917,6 +938,8 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) 
     Save file -> other save file: Reset client state and disconnect if the other save is for a different
                                   multiworld/slot.
     :param ctx:
+    :param only_just_loaded_into_game: Indicates whether the game was previously in the main menu or not connected, but
+    has just loaded into a save file or new game.
     :return:
     """
     current_save_file = ctx.get_current_save_file()
@@ -961,6 +984,23 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) 
                                     " slot name does not match the connected slot.")
                     await ctx.disconnect()
                     return False
+        elif current_save_file is not None and only_just_loaded_into_game:
+            # The player can start a new game, progress it before connecting to the server (they shouldn't do this
+            # because the client won't be running fully at that point), causing it to save to a save slot. Then the
+            # player could connect to the server (writing the seed hash and slot name into the save data), but then
+            # return to the main menu, reverting the save data to before the seed hash and slot name were written. If
+            # the player then loads the save file again, they can end up connected to the server while not having the
+            # slot name and seed name hash written into their save file.
+            slot_name = ctx.last_connected_slot
+            seed_name = ctx.last_connected_seed_name
+            if slot_name is not None and seed_name is not None:
+                if not ctx.is_slot_name_set():
+                    ctx.write_slot_name(slot_name)
+                    logger.info("Restored slot name in save data after save data was rolled back to before it was set")
+                if not ctx.is_seed_name_hash_set():
+                    ctx.write_seed_name_hash(seed_name)
+                    logger.info("Restored seed name hash in save data after save data was rolled back to before it was"
+                                " set")
     ctx.last_loaded_save_file = current_save_file
     return True
 
@@ -968,6 +1008,8 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext) 
 async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
     logger.info("Starting connection to game.")
     last_message = ""
+    # Used to track if the player was loaded into a save/new game in the previous loop.
+    previously_not_in_game = True
 
     def log_message(msg: str, always_log=False):
         nonlocal last_message
@@ -988,6 +1030,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
         try:
             game_process = ctx.game_process
             if game_process is None:
+                previously_not_in_game = True
                 if not ctx.open_game_process():
                     log_message("Connection to game failed, attempting again in 5 seconds...", True)
                     sleep_time = 5
@@ -997,6 +1040,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     pass
             else:
                 if not ctx.is_in_game():
+                    previously_not_in_game = True
                     # Need to wait for the player to load into a save file.
                     if (ctx.last_loaded_save_file is not None
                             or ctx.last_connected_seed_name is not None
@@ -1015,7 +1059,12 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     sleep_time = 1.0
                     continue
 
-                if not await game_watcher_check_save_file(ctx):
+                # The save file check does some extra checks if the player was previously not loaded into a save
+                # file/new game, but now is.
+                only_just_loaded_into_game = previously_not_in_game
+                previously_not_in_game = False
+
+                if not await game_watcher_check_save_file(ctx, only_just_loaded_into_game):
                     # The player changed save file to a save file for a different multiworld or slot.
                     # A message will already have been logged.
                     sleep_time = 1.0
