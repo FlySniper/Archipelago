@@ -510,7 +510,8 @@ BONUS_AREAS = [
         "Progressive Bonus Level": 3,
         "Gold Brick": 10,
     })),
-    BonusArea("A New Hope (Bonus Level)", 0x86E3B8, 0x8, 150, 29, Counter({
+    # Note: The base address may be incorrect/I do not know what the base address is supposed to be.
+    BonusArea("A New Hope (Bonus Level)", 0x86E249, 0x8, 150, 29, Counter({
         "Darth Vader": 1,
         "Stormtrooper": 1,
         "C-3PO": 1,
