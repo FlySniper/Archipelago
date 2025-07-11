@@ -507,10 +507,6 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.last_connected_slot = self.auth
             self.auth_status = AuthStatus.AUTHENTICATED
 
-    def on_save_file_changed(self):
-        # The client is loading a different save file to before, so reset all persisted client data.
-        self.reset_persisted_client_data()
-
     def on_multiworld_or_slot_changed(self):
         # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
         self.reset_persisted_client_data()
@@ -892,6 +888,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             logger.warning(f"Received unknown item with AP ID {code}")
 
     def reset_persisted_client_data(self, clear_text_display_queue=True):
+        """
+        Reset all client state.
+
+        Used when deliberately disconnecting from a server.
+        """
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
@@ -899,39 +900,55 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         self.unlocked_chapter_manager = UnlockedChapterManager()
         self.client_expected_idx = 0
+
         self.free_play_completion_checker = FreePlayChapterCompletionChecker()
         self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
         self.purchased_extras_checker = PurchasedExtrasChecker()
         self.purchased_characters_checker = PurchasedCharactersChecker()
         self.bonus_area_completion_checker = BonusAreaCompletionChecker()
+
         if clear_text_display_queue:
             self.text_display.message_queue.clear()
+
+    def reset_client_received_items(self):
+        """
+        Reset the items that the client thinks it has received.
+
+        Use in cases where the client save data has rolled back.
+        """
+        self.acquired_extras.clear_received_items()
+        self.acquired_characters.clear_received_items()
+        self.acquired_generic.clear_received_items()
+        self.acquired_minikits.clear_received_items()
+
+        self.client_expected_idx = 0
 
 
 async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
     if ctx.is_in_game():
-        # The player can enter a level, receive items, and then exit back to the Cantina without saving, reverting their
-        # expected_idx to an older value and undoing any studs that were given.
+        # The player can enter a save file, receive items, and then exit back to the main menu without saving,
+        # and then load their save file again, reverting their expected_idx to an older value and undoing any studs that
+        # were given.
         # To ensure that given studs take into account the player's score multiplier at the time the studs were given,
-        # it is necessary to reset client state in this case.
+        # it is necessary to reset all received items on the client side in this case.
         expected_idx_game = ctx.get_game_expected_idx()
         expected_idx_client = ctx.client_expected_idx
 
         received_items = ctx.items_received
 
-        # Check if the game rolled back its save data, the client needs to be reset and caught back up.
+        # Check if the game rolled back its save data, the client needs to reset its items and catch back up to the
+        # game.
         if expected_idx_game < ctx.client_expected_idx:
             debug_logger.info("Resetting client received items due to game save data rollback")
-            # The text display queue does not need to be cleared.
-            ctx.reset_persisted_client_data(clear_text_display_queue=False)
+            ctx.reset_client_received_items()
             for idx, item in enumerate(received_items[:expected_idx_game]):
                 ctx.receive_item(item.item)
                 ctx.client_expected_idx = idx + 1
-            expected_idx_client = ctx.client_expected_idx
-
-        # Check if we are resuming a seed where the client is fresh and needs to be caught up.
-        if expected_idx_client < expected_idx_game:
-            # The client may not have yet received the items to be able to catch up yet, so don't spam the debug log.
+            assert ctx.client_expected_idx == min(expected_idx_game, len(received_items))
+        # Check if the player is resuming a seed where the client is fresh and needs to be caught up to the game.
+        elif expected_idx_client < expected_idx_game:
+            # The client may not have yet connected to the server and received the items to be able to catch up yet, so
+            # don't spam the debug log.
             if len(received_items) > expected_idx_client:
                 debug_logger.info("Catching up client to game state. Client expected: %i. Game expected: %i.",
                                   ctx.client_expected_idx, expected_idx_game)
@@ -941,6 +958,7 @@ async def give_items(ctx: LegoStarWarsTheCompleteSagaContext):
                     ctx.client_expected_idx = idx + 1
                 # If `expected_idx_client` is to be used beyond this point, it needs to be updated.
                 # expected_idx_client = ctx.client_expected_idx
+                assert ctx.client_expected_idx == min(expected_idx_game, len(received_items))
 
         # Check if there are new items.
         if len(received_items) <= expected_idx_game:

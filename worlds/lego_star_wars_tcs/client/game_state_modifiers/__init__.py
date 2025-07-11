@@ -12,4 +12,10 @@ class GameStateUpdater(abc.ABC):
 class ItemReceiver(GameStateUpdater):
     @property
     @abc.abstractmethod
-    def receivable_ap_ids(self) -> Container[int]: ...
+    def receivable_ap_ids(self) -> Container[int]:
+        ...
+
+    @abc.abstractmethod
+    def clear_received_items(self) -> None:
+        """Clear all received items, without clearing any settings."""
+        ...

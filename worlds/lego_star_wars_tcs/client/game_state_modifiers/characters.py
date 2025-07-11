@@ -53,7 +53,11 @@ class AcquiredCharacters(ItemReceiver):
 
     def __init__(self):
         self.unlocked_characters = set()
-        self.locked_characters = {char.character_index for char in RECEIVABLE_CHARACTERS_BY_AP_ID.values()}
+
+    def clear_received_items(self) -> None:
+        # Characters are not progressive, so receiving a character again has no effect, but for consistency, clear them
+        # anyway.
+        self.unlocked_characters.clear()
 
     def unlock_character(self, character: GenericCharacterData):
         self.unlocked_characters.add(character.character_index)

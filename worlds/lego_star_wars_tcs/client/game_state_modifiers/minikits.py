@@ -23,6 +23,9 @@ class AcquiredMinikits(ItemReceiver):
     def __init__(self):
         self.minikit_count = 0
 
+    def clear_received_items(self) -> None:
+        self.minikit_count = 0
+
     def receive_minikit(self, ap_item_id: int):
         # Minikits
         if ap_item_id in MINIKIT_ITEMS:
