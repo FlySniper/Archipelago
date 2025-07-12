@@ -142,126 +142,165 @@ class LegoStarWarsTCSWorld(World):
         self._raise_error(OptionError, message, *args, **kwargs)
 
     def generate_early(self) -> None:
-        # Determine all available chapters to pick from.
-        allowed_chapters: set[str] = set()
-        allowed_chapters_casefold = {v.casefold() for v in self.options.allowed_chapters.value}
-        if "all" in allowed_chapters_casefold:
-            allowed_chapters = set(LEVEL_SHORT_NAMES_SET)
+        # Universal Tracker support.
+        if passthrough := getattr(self.multiworld, "re_gen_passthrough", {}).get(self.game):
+            # Options directly from slot data.
+            self.options.minikit_goal_amount.value = passthrough["minikit_goal_amount"]
+            self.options.minikit_bundle_size.value = passthrough["minikit_bundle_size"]
+            self.options.episode_unlock_requirement.value = passthrough["episode_unlock_requirement"]
+            self.options.all_episodes_character_purchase_requirements.value = (
+                passthrough["all_episodes_character_purchase_requirements"])
+
+            # Attributes normally derived from options during generate_early.
+            self.enabled_chapters = set(passthrough["enabled_chapters"])
+            self.enabled_chapter_count = len(self.enabled_chapters)
+            self.enabled_episodes = set(passthrough["enabled_episodes"])
+            # The enabled bonuses are set depending on the number of Gold Bricks available
+            # self.enabled_bonuses = set(passthrough["enabled_bonuses"])
+            self.starting_chapter = passthrough["starting_chapter"]
+            self.starting_episode = passthrough["starting_episode"]
+            # Derived Minikit attributes.
+            self.available_minikits = self.enabled_chapter_count * 10
+            bundle_size = self.options.minikit_bundle_size.value
+            self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
+            self.minikit_bundle_count = (self.available_minikits // bundle_size
+                                         + (self.available_minikits % bundle_size != 0))
+
+            # Override options with their derived/rolled values.
+            # Override the enable_chapter count to match the number that are enabled.
+            self.options.enabled_chapters_count.value = len(self.enabled_chapters)
+            # Unrandomize the starting chapter choice with the starting chapter that was actually picked.
+            self.options.starting_chapter.value = self.starting_chapter
+            # Override the allowed chapters with all the chapters that rolled as enabled.
+            self.options.allowed_chapters.value = set(self.enabled_chapters)
+            # Act as if there was no filtering of allowed chapter types.
+            self.options.allowed_chapter_types.value = "all"
+
+        # Normal options parsing.
         else:
-            if "prequel trilogy" in allowed_chapters_casefold:
-                allowed_chapters.update(f"{episode}-{chapter}"
-                                        for episode, chapter in itertools.product(range(1, 4), range(1, 7)))
-                allowed_chapters_casefold.remove("prequel trilogy")
-            if "original trilogy" in allowed_chapters_casefold:
-                allowed_chapters.update(f"{episode}-{chapter}"
-                                        for episode, chapter in itertools.product(range(4, 7), range(1, 7)))
-                allowed_chapters_casefold.remove("original trilogy")
-            for i in range(1, 7):
-                episode_key = f"episode {i}"
-                if episode_key in allowed_chapters_casefold:
-                    allowed_chapters.update(f"{i}-{chapter}" for chapter in range(1, 7))
-                    allowed_chapters_casefold.remove(episode_key)
-            assert allowed_chapters_casefold <= LEVEL_SHORT_NAMES_SET
-            allowed_chapters.update(allowed_chapters_casefold)
-        if self.options.allowed_chapter_types == "no_vehicles":
-            # Remove vehicle chapters
-            allowed_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
-        if not allowed_chapters:
-            self._option_error("At least 1 chapter must be enabled.")
+            # Determine all available chapters to pick from.
+            allowed_chapters: set[str] = set()
+            allowed_chapters_casefold = {v.casefold() for v in self.options.allowed_chapters.value}
+            if "all" in allowed_chapters_casefold:
+                allowed_chapters = set(LEVEL_SHORT_NAMES_SET)
+            else:
+                if "prequel trilogy" in allowed_chapters_casefold:
+                    allowed_chapters.update(f"{episode}-{chapter}"
+                                            for episode, chapter in itertools.product(range(1, 4), range(1, 7)))
+                    allowed_chapters_casefold.remove("prequel trilogy")
+                if "original trilogy" in allowed_chapters_casefold:
+                    allowed_chapters.update(f"{episode}-{chapter}"
+                                            for episode, chapter in itertools.product(range(4, 7), range(1, 7)))
+                    allowed_chapters_casefold.remove("original trilogy")
+                for i in range(1, 7):
+                    episode_key = f"episode {i}"
+                    if episode_key in allowed_chapters_casefold:
+                        allowed_chapters.update(f"{i}-{chapter}" for chapter in range(1, 7))
+                        allowed_chapters_casefold.remove(episode_key)
+                assert allowed_chapters_casefold <= LEVEL_SHORT_NAMES_SET
+                allowed_chapters.update(allowed_chapters_casefold)
+            if self.options.allowed_chapter_types == "no_vehicles":
+                # Remove vehicle chapters
+                allowed_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
+            if not allowed_chapters:
+                self._option_error("At least 1 chapter must be enabled.")
 
-        # Pick starting chapter.
-        # Determine starting chapters to pick from.
-        starting_chapters: set[str]
-        starting_chapter_option = self.options.starting_chapter
-        if starting_chapter_option == StartingChapter.option_random_chapter:
-            starting_chapters = allowed_chapters.copy()
-        elif starting_chapter_option == StartingChapter.option_random_non_vehicle:
-            starting_chapters = set(LEVEL_SHORT_NAMES_SET).difference(VEHICLE_CHAPTER_SHORTNAMES)
-        elif starting_chapter_option == StartingChapter.option_random_vehicle:
-            starting_chapters = set(VEHICLE_CHAPTER_SHORTNAMES)
-        elif match := re.fullmatch(r"random_episode_([1-6])", starting_chapter_option.current_key):
-            episode = int(match.group(1))
-            starting_chapters = {chapter.short_name for chapter in EPISODE_TO_CHAPTER_AREAS[episode]}
-        else:
-            starting_chapter = starting_chapter_option.current_key
-            assert starting_chapter in LEVEL_SHORT_NAMES_SET
-            starting_chapters = {starting_chapter}
-            # If a singular starting chapter was chosen, but not in the allowed chapters set, forcefully add it. This
-            # should give a better generation experience to players intending to run fully random yamls.
-            if starting_chapter not in allowed_chapters:
-                self._log_warning("The individually chosen starting chapter '%s' was not in the set of allowed"
-                                  " chapters %s. '%s' has been forcefully allowed to prevent generation failure.",
-                                  starting_chapter,
-                                  sorted(allowed_chapters),
-                                  starting_chapter)
-                allowed_chapters.add(starting_chapter)
-        # Filter to only the chapters that are allowed to be enabled.
-        allowed_starting_chapters = allowed_chapters.intersection(starting_chapters)
-        if not allowed_starting_chapters:
-            self._option_error("None of the chosen possible starting chapters were chosen to be possible to be enabled."
-                               "At least one starting chapter must be allowed to be enabled."
-                               "\nPossible starting chapters:"
-                               "\n\t%s (%s)"
-                               "\nAllowed chapters:"
-                               "\n\t%s (%s)",
-                               starting_chapter_option.current_key, sorted(starting_chapters),
-                               sorted(self.options.allowed_chapters.value), sorted(allowed_chapters))
-        # Finally actually pick the starting chapter.
-        self.starting_chapter = self.random.choice(sorted(allowed_starting_chapters))
-        self.starting_episode = SHORT_NAME_TO_CHAPTER_AREA[self.starting_chapter].episode
+            # Pick starting chapter.
+            # Determine starting chapters to pick from.
+            starting_chapters: set[str]
+            starting_chapter_option = self.options.starting_chapter
+            if starting_chapter_option == StartingChapter.option_random_chapter:
+                starting_chapters = allowed_chapters.copy()
+            elif starting_chapter_option == StartingChapter.option_random_non_vehicle:
+                starting_chapters = set(LEVEL_SHORT_NAMES_SET).difference(VEHICLE_CHAPTER_SHORTNAMES)
+            elif starting_chapter_option == StartingChapter.option_random_vehicle:
+                starting_chapters = set(VEHICLE_CHAPTER_SHORTNAMES)
+            elif match := re.fullmatch(r"random_episode_([1-6])", starting_chapter_option.current_key):
+                episode = int(match.group(1))
+                starting_chapters = {chapter.short_name for chapter in EPISODE_TO_CHAPTER_AREAS[episode]}
+            else:
+                starting_chapter = starting_chapter_option.current_key
+                assert starting_chapter in LEVEL_SHORT_NAMES_SET
+                starting_chapters = {starting_chapter}
+                # If a singular starting chapter was chosen, but not in the allowed chapters set, forcefully add it.
+                # This should give a better generation experience to players intending to run fully random yamls.
+                if starting_chapter not in allowed_chapters:
+                    self._log_warning("The individually chosen starting chapter '%s' was not in the set of allowed"
+                                      " chapters %s. '%s' has been forcefully allowed to prevent generation failure.",
+                                      starting_chapter,
+                                      sorted(allowed_chapters),
+                                      starting_chapter)
+                    allowed_chapters.add(starting_chapter)
+            # Filter to only the chapters that are allowed to be enabled.
+            allowed_starting_chapters = allowed_chapters.intersection(starting_chapters)
+            if not allowed_starting_chapters:
+                self._option_error("None of the chosen possible starting chapters were chosen to be possible to be"
+                                   " enabled."
+                                   " At least one starting chapter must be allowed to be enabled."
+                                   "\nPossible starting chapters:"
+                                   "\n\t%s (%s)"
+                                   "\nAllowed chapters:"
+                                   "\n\t%s (%s)",
+                                   starting_chapter_option.current_key, sorted(starting_chapters),
+                                   sorted(self.options.allowed_chapters.value), sorted(allowed_chapters))
+            # Finally actually pick the starting chapter.
+            self.starting_chapter = self.random.choice(sorted(allowed_starting_chapters))
+            self.starting_episode = SHORT_NAME_TO_CHAPTER_AREA[self.starting_chapter].episode
 
-        # Pick enabled chapters and therefore enabled episodes.
-        # Adjust the count option and warn if it was too high.
-        if self.options.enabled_chapters_count.value > len(allowed_chapters):
-            self._log_warning("Enabled chapter count (%i) was set higher than the number of allowed chapters (%i), it"
-                              " has been reduced to the number of allowed chapters.",
-                              self.options.enabled_chapters_count.value,
-                              len(allowed_chapters))
-            self.options.enabled_chapters_count.value = len(allowed_chapters)
+            # Pick enabled chapters and therefore enabled episodes.
+            # Adjust the count option and warn if it was too high.
+            if self.options.enabled_chapters_count.value > len(allowed_chapters):
+                self._log_warning("Enabled chapter count (%i) was set higher than the number of allowed chapters (%i),"
+                                  " it has been reduced to the number of allowed chapters.",
+                                  self.options.enabled_chapters_count.value,
+                                  len(allowed_chapters))
+                self.options.enabled_chapters_count.value = len(allowed_chapters)
 
-        non_starting_allowed_chapters = allowed_chapters - {self.starting_chapter}
-        self.enabled_chapters = {
-            self.starting_chapter,
-            *self.random.sample(sorted(non_starting_allowed_chapters), k=self.options.enabled_chapters_count.value - 1),
-        }
-        self.enabled_episodes = {SHORT_NAME_TO_CHAPTER_AREA[s].episode for s in self.enabled_chapters}
-        self.enabled_chapter_count = len(self.enabled_chapters)
-        self.prog_useful_level_access_threshold_count = int(
-            self.PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT * self.enabled_chapter_count)
-        if self.options.all_episodes_character_purchase_requirements == "episodes_unlocked":
-            if self.options.episode_unlock_requirement == "open":
-                self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
-                                  " 'Episodes Unlocked' because Episode unlock requirements were set to 'Open'")
-                tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
-                option = self.options.all_episodes_character_purchase_requirements
-                option.value = tokens
-            elif len(self.enabled_episodes) == 1:
-                self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
-                                  " 'Episodes Unlocked' because the only enabled Episode is the starting Episode")
-                tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
-                option = self.options.all_episodes_character_purchase_requirements
-                option.value = tokens
+            non_starting_allowed_chapters = allowed_chapters - {self.starting_chapter}
+            self.enabled_chapters = {
+                self.starting_chapter,
+                *self.random.sample(sorted(non_starting_allowed_chapters),
+                                    k=self.options.enabled_chapters_count.value - 1),
+            }
+            self.enabled_episodes = {SHORT_NAME_TO_CHAPTER_AREA[s].episode for s in self.enabled_chapters}
+            self.enabled_chapter_count = len(self.enabled_chapters)
+            if self.options.all_episodes_character_purchase_requirements == "episodes_unlocked":
+                if self.options.episode_unlock_requirement == "open":
+                    self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
+                                      " 'Episodes Unlocked' because Episode unlock requirements were set to 'Open'")
+                    tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
+                    option = self.options.all_episodes_character_purchase_requirements
+                    option.value = tokens
+                elif len(self.enabled_episodes) == 1:
+                    self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
+                                      " 'Episodes Unlocked' because the only enabled Episode is the starting Episode")
+                    tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
+                    option = self.options.all_episodes_character_purchase_requirements
+                    option.value = tokens
 
-        # Minikit options.
-        bundle_size = self.options.minikit_bundle_size.value
-        self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
-        self.available_minikits = self.enabled_chapter_count * 10  # 10 Minikits per chapter.
-        self.minikit_bundle_count = (self.available_minikits // bundle_size
-                                     + (self.available_minikits % bundle_size != 0))
+            # Minikit options.
+            bundle_size = self.options.minikit_bundle_size.value
+            self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
+            self.available_minikits = self.enabled_chapter_count * 10  # 10 Minikits per chapter.
+            self.minikit_bundle_count = (self.available_minikits // bundle_size
+                                         + (self.available_minikits % bundle_size != 0))
 
-        # Adjust Minikit options.
-        if self.options.minikit_goal_amount.value > self.available_minikits:
-            self._log_warning("The number of minikits required to goal (%i) was higher than the number of available"
-                              " minikits (%i). The number of minikits required to goal has been reduced to the number"
-                              " of available minikits (%i).",
-                              self.options.minikit_goal_amount.value,
-                              self.available_minikits,
-                              self.available_minikits)
-            self.options.minikit_goal_amount.value = self.available_minikits
+            # Adjust Minikit options.
+            if self.options.minikit_goal_amount.value > self.available_minikits:
+                self._log_warning("The number of minikits required to goal (%i) was higher than the number of available"
+                                  " minikits (%i). The number of minikits required to goal has been reduced to the"
+                                  " number of available minikits (%i).",
+                                  self.options.minikit_goal_amount.value,
+                                  self.available_minikits,
+                                  self.available_minikits)
+                self.options.minikit_goal_amount.value = self.available_minikits
 
         # Only whole bundles are counted for logic, so any partial bundles require an extra whole bundle to goal.
         self.goal_minikit_bundle_count = (self.options.minikit_goal_amount.value // bundle_size
                                           + (self.options.minikit_goal_amount.value % bundle_size != 0))
+
+        self.prog_useful_level_access_threshold_count = int(
+            self.PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT * self.enabled_chapter_count)
 
     def evaluate_effective_item(self,
                                 name: str,
@@ -1086,4 +1125,11 @@ class LegoStarWarsTCSWorld(World):
             )
         }
 
-
+    @staticmethod
+    def interpret_slot_data(slot_data: dict[str, Any]) -> dict[str, Any] | None:
+        slot_data_version = tuple(slot_data["apworld_version"])
+        if slot_data_version != constants.AP_WORLD_VERSION:
+            raise RuntimeError(f"LSW TCS version error: The version of the apworld used to generate this world"
+                               f" ({slot_data_version}) does not match the version of your installed apworld"
+                               f" ({constants.AP_WORLD_VERSION}).")
+        return slot_data
