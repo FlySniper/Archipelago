@@ -314,11 +314,11 @@ ITEM_DATA: list[GenericItemData] = [
     _char(45, "Princess Leia (Bespin)", 57, abilities=BLASTER),
     _char(46, "Gonk Droid", 17),
     _char(47, "PK Droid", 100),
-    _char(48, "Battle Droid", 67, abilities=BLASTER),  # ! Cannot grapple !
-    _char(49, "Battle Droid (Security)", 70, abilities=BLASTER),  # ! Cannot grapple !
-    _char(50, "Battle Droid (Commander)", 68, abilities=BLASTER),  # ! Cannot grapple !
-    _char(51, "Droideka", 65, abilities=BLASTER),  # ! Cannot grapple !
-    _char(52, "Captain Tarpals", 276, abilities=BLASTER),
+    _char(48, "Battle Droid", 67),
+    _char(49, "Battle Droid (Security)", 70),
+    _char(50, "Battle Droid (Commander)", 68),
+    _char(51, "Droideka", 65),
+    _char(52, "Captain Tarpals", 276),
     _char(53, "Boss Nass", 254),
     _char(54, "Royal Guard", 101, abilities=BLASTER),
     _char(55, "Watto", 269),
@@ -329,9 +329,9 @@ ITEM_DATA: list[GenericItemData] = [
     _char(60, "Clone", 86, abilities=IMPERIAL | BLASTER),
     _char(61, "Lama Su", 280),
     _char(62, "Taun We", 281),
-    _char(63, "Geonosian", 95, abilities=BLASTER),  # ? Can these grapple ?
-    _char(64, "Battle Droid (Geonosis)", 69, abilities=BLASTER),  # ! Cannot grapple !
-    _char(65, "Super Battle Droid", 81, abilities=BLASTER),  # ? Can these grapple ?
+    _char(63, "Geonosian", 95),
+    _char(64, "Battle Droid (Geonosis)", 69),
+    _char(65, "Super Battle Droid", 81),
     _char(66, "Jango Fett", 59, abilities=BOUNTY_HUNTER | BLASTER | DROID_OR_FLY),
     _char(67, "Boba Fett (Boy)", 94, abilities=SHORTIE),
     _char(68, "Luminara", 84, abilities=JEDI),
@@ -376,8 +376,8 @@ ITEM_DATA: list[GenericItemData] = [
     _char(107, "Bossk", 212, abilities=BOUNTY_HUNTER | BLASTER),
     _char(108, "Skiff Guard", 186, abilities=BLASTER),
     _char(109, "Boba Fett", 7, abilities=BOUNTY_HUNTER | BLASTER | DROID_OR_FLY),
-    _char(110, "Ewok", 199, abilities=SHORTIE | BLASTER),  # ! Cannot blast most targets !
-    _char(111, "Imperial Guard", 194, abilities=IMPERIAL | BLASTER),  # ! No blaster !
+    _char(110, "Ewok", 199, abilities=SHORTIE),
+    _char(111, "Imperial Guard", 194, abilities=IMPERIAL),
     _char(112, "The Emperor", 6, abilities=JEDI | SITH | IMPERIAL),
     _char(113, "Admiral Ackbar", 211, abilities=BLASTER),
     _char(114, "IG-88", 197, abilities=BOUNTY_HUNTER | BLASTER | ASTROMECH | PROTOCOL_DROID | DROID_OR_FLY),
