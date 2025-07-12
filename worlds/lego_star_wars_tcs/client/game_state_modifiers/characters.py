@@ -105,12 +105,6 @@ class AcquiredCharacters(ItemReceiver):
             else:
                 chars_array[byte_index] = LOCKED
 
-        # TC-14 is unlocked by completing Negotiations Story Mode, so we need to manually unlock them as they are
-        # required to complete Negotiations Free Play (assuming C-3PO/IG-88/4-LOM have not been unlocked).
-        # TODO: Once random starting level is implemented, remove this (and make TC-14 an AP item alongside Qui-Gon and
-        #  Obi-Wan).
-        chars_array[CHARACTERS_AND_VEHICLES_BY_NAME["TC-14"].character_index - MIN_RANDOMIZED_BYTE] = UNLOCKED
-
         # If the player is in the Character Shop, temporarily lock the character they have selected for purchase if that
         # Character has already been unlocked through receiving that Character from Archipelago.
         if ctx.is_in_shop(ShopType.CHARACTERS):
