@@ -1,8 +1,21 @@
+import itertools
 import logging
+import re
 from collections import Counter
-from typing import cast, Iterable, Mapping, Any
+from typing import cast, Iterable, Mapping, Any, NoReturn, Callable, ClassVar
 
-from BaseClasses import Region, ItemClassification, CollectionState, Location, Entrance, Tutorial, Item, MultiWorld
+from BaseClasses import (
+    Region,
+    ItemClassification,
+    CollectionState,
+    Location,
+    Entrance,
+    Tutorial,
+    Item,
+    MultiWorld,
+    LocationProgressType,
+)
+from Options import OptionError
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type
 from worlds.generic.Rules import set_rule
@@ -21,18 +34,26 @@ from .items import (
     USEFUL_NON_PROGRESSION_CHARACTERS,
     MINIKITS_BY_COUNT,
     MINIKITS_BY_NAME,
+    EXTRAS_BY_NAME,
 )
 from .levels import (
     BonusArea,
     CHAPTER_AREAS,
     BONUS_AREAS,
     EPISODE_TO_CHAPTER_AREAS,
-    CHAPTER_AREA_CHARACTER_REQUIREMENTS,
+    CHAPTER_AREA_STORY_CHARACTERS,
     ALL_AREA_REQUIREMENT_CHARACTERS,
-    IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS,
+    VEHICLE_CHAPTER_SHORTNAMES,
+    SHORT_NAME_TO_CHAPTER_AREA,
+    POWER_BRICK_REQUIREMENTS,
+    ALL_MINIKITS_REQUIREMENTS,
 )
-from .locations import LOCATION_NAME_TO_ID, LegoStarWarsTCSLocation
-from .options import LegoStarWarsTCSOptions
+from .locations import LOCATION_NAME_TO_ID, LegoStarWarsTCSLocation, LEVEL_SHORT_NAMES_SET
+from .options import (
+    LegoStarWarsTCSOptions,
+    StartingChapter,
+    AllEpisodesCharacterPurchaseRequirements,
+)
 
 
 def launch_client():
@@ -73,60 +94,162 @@ class LegoStarWarsTCSWorld(World):
 
     origin_region_name = "Cantina"
 
+    PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT: ClassVar[float] = 1/6
+    prog_useful_level_access_threshold_count: int = 6
+    character_chapter_access_counts: Counter[str]
+
     starting_character_abilities: CharacterAbility = CharacterAbility.NONE
+
     effective_character_ability_names: dict[str, tuple[str, ...]]
     effective_character_abilities: dict[str, CharacterAbility]
     effective_item_classifications: dict[str, ItemClassification]
     effective_item_collect_extras: dict[str, list[str] | None]
 
+    enabled_chapters: set[str]
+    enabled_episodes: set[int]
+    enabled_bonuses: set[str]
+
+    starting_chapter: str = "1-1"
+    starting_episode: int = 1
     minikit_bundle_name: str = ""
-    available_chapters: int = 36  # Currently fixed
+    enabled_chapter_count: int = -1
     available_minikits: int = -1
     minikit_bundle_count: int = -1
     goal_minikit_bundle_count: int = -1
-
-    # Item Link worlds do not run generate early, but can create items, so it is necessary to know
-    generate_early_run: bool = False
+    gold_brick_event_count: int = 0
+    character_purchase_location_count: int = 0
 
     def __init__(self, multiworld, player: int):
         super().__init__(multiworld, player)
-        self.effective_character_abilities = {}
-        self.effective_character_ability_names = {}
+        self.enabled_chapters = set()
+        self.enabled_episodes = set()
+        self.enabled_bonuses = set()
+        self.character_chapter_access_counts = Counter()
 
-    def _log_info(self, message: str, *args, **kwargs):
+    def _log_info(self, message: str, *args, **kwargs) -> None:
         logger.info("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
 
-    def _log_warning(self, message: str, *args, **kwargs):
+    def _log_warning(self, message: str, *args, **kwargs) -> None:
         logger.warning("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
 
-    def _log_error(self, message: str, *args, **kwargs):
+    def _log_error(self, message: str, *args, **kwargs) -> None:
         logger.error("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
 
+    def _raise_error(self, ex_type: Callable[[str], Exception], message: str, *args, **kwargs) -> NoReturn:
+        raise ex_type(("Lego Star Wars TCS (%s): " + message).format(*args, **kwargs))
+
+    def _option_error(self, message: str, *args, **kwargs) -> NoReturn:
+        self._raise_error(OptionError, message, *args, **kwargs)
+
     def generate_early(self) -> None:
-        # TODO: Current starting characters are fixed and always have these abilities.
-        # FIXME: If starting characters are provided by adding them to start inventory, then most of this 'effective'
-        #  abilities will want to be removed. The Playthrough needs to be able to correctly display start inventory
-        #  characters that were actually needed to reach the goal.
-        self.starting_character_abilities = CharacterAbility.JEDI | CharacterAbility.PROTOCOL_DROID
+        # Determine all available chapters to pick from.
+        allowed_chapters: set[str] = set()
+        allowed_chapters_casefold = {v.casefold() for v in self.options.allowed_chapters.value}
+        if "all" in allowed_chapters_casefold:
+            allowed_chapters = set(LEVEL_SHORT_NAMES_SET)
+        else:
+            if "prequel trilogy" in allowed_chapters_casefold:
+                allowed_chapters.update(f"{episode}-{chapter}"
+                                        for episode, chapter in itertools.product(range(1, 4), range(1, 7)))
+                allowed_chapters_casefold.remove("prequel trilogy")
+            if "original trilogy" in allowed_chapters_casefold:
+                allowed_chapters.update(f"{episode}-{chapter}"
+                                        for episode, chapter in itertools.product(range(4, 7), range(1, 7)))
+                allowed_chapters_casefold.remove("original trilogy")
+            for i in range(1, 7):
+                episode_key = f"episode {i}"
+                if episode_key in allowed_chapters_casefold:
+                    allowed_chapters.update(f"{i}-{chapter}" for chapter in range(1, 7))
+                    allowed_chapters_casefold.remove(episode_key)
+            assert allowed_chapters_casefold <= LEVEL_SHORT_NAMES_SET
+            allowed_chapters.update(allowed_chapters_casefold)
+        if self.options.allowed_chapter_types == "no_vehicles":
+            # Remove vehicle chapters
+            allowed_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
+        if not allowed_chapters:
+            self._option_error("At least 1 chapter must be enabled.")
 
-        effective_ability_cache: dict[CharacterAbility, tuple[str, ...]] = {}
-        for name, char in CHARACTERS_AND_VEHICLES_BY_NAME.items():
-            effective_abilities: CharacterAbility = char.abilities & ~self.starting_character_abilities
-            self.effective_character_abilities[name] = effective_abilities
-            if effective_abilities in effective_ability_cache:
-                self.effective_character_ability_names[name] = effective_ability_cache[effective_abilities]
-            else:
-                effective_ability_names = tuple(cast(list[str], [ability.name for ability in effective_abilities]))
-                effective_ability_cache[effective_abilities] = effective_ability_names
-                self.effective_character_ability_names[name] = effective_ability_names
+        # Pick starting chapter.
+        # Determine starting chapters to pick from.
+        starting_chapters: set[str]
+        starting_chapter_option = self.options.starting_chapter
+        if starting_chapter_option == StartingChapter.option_random_chapter:
+            starting_chapters = allowed_chapters.copy()
+        elif starting_chapter_option == StartingChapter.option_random_non_vehicle:
+            starting_chapters = set(LEVEL_SHORT_NAMES_SET).difference(VEHICLE_CHAPTER_SHORTNAMES)
+        elif starting_chapter_option == StartingChapter.option_random_vehicle:
+            starting_chapters = set(VEHICLE_CHAPTER_SHORTNAMES)
+        elif match := re.fullmatch(r"random_episode_([1-6])", starting_chapter_option.current_key):
+            episode = int(match.group(1))
+            starting_chapters = {chapter.short_name for chapter in EPISODE_TO_CHAPTER_AREAS[episode]}
+        else:
+            starting_chapter = starting_chapter_option.current_key
+            assert starting_chapter in LEVEL_SHORT_NAMES_SET
+            starting_chapters = {starting_chapter}
+            # If a singular starting chapter was chosen, but not in the allowed chapters set, forcefully add it. This
+            # should give a better generation experience to players intending to run fully random yamls.
+            if starting_chapter not in allowed_chapters:
+                self._log_warning("The individually chosen starting chapter '%s' was not in the set of allowed"
+                                  " chapters %s. '%s' has been forcefully allowed to prevent generation failure.",
+                                  starting_chapter,
+                                  sorted(allowed_chapters),
+                                  starting_chapter)
+                allowed_chapters.add(starting_chapter)
+        # Filter to only the chapters that are allowed to be enabled.
+        allowed_starting_chapters = allowed_chapters.intersection(starting_chapters)
+        if not allowed_starting_chapters:
+            self._option_error("None of the chosen possible starting chapters were chosen to be possible to be enabled."
+                               "At least one starting chapter must be allowed to be enabled."
+                               "\nPossible starting chapters:"
+                               "\n\t%s (%s)"
+                               "\nAllowed chapters:"
+                               "\n\t%s (%s)",
+                               starting_chapter_option.current_key, sorted(starting_chapters),
+                               sorted(self.options.allowed_chapters.value), sorted(allowed_chapters))
+        # Finally actually pick the starting chapter.
+        self.starting_chapter = self.random.choice(sorted(allowed_starting_chapters))
+        self.starting_episode = SHORT_NAME_TO_CHAPTER_AREA[self.starting_chapter].episode
 
+        # Pick enabled chapters and therefore enabled episodes.
+        # Adjust the count option and warn if it was too high.
+        if self.options.enabled_chapters_count.value > len(allowed_chapters):
+            self._log_warning("Enabled chapter count (%i) was set higher than the number of allowed chapters (%i), it"
+                              " has been reduced to the number of allowed chapters.",
+                              self.options.enabled_chapters_count.value,
+                              len(allowed_chapters))
+            self.options.enabled_chapters_count.value = len(allowed_chapters)
+
+        non_starting_allowed_chapters = allowed_chapters - {self.starting_chapter}
+        self.enabled_chapters = {
+            self.starting_chapter,
+            *self.random.sample(sorted(non_starting_allowed_chapters), k=self.options.enabled_chapters_count.value - 1),
+        }
+        self.enabled_episodes = {SHORT_NAME_TO_CHAPTER_AREA[s].episode for s in self.enabled_chapters}
+        self.enabled_chapter_count = len(self.enabled_chapters)
+        self.prog_useful_level_access_threshold_count = int(
+            self.PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT * self.enabled_chapter_count)
+        if self.options.all_episodes_character_purchase_requirements == "episodes_unlocked":
+            if self.options.episode_unlock_requirement == "open":
+                self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
+                                  " 'Episodes Unlocked' because Episode unlock requirements were set to 'Open'")
+                tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
+                option = self.options.all_episodes_character_purchase_requirements
+                option.value = tokens
+            elif len(self.enabled_episodes) == 1:
+                self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
+                                  " 'Episodes Unlocked' because the only enabled Episode is the starting Episode")
+                tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
+                option = self.options.all_episodes_character_purchase_requirements
+                option.value = tokens
+
+        # Minikit options.
         bundle_size = self.options.minikit_bundle_size.value
         self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
-        self.available_minikits = self.available_chapters * 10  # 10 Minikits per chapter.
+        self.available_minikits = self.enabled_chapter_count * 10  # 10 Minikits per chapter.
         self.minikit_bundle_count = (self.available_minikits // bundle_size
                                      + (self.available_minikits % bundle_size != 0))
 
-        # Adjust options.
+        # Adjust Minikit options.
         if self.options.minikit_goal_amount.value > self.available_minikits:
             self._log_warning("The number of minikits required to goal (%i) was higher than the number of available"
                               " minikits (%i). The number of minikits required to goal has been reduced to the number"
@@ -140,11 +263,8 @@ class LegoStarWarsTCSWorld(World):
         self.goal_minikit_bundle_count = (self.options.minikit_goal_amount.value // bundle_size
                                           + (self.options.minikit_goal_amount.value % bundle_size != 0))
 
-        self.prepare_items()
-        self.generate_early_run = True
-
-    @staticmethod
-    def evaluate_effective_item(name: str,
+    def evaluate_effective_item(self,
+                                name: str,
                                 effective_character_abilities_lookup: dict[str, CharacterAbility] | None = None,
                                 effective_character_ability_names_lookup: dict[str, tuple[str, ...]] | None = None):
         classification = ItemClassification.filler
@@ -160,15 +280,18 @@ class LegoStarWarsTCSWorld(World):
             if effective_character_abilities_lookup is not None:
                 abilities = effective_character_abilities_lookup[name]
             else:
-                abilities = item_data.abilities
+                abilities = item_data.abilities & ~self.starting_character_abilities
 
             if effective_character_ability_names_lookup is not None:
                 collect_extras = effective_character_ability_names_lookup[name]
             else:
                 collect_extras = cast(list[str], [ability.name for ability in abilities])
 
-            if name in IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS:
-                classification = ItemClassification.progression | ItemClassification.useful
+            if name in self.character_chapter_access_counts:
+                if self.character_chapter_access_counts[name] >= self.prog_useful_level_access_threshold_count:
+                    classification = ItemClassification.progression | ItemClassification.useful
+                else:
+                    classification = ItemClassification.progression
             elif name in ALL_AREA_REQUIREMENT_CHARACTERS:
                 classification = ItemClassification.progression
             elif abilities & constants.RARE_AND_USEFUL_ABILITIES:
@@ -187,40 +310,65 @@ class LegoStarWarsTCSWorld(World):
             elif name == "Progressive Score Multiplier":
                 # Generic item that grants Score multiplier Extras, which are all at least Useful.
                 classification = ItemClassification.useful
-            elif name == "Progressive Bonus Level":
+            elif name == "All Episodes Token":
                 # Very few location checks.
                 classification = ItemClassification.progression_skip_balancing
-            elif name == "Restart Level Trap":
-                # No client behaviour implemented. This item will probably be removed.
-                classification = ItemClassification.trap
             elif name.startswith("Episode ") and name.endswith(" Unlock"):
                 classification = ItemClassification.progression | ItemClassification.useful
 
         return classification, collect_extras if collect_extras else None
 
-    def prepare_items(self):
-        self.effective_item_classifications = {}
-        self.effective_item_collect_extras = {}
+    def _get_effective_item_data(self,
+                                 starting_abilities: CharacterAbility,
+                                 ) -> tuple[dict[str, ItemClassification], dict[str, Iterable[str] | None]]:
+        """
+        Pre-calculate the effective character abilities and classification of each item to speed up the creation
+        of items with multiple copies.
+        """
+        effective_character_abilities: dict[str, CharacterAbility] = {}
+        effective_character_ability_names: dict[str, tuple[str, ...]] = {}
 
+        effective_ability_cache: dict[CharacterAbility, tuple[str, ...]] = {}
+        for name, char in CHARACTERS_AND_VEHICLES_BY_NAME.items():
+            # Remove abilities provided by the starting characters from other characters, potentially changing the
+            # classification of other characters if all their abilities are covered by the starting characters.
+            # This improves generation performance by reducing the number of extra collects when a character item is
+            # collected.
+            effective_abilities: CharacterAbility = char.abilities & ~starting_abilities
+            effective_character_abilities[name] = effective_abilities
+            if effective_abilities in effective_ability_cache:
+                effective_character_ability_names[name] = effective_ability_cache[effective_abilities]
+            else:
+                effective_ability_names = tuple(cast(list[str], [ability.name for ability in effective_abilities]))
+                effective_ability_cache[effective_abilities] = effective_ability_names
+                effective_character_ability_names[name] = effective_ability_names
+
+        effective_item_classifications: dict[str, ItemClassification] = {}
+        effective_item_collect_extras: dict[str, Iterable[str] | None] = {}
         for item in self.item_name_to_id:
             classification, collect_extras = self.evaluate_effective_item(item,
-                                                                          self.effective_character_abilities,
-                                                                          self.effective_character_ability_names)
-            self.effective_item_classifications[item] = classification
-            self.effective_item_collect_extras[item] = collect_extras
+                                                                          effective_character_abilities,
+                                                                          effective_character_ability_names)
+            effective_item_classifications[item] = classification
+            effective_item_collect_extras[item] = collect_extras
+        return effective_item_classifications, effective_item_collect_extras
 
     def get_filler_item_name(self) -> str:
         return "Purple Stud"
 
     def create_item(self, name: str) -> LegoStarWarsTCSItem:
-        if self.generate_early_run:
-            classification = self.effective_item_classifications[name]
-            collect_extras = self.effective_item_collect_extras[name]
-        else:
-            # Support for Item Link worlds creating items without calling generate_early.
-            assert self.player in self.multiworld.groups
-            classification, collect_extras = self.evaluate_effective_item(name)
         code = self.item_name_to_id[name]
+        classification, collect_extras = self.evaluate_effective_item(name)
+
+        return LegoStarWarsTCSItem(name, classification, code, self.player, collect_extras)
+
+    def _create_item_ex(self,
+                        name: str,
+                        classification_lookup: dict[str, ItemClassification],
+                        collect_extras_lookup: dict[str, Iterable[str] | None]):
+        code = self.item_name_to_id[name]
+        classification = classification_lookup[name]
+        collect_extras = collect_extras_lookup[name]
 
         return LegoStarWarsTCSItem(name, classification, code, self.player, collect_extras)
 
@@ -228,30 +376,374 @@ class LegoStarWarsTCSWorld(World):
         return LegoStarWarsTCSItem(name, ItemClassification.progression, None, self.player)
 
     def create_items(self) -> None:
-        item_pool: list[LegoStarWarsTCSItem] = []
-        count_overrides: dict[str, int] = {
-            "Purple Stud": 0,
-            "Restart Level Trap": 0,
-            "Progressive Bonus Level": 6,
-            "Progressive Score Multiplier": 5,
-            # Default all Minikit items to `0`,
-            **dict.fromkeys(MINIKITS_BY_NAME.keys(), 0),
-            # then set the count for the Minikit bundle size that is being used.
-            self.minikit_bundle_name: self.minikit_bundle_count,
-        }
+        # vehicle_chapters_available = not VEHICLE_CHAPTER_SHORTNAMES.isdisjoint(self.enabled_chapters)
+        possible_pool_character_items = {name: char for name, char in CHARACTERS_AND_VEHICLES_BY_NAME.items()
+                                         if char.code > 0}
 
-        for item in self.item_name_to_id:
-            count = count_overrides.get(item, 1)
-            for _ in range(count):
-                item_pool.append(self.create_item(item))
+        # Add characters necessary to unlock the starting chapter into starting inventory.
+        for name in CHAPTER_AREA_STORY_CHARACTERS[self.starting_chapter]:
+            self.push_precollected(self.create_item(name))
+            del possible_pool_character_items[name]
+        if self.options.episode_unlock_requirement == "episode_item":
+            self.push_precollected(self.create_item(f"Episode {self.starting_episode} Unlock"))
 
+        # Gather the abilities of all items in starting inventory, so that they can be removed from other created items,
+        # improving generation performance.
+        initial_starting_items = cast(list[LegoStarWarsTCSItem], self.multiworld.precollected_items[self.player])
+        starting_collect_extras = {s for item in initial_starting_items if item.collect_extras
+                                   for s in item.collect_extras}
+        starting_abilities = CharacterAbility.NONE
+        # The Enum class supports __getitem__ for getting members by name, but __contains__ checks whether an Enum
+        # instance belongs to that Enum class, so checking if a string is a member name needs to use __members__ or
+        # try-except KeyError.
+        ability_members = CharacterAbility.__members__
+        for collect_extra in starting_collect_extras:
+            if collect_extra in ability_members:
+                starting_abilities |= CharacterAbility[collect_extra]
+
+        # todo: In the future, it will be necessary to ensure the player has at least 1 (maybe better to be 2) starting
+        #  non-vehicle characters when starting with a non-vehicle level, and at least 1 (maybe better to be 2) starting
+        #  vehicles when starting with a vehicle level.
+
+        # todo: Logic currently assumes the player always has Protocol Droid access, so it is necessary to start with a
+        #  Protocol Droid access character.
+        if CharacterAbility.PROTOCOL_DROID not in starting_abilities:
+            # Pick whichever character out of TC-14 and C-3PO is required for the least chapters, which is basically
+            # always TC-14 because TC-14 is only required for 1-1. The other characters with Protocol Droid access are
+            # 4-LOM and IG-88, which both have a bunch of extra abilities that it is better for the player to not start
+            # with.
+            tc14_count = self.character_chapter_access_counts.get("TC-14", 0)
+            c3po_count = self.character_chapter_access_counts.get("C-3PO", 0)
+            if tc14_count < c3po_count:
+                to_start_with = "TC-14"
+            elif c3po_count < tc14_count:
+                to_start_with = "C-3PO"
+            else:
+                to_start_with = self.random.choice(("TC-14", "C-3PO"))
+            self.push_precollected(self.create_item(to_start_with))
+            starting_abilities |= CharacterAbility.PROTOCOL_DROID
+            del possible_pool_character_items[to_start_with]
+
+        # todo: Logic currently assumes the player always has a Jedi, so it is necessary to start with a Jedi character.
+        if CharacterAbility.JEDI not in starting_abilities:
+            # Pick a Jedi that is not a requirement to access a chapter.
+            choices: list[CharacterData] = []
+            for char in CHARACTERS_AND_VEHICLES_BY_NAME.values():
+                if CharacterAbility.JEDI not in char.abilities:
+                    # The character is not a Jedi.
+                    continue
+                assert isinstance(char, CharacterData), "Vehicles cannot be Jedi"
+                if CharacterAbility.SITH in char.abilities:
+                    # Skip Sith because they are rarer.
+                    continue
+                # todo: In the future, chapters may be locked by chapter unlock items rather than characters, so, when
+                #  the option for chapter unlock items is enabled, these characters should not be skipped.
+                if char.name in ALL_AREA_REQUIREMENT_CHARACTERS:
+                    # Skip characters used to unlock chapters.
+                    continue
+                choices.append(char)
+            starting_jedi = self.random.choice(choices)
+            starting_abilities |= starting_jedi.abilities
+            del possible_pool_character_items[starting_jedi.name]
+
+        effective_item_classifications, effective_item_collect_extras = (
+            self._get_effective_item_data(starting_abilities)
+        )
+        self.starting_character_abilities = starting_abilities
+
+        # Determine what abilities must be supplied by the item pool.
+        required_character_abilities_in_pool = CharacterAbility.NONE
+        for shortname in self.enabled_chapters:
+            power_brick_abilities = POWER_BRICK_REQUIREMENTS[shortname][1]
+            if power_brick_abilities is not None:
+                required_character_abilities_in_pool |= power_brick_abilities
+            required_character_abilities_in_pool |= ALL_MINIKITS_REQUIREMENTS[shortname]
+        # Remove counts <= 0.
+        level_access_character_counts = +self.character_chapter_access_counts
+        for name in level_access_character_counts.keys():
+            required_character_abilities_in_pool &= ~CHARACTERS_AND_VEHICLES_BY_NAME[name].abilities
+        required_character_abilities_in_pool &= ~starting_abilities
+
+        remaining_abilities_to_fulfil = required_character_abilities_in_pool
+
+        pool_required_characters = []
+        for name in level_access_character_counts.keys():
+            if name not in possible_pool_character_items:
+                continue
+            char = CHARACTERS_AND_VEHICLES_BY_NAME[name]
+            remaining_abilities_to_fulfil &= ~char.abilities
+            pool_required_characters.append(char)
+            del possible_pool_character_items[name]
+
+        possible_pool_character_names = list(possible_pool_character_items.values())
+        self.random.shuffle(possible_pool_character_names)
+
+        for character in possible_pool_character_names:
+            if remaining_abilities_to_fulfil & character.abilities:
+                pool_required_characters.append(character)
+                remaining_abilities_to_fulfil &= ~character.abilities
+                del possible_pool_character_items[character.name]
+        non_required_characters = list(possible_pool_character_items.values())
+
+        if self.options.start_with_detectors:
+            non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.code > 0]
+        else:
+            detectors = {"Minikit Detector", "Red Brick Detector"}
+            assert detectors <= set(EXTRAS_BY_NAME.keys())
+            non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items()
+                                   if extra.code > 0 and name not in detectors]
+
+        # todo: Add expensive purchase logic to determine the minimum number of Progressive Score Multiplier needed.
+        if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
+            # Require all but one score multiplier to be in the pool.
+            pool_required_extras = ["Progressive Score Multiplier"] * 4
+            non_required_extras.append("Progressive Score Multiplier")
+        else:
+            # Require up to Score x2 * x4 = x8 in the pool.
+            pool_required_extras = ["Progressive Score Multiplier"] * 2
+            non_required_extras.extend(["Progressive Score Multiplier"] * 3)
+
+        # Try to add as many characters to the pool as this.
+        reserved_character_location_count = self.character_purchase_location_count
+
+        # Try to create as many Extras as this.
+        reserved_power_brick_location_count = self.enabled_chapter_count
+
+
+        # As many minikit bundles as this will always be created. This may be fewer than is required to goal, but
+        # reducing the total bundle count can make a seed longer, so all minikit bundles should be considered to be
+        # required.
+        required_minikit_location_count = self.minikit_bundle_count
+
+        # The vanilla rewards for these are Gold Bricks, which are events, so these are effectively free locations for
+        # any kind of item.
+        completion_location_count = self.enabled_chapter_count + len(self.enabled_bonuses)
+        true_jedi_location_count = self.enabled_chapter_count
+        free_minikit_location_count = self.enabled_chapter_count * 10 - required_minikit_location_count
+        free_location_count = completion_location_count + true_jedi_location_count + free_minikit_location_count
+
+        episode_related_items = []
+        # A few free locations may need to be used for episode unlock items and/or episode tokens.
+        if self.options.episode_unlock_requirement == "episode_item":
+            free_location_count -= len(self.enabled_episodes) - 1
+            for i in self.enabled_episodes:
+                if i != self.starting_episode:
+                    episode_related_items.append(f"Episode {i} Unlock")
+        if self.options.all_episodes_character_purchase_requirements == "episodes_tokens":
+            free_location_count -= len(self.enabled_episodes)
+            for _ in range(len(self.enabled_episodes)):
+                episode_related_items.append("All Episodes Token")
+
+        assert free_location_count >= 0, "free_location_count should always be >= 0 to start with"
+
+        unfilled_locations = self.multiworld.get_unfilled_locations(self.player)
         num_to_fill = len(self.multiworld.get_unfilled_locations(self.player))
 
-        filler_to_make = num_to_fill - len(item_pool)
-        # More items than locations does not crash, but would be a bug, and should not happen if we can help it.
-        assert filler_to_make >= 0, f"Lego Star Wars TCS: There are not enough locations for all items"
-        for _ in range(filler_to_make):
-            item_pool.append(self.create_item("Purple Stud"))
+        assert num_to_fill == (
+                reserved_character_location_count
+                + reserved_power_brick_location_count
+                + required_minikit_location_count
+                + free_location_count
+                + len(episode_related_items)
+        )
+
+        required_characters_count = len(pool_required_characters)
+        required_extras_count = len(pool_required_extras)
+        required_excludable_count = sum(loc.progress_type == LocationProgressType.EXCLUDED for loc in unfilled_locations)
+
+        if free_location_count < required_excludable_count:
+            # This shouldn't really happen unless basically the entire world is excluded and minikits are individual
+            # instead of bundled.
+            needed = required_excludable_count - free_location_count
+            # Find how many character/extra locations can be used for filler placement without issue.
+            ok_to_replace_character_count = max(0, reserved_character_location_count - required_characters_count)
+            ok_to_replace_extras_count = max(0, reserved_power_brick_location_count - required_extras_count)
+            total_replaceable = ok_to_replace_extras_count + ok_to_replace_extras_count
+            if total_replaceable >= needed:
+                character_percentage = ok_to_replace_character_count / total_replaceable
+                character_subtract = min(needed, round(character_percentage * needed))
+                extra_subtract = needed - character_subtract
+                reserved_character_location_count -= character_subtract
+                reserved_power_brick_location_count -= extra_subtract
+            else:
+                # There are still too many non-excludable items for the number of excluded locations.
+                # Give up.
+                # If this is too common of an issue, it would be possible to add some of the required characters/extras
+                # to start inventory instead of erroring here.
+                non_excluded_count = num_to_fill - required_excludable_count
+                required_count = required_extras_count + required_characters_count + required_minikit_location_count
+                self._option_error("There are too few non-excluded locations to fit all required progression items."
+                                   " There are %i non-excluded locations, but there are %i required items.",
+                                   non_excluded_count,
+                                   required_count)
+            free_location_count = 0
+        else:
+            free_location_count -= required_excludable_count
+
+        item_pool: list[LegoStarWarsTCSItem] = []
+
+        created_item_names: set[str] = set()
+
+        def create_item(item_name: str) -> LegoStarWarsTCSItem:
+            return self._create_item_ex(item_name, effective_item_classifications, effective_item_collect_extras)
+
+        def add_to_pool(item: LegoStarWarsTCSItem):
+            item_pool.append(item)
+            created_item_names.add(item.name)
+
+        # Create Episode related items.
+        for name in episode_related_items:
+            add_to_pool(create_item(name))
+        num_to_fill -= len(episode_related_items)
+
+        # Create required characters.
+        start_inventory_required_characters_count: int
+        if reserved_character_location_count < required_characters_count:
+            # If there are not enough reserved character unlock locations for the required characters, subtract from the
+            # free location count.
+            to_subtract = required_characters_count - reserved_character_location_count
+            if free_location_count < to_subtract:
+                # If there are not enough free locations, some of the required characters will have to be added to start
+                # inventory.
+                start_inventory_required_characters_count = to_subtract - free_location_count
+                self._log_warning("There were not enough locations to add all required characters to the item pool,"
+                                  " some of them have been added to starting inventory")
+                free_location_count = 0
+            else:
+                free_location_count -= to_subtract
+                start_inventory_required_characters_count = 0
+            reserved_character_location_count = 0
+        else:
+            reserved_character_location_count -= required_characters_count
+            start_inventory_required_characters_count = 0
+
+        self.random.shuffle(pool_required_characters)
+        pool_required_chars = pool_required_characters[start_inventory_required_characters_count:]
+        start_required_chars = pool_required_characters[:start_inventory_required_characters_count]
+        for character in pool_required_chars:
+            add_to_pool(create_item(character.name))
+        num_to_fill -= len(pool_required_chars)
+        assert num_to_fill >= 0
+        for character in start_required_chars:
+            self.push_precollected(create_item(character.name))
+
+        # Create required extras.
+        start_inventory_required_extras_count: int
+        if reserved_power_brick_location_count < required_extras_count:
+            to_subtract = required_extras_count - reserved_power_brick_location_count
+            if free_location_count < to_subtract:
+                start_inventory_required_extras_count = to_subtract - free_location_count
+                self._log_warning("There were not enough locations to add all required Extras to the item pool,"
+                                  " some of them have been added to starting inventory")
+                free_location_count = 0
+            else:
+                free_location_count -= to_subtract
+                start_inventory_required_extras_count = 0
+            reserved_power_brick_location_count = 0
+        else:
+            reserved_power_brick_location_count -= required_extras_count
+            start_inventory_required_extras_count = 0
+
+        self.random.shuffle(pool_required_extras)
+        pool_required_extras = pool_required_extras[start_inventory_required_extras_count:]
+        start_required_extras = pool_required_extras[:start_inventory_required_extras_count]
+        for extra_name in pool_required_extras:
+            add_to_pool(create_item(extra_name))
+        num_to_fill -= len(pool_required_extras)
+        assert num_to_fill >= 0
+        for extra_name in start_required_extras:
+            self.push_precollected(create_item(extra_name))
+
+        # Create required minikits.
+        for _ in range(self.minikit_bundle_count):
+            add_to_pool(create_item(self.minikit_bundle_name))
+        num_to_fill -= self.minikit_bundle_count
+        assert num_to_fill >= 0
+
+        # Create as many non-required characters as there are reserved character locations.
+        self.random.shuffle(non_required_characters)
+        # todo: Replace with an option to force characters to be in the item pool.
+        # # If the world has at least a 12th of the game enabled, force some more useful characters to be in the pool that
+        # # otherwise might not be.
+        # if self.enabled_chapter_count >= 3:
+        #     always_try_to_include_chars = {
+        #         # Droideka is the fastest unlockable character, so always try to include it.
+        #         "Droideka"
+        #     }
+        #     # Ghosts are invincible and untargetable, so always try to include a Ghost in the item pool.
+        #     always_try_to_include_ghost = self.random.choice(
+        #         ["Ben Kenobi (Ghost)", "Anakin Skywalker (Ghost)", "Yoda (Ghost)"])
+        #     always_try_to_include_chars.add(always_try_to_include_ghost)
+        #     # Yoda can clip through a *lot* of ceilings, so always try to include Yoda in the item pool.
+        #     if always_try_to_include_ghost != "Yoda (Ghost)":
+        #         always_try_to_include_chars.add("Yoda")
+        #     # Sort the characters, to always include, first so that they will be picked in preference to other characters.
+        #     non_required_characters.sort(
+        #         key=lambda char_: -1 if char_.name in always_try_to_include_chars else 0)
+        picked_chars = non_required_characters[:reserved_character_location_count]
+        leftover_chars = non_required_characters[reserved_character_location_count:]
+        for char in picked_chars:
+            item = create_item(char.name)
+            add_to_pool(item)
+            if required_excludable_count > 0 and item.excludable:
+                required_excludable_count -= 1
+        num_to_fill -= len(picked_chars)
+        assert num_to_fill >= 0
+
+        # Create as many non-required extras as there are reserved power brick locations.
+        self.random.shuffle(non_required_extras)
+        picked_extras = non_required_extras[:reserved_power_brick_location_count]
+        leftover_extras = non_required_extras[reserved_power_brick_location_count:]
+        for extra in picked_extras:
+            item = create_item(extra)
+            add_to_pool(item)
+            if required_excludable_count > 0 and item.excludable:
+                required_excludable_count -= 1
+        num_to_fill -= len(picked_extras)
+        assert num_to_fill >= 0
+
+        leftover_item_names = [(char.name for char in leftover_chars), leftover_extras]
+        leftover_excludable_items = []
+        leftover_non_excludable_items = []
+        for names in leftover_item_names:
+            for name in names:
+                item = create_item(name)
+                if item.excludable:
+                    leftover_excludable_items.append(item)
+                else:
+                    leftover_non_excludable_items.append(item)
+
+        # Create required excludable items.
+        if required_excludable_count:
+            self.random.shuffle(leftover_excludable_items)
+            required_excludable = leftover_excludable_items[:required_excludable_count]
+            leftover_excludable_items = leftover_excludable_items[required_excludable_count:]
+            still_to_create = required_excludable_count - len(required_excludable)
+            if still_to_create:
+                # There are still some required excludable items, so create Purple Stud items until the count is reached
+                for _ in range(still_to_create):
+                    required_excludable.append(create_item("Purple Stud"))
+            assert len(required_excludable) == required_excludable_count
+            for item in required_excludable:
+                add_to_pool(item)
+            num_to_fill -= required_excludable_count
+            assert num_to_fill >= 0
+
+        # Fill out whatever space is left in the item pool.
+        if num_to_fill:
+            self.random.shuffle(leftover_non_excludable_items)
+            to_add = leftover_non_excludable_items[:num_to_fill]
+            for item in to_add:
+                add_to_pool(item)
+            num_to_fill -= len(to_add)
+            if num_to_fill:
+                to_add = leftover_excludable_items[:num_to_fill]
+                for item in to_add:
+                    add_to_pool(item)
+                num_to_fill -= len(to_add)
+                if num_to_fill:
+                    for _ in range(num_to_fill):
+                        add_to_pool(create_item("Purple Stud"))
 
         self.multiworld.itempool.extend(item_pool)
 
@@ -262,12 +754,20 @@ class LegoStarWarsTCSWorld(World):
 
     def create_regions(self) -> None:
         cantina = self.create_region(self.origin_region_name)
+        # Double check that the minikit counts is as expected.
+        available_minikits_check = 0
         for episode_number in range(1, 7):
+            if episode_number not in self.enabled_episodes:
+                continue
             episode_room = self.create_region(f"Episode {episode_number} Room")
             cantina.connect(episode_room, f"Episode {episode_number} Door")
 
             episode_chapters = EPISODE_TO_CHAPTER_AREAS[episode_number]
             for chapter_number, chapter in enumerate(episode_chapters, start=1):
+                if chapter.short_name not in self.enabled_chapters:
+                    continue
+                # Update the count of how many chapters this character blocks access to.
+                self.character_chapter_access_counts.update(chapter.character_requirements)
                 chapter_region = self.create_region(chapter.name)
 
                 entrance_name = f"Episode {episode_number} Room, Chapter {chapter_number} Door"
@@ -282,6 +782,7 @@ class LegoStarWarsTCSWorld(World):
                 completion_gold_brick = LegoStarWarsTCSLocation(self.player, f"{completion_name} - Gold Brick",
                                                                 None, chapter_region)
                 completion_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                self.gold_brick_event_count += 1
                 chapter_region.locations.append(completion_gold_brick)
 
                 # True Jedi.
@@ -293,6 +794,7 @@ class LegoStarWarsTCSWorld(World):
                 true_jedi_gold_brick = LegoStarWarsTCSLocation(self.player, f"{true_jedi_name} - Gold Brick",
                                                                None, chapter_region)
                 true_jedi_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                self.gold_brick_event_count += 1
                 chapter_region.locations.append(true_jedi_gold_brick)
 
                 # Power Brick.
@@ -308,6 +810,7 @@ class LegoStarWarsTCSWorld(World):
                     shop_location = LegoStarWarsTCSLocation(self.player, shop_unlock,
                                                             self.location_name_to_id[shop_unlock], chapter_region)
                     chapter_region.locations.append(shop_location)
+                self.character_purchase_location_count += len(chapter.shop_unlocks)
 
                 # Minikits.
                 chapter_minikits = self.create_region(f"{chapter.name} Minikits")
@@ -317,11 +820,21 @@ class LegoStarWarsTCSWorld(World):
                     location = LegoStarWarsTCSLocation(self.player, loc_name, self.location_name_to_id[loc_name],
                                                        chapter_minikits)
                     chapter_minikits.locations.append(location)
+                    available_minikits_check += 1
                 # All Minikits Gold Brick.
                 all_minikits_gold_brick = LegoStarWarsTCSLocation(self.player, f"{chapter_minikits.name} - Gold Brick",
                                                                   None, chapter_minikits)
                 all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                self.gold_brick_event_count += 1
                 chapter_minikits.locations.append(all_minikits_gold_brick)
+
+        # Available minikit count is calculated in generate_early.
+        if self.available_minikits != available_minikits_check:
+            self._raise_error(AssertionError,
+                              "Available minikits in create_regions did not match."
+                              " %i from generate_early and %i from create_regions",
+                              self.available_minikits,
+                              available_minikits_check)
 
         # Bonuses.
         bonuses = self.create_region("Bonuses")
@@ -334,6 +847,9 @@ class LegoStarWarsTCSWorld(World):
         for gold_brick_cost, areas in sorted(gold_brick_costs.items(), key=lambda t: t[0]):
             if gold_brick_cost == 0:
                 region = bonuses
+            elif gold_brick_cost > self.gold_brick_event_count:
+                # There are not enough Gold Brick events available to enable any more bonuses.
+                break
             else:
                 region = self.create_region(f"{gold_brick_cost} Gold Bricks Collected")
                 player = self.player
@@ -345,10 +861,15 @@ class LegoStarWarsTCSWorld(World):
             for area in areas:
                 location = LegoStarWarsTCSLocation(self.player, area.name, self.location_name_to_id[area.name], region)
                 region.locations.append(location)
+                self.enabled_bonuses.add(area.name)
+                for item in area.item_requirements:
+                    if item in CHARACTERS_AND_VEHICLES_BY_NAME:
+                        self.character_chapter_access_counts[item] += 1
                 if not area.gold_brick:
                     continue
                 gold_brick_location = LegoStarWarsTCSLocation(self.player, f"{area.name} - Gold Brick", None, region)
                 gold_brick_location.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                self.gold_brick_event_count += 1
                 region.locations.append(gold_brick_location)
 
         # Indiana Jones shop purchase. Unlocks in the shop after watching the Lego Indiana Jones trailer.
@@ -356,22 +877,26 @@ class LegoStarWarsTCSWorld(World):
         purchase_indy = LegoStarWarsTCSLocation(self.player, purchase_indy_name,
                                                 self.location_name_to_id[purchase_indy_name], bonuses)
         bonuses.locations.append(purchase_indy)
+        self.character_purchase_location_count += 1
 
         # 'All Episodes' character purchases.
-        all_episodes = self.create_region("All Episodes Unlocked")
-        cantina.connect(all_episodes, "Unlock All Episodes")
-        all_episodes_purchases = [
-            "Purchase IG-88",
-            "Purchase Dengar",
-            "Purchase 4-LOM",
-            "Purchase Ben Kenobi (Ghost)",
-            "Purchase Anakin Skywalker (Ghost)",
-            "Purchase Yoda (Ghost)",
-            "Purchase R2-Q5",
-        ]
-        for purchase in all_episodes_purchases:
-            location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase], all_episodes)
-            all_episodes.locations.append(location)
+        if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
+            all_episodes = self.create_region("All Episodes Unlocked")
+            cantina.connect(all_episodes, "Unlock All Episodes")
+            all_episodes_purchases = [
+                "Purchase IG-88",
+                "Purchase Dengar",
+                "Purchase 4-LOM",
+                "Purchase Ben Kenobi (Ghost)",
+                "Purchase Anakin Skywalker (Ghost)",
+                "Purchase Yoda (Ghost)",
+                "Purchase R2-Q5",
+            ]
+            for purchase in all_episodes_purchases:
+                location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase],
+                                                   all_episodes)
+                all_episodes.locations.append(location)
+            self.character_purchase_location_count += len(all_episodes_purchases)
 
         # Starting character purchases.
         starting_purchases = [
@@ -381,6 +906,7 @@ class LegoStarWarsTCSWorld(World):
         for purchase in starting_purchases:
             location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase], cantina)
             cantina.locations.append(location)
+        self.character_purchase_location_count += len(starting_purchases)
 
         # Victory event
         victory = LegoStarWarsTCSLocation(self.player, "Minikits Goal", parent=cantina)
@@ -405,17 +931,26 @@ class LegoStarWarsTCSWorld(World):
 
         # Episodes.
         for episode_number in range(1, 7):
-            if episode_number != 1:
-                episode_entrance = self.get_entrance(f"Episode {episode_number} Door")
+            if episode_number not in self.enabled_episodes:
+                continue
+            episode_entrance = self.get_entrance(f"Episode {episode_number} Door")
+            if self.options.episode_unlock_requirement == "episode_item":
                 item = f"Episode {episode_number} Unlock"
                 set_rule(episode_entrance, lambda state, item_=item: state.has(item_, player))
+            elif self.options.episode_unlock_requirement == "open":
+                pass
+            else:
+                self._raise_error(AssertionError, "Unreachable: Unexpected episode unlock requirement %s",
+                                  self.options.episode_unlock_requirement)
 
             # Set chapter requirements.
             episode_chapters = EPISODE_TO_CHAPTER_AREAS[episode_number]
             for chapter_number, chapter in enumerate(episode_chapters, start=1):
+                if chapter.short_name not in self.enabled_chapters:
+                    continue
                 entrance = self.get_entrance(f"Episode {episode_number} Room, Chapter {chapter_number} Door")
 
-                required_character_names = CHAPTER_AREA_CHARACTER_REQUIREMENTS[chapter.short_name]
+                required_character_names = CHAPTER_AREA_STORY_CHARACTERS[chapter.short_name]
                 if required_character_names:
                     if len(required_character_names) == 1:
                         item = next(iter(required_character_names))
@@ -442,21 +977,21 @@ class LegoStarWarsTCSWorld(World):
                 set_chapter_spot_abilities_rule(all_minikits_entrance, chapter.all_minikits_ability_requirements)
 
         # Bonus levels.
-        entrance = self.get_entrance("Bonuses Door")
-        set_rule(entrance, lambda state: state.has("Progressive Bonus Level", player))
-        entrance_requirements = Counter(["Progressive Bonus Level"])
         gold_brick_requirements: set[int] = set()
         for area in BONUS_AREAS:
-            requirements = area.item_requirements - entrance_requirements
+            if area.name not in self.enabled_bonuses:
+                continue
+            requirements = area.item_requirements
             gold_brick_requirements.add(requirements[GOLD_BRICK_EVENT_NAME])
             # Gold Brick requirements are set on the entrances.
             requirements[GOLD_BRICK_EVENT_NAME] = 0
             if requirements.total():
                 completion = self.get_location(area.name)
-                gold_brick = self.get_location(f"{area.name} - Gold Brick")
                 item_counts: Mapping[str, int] = dict(+requirements)
                 set_rule(completion, lambda state, items_=item_counts: state.has_all_counts(items_, player))
-                set_rule(gold_brick, completion.access_rule)
+                if area.gold_brick:
+                    gold_brick = self.get_location(f"{area.name} - Gold Brick")
+                    set_rule(gold_brick, completion.access_rule)
         # Locations with 0 Gold Bricks required are added to the base Bonuses region.
         gold_brick_requirements.discard(0)
 
@@ -467,10 +1002,14 @@ class LegoStarWarsTCSWorld(World):
                 lambda state, item_=GOLD_BRICK_EVENT_NAME, count_=gold_brick_count: state.has(item_, player, count_))
 
         # 'All Episodes' character unlocks.
-        entrance = self.get_entrance("Unlock All Episodes")
-        # Episode 1 is currently always unlocked.
-        entrance_unlocks = [f"Episode {i} Unlock" for i in range(2, 7)]
-        set_rule(entrance, lambda state: state.has_all(entrance_unlocks, player))
+        if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
+            entrance = self.get_entrance("Unlock All Episodes")
+            if self.options.all_episodes_character_purchase_requirements == "episodes_unlocked":
+                entrance_unlocks = tuple([f"Episode {i} Unlock" for i in range(1, 7) if i in self.enabled_episodes])
+                set_rule(entrance, lambda state, items_=entrance_unlocks, p=player: state.has_all(items_, p))
+            elif self.options.all_episodes_character_purchase_requirements == "episodes_tokens":
+                set_rule(entrance,
+                         lambda state, c=len(self.enabled_episodes), p=player: state.has("All Episodes Token", p, c))
 
         # Victory.
         victory = self.get_location("Minikits Goal")

@@ -54,6 +54,7 @@ VEHICLE_TOW = CharacterAbility.VEHICLE_TOW
 
 # todo: VEHICLE_TOW can probably be included in the future too.
 # todo: GHOST can probably be included in the future too.
-RARE_AND_USEFUL_ABILITIES = ASTROMECH | BOUNTY_HUNTER | HIGH_JUMP | SHORTIE | SITH | PROTOCOL_DROID
+# todo: PROTOCOL_DROID_PANEL can probably be included in the future too.
+RARE_AND_USEFUL_ABILITIES = ASTROMECH | BOUNTY_HUNTER | HIGH_JUMP | SHORTIE | SITH | PROTOCOL_DROID | DROID_OR_FLY
 
 GOLD_BRICK_EVENT_NAME = "Gold Brick"

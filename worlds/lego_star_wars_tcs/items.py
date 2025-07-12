@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, TYPE_CHECKING, ClassVar, Literal, Iterable
+from typing import Optional, TYPE_CHECKING, ClassVar, Literal, Iterable, Mapping, Sequence
 
 from BaseClasses import Item, ItemClassification
 from .constants import (
@@ -425,9 +425,8 @@ ITEM_DATA: list[GenericItemData] = [
     _extra(152, "Super Ewok Catapult", 0x29, "6-4"),
     _extra(153, "Infinite Torpedos", 0x2A, "6-6"),
     _extra(-1, "Score x10", 0x2B, "6-5"),
-    _generic(154, "Progressive Bonus Level"),
-    _generic(155, "Restart Level Trap"),
-    _generic(-1, "Episode 1 Unlock"),
+    _generic(154, "All Episodes Token"),
+    _generic(155, "Episode 1 Unlock"),
     _generic(156, "Episode 2 Unlock"),
     _generic(157, "Episode 3 Unlock"),
     _generic(158, "Episode 4 Unlock"),
@@ -450,9 +449,9 @@ ITEM_DATA: list[GenericItemData] = [
     _generic(175, "Purple Stud"),
     # NEW. Items below here did not exist in the manual.
     # TODO: Redo all the item IDs to make more sense. Either internal order in chars.txt, or in character grid order.
-    _char(-1, "Qui-Gon Jinn", 104, abilities=JEDI),
-    _char(-1, "Obi-Wan Kenobi", 1, abilities=JEDI),
-    _char(-1, "TC-14", 71, abilities=PROTOCOL_DROID),
+    _char(176, "Qui-Gon Jinn", 104, abilities=JEDI),
+    _char(177, "Obi-Wan Kenobi", 1, abilities=JEDI),
+    _char(178, "TC-14", 71, abilities=PROTOCOL_DROID),
     _extra(-1, "Extra Toggle", 0x0, None),
     _extra(-1, "Fertilizer", 0x1, None),
     _extra(-1, "Disguise", 0x2, None),
@@ -493,15 +492,17 @@ USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {
     "Droideka",
 }
 
-ITEM_DATA_BY_NAME: dict[str, GenericItemData] = {data.name: data for data in ITEM_DATA}
-ITEM_DATA_BY_ID: dict[int, GenericItemData] = {data.code: data for data in ITEM_DATA if data.code != -1}
-EXTRAS_BY_NAME: dict[str, ExtraData] = {data.name: data for data in ITEM_DATA if isinstance(data, ExtraData)}
-CHARACTERS_AND_VEHICLES_BY_NAME: dict[str, GenericCharacterData] = {data.name: data for data in ITEM_DATA
-                                                                    if isinstance(data, GenericCharacterData)}
-GENERIC_BY_NAME: dict[str, GenericItemData] = {data.name: data for data in ITEM_DATA if data.item_type == "Generic"}
-MINIKITS_BY_NAME: dict[str, MinikitItemData] = {data.name: data for data in ITEM_DATA
-                                                if isinstance(data, MinikitItemData)}
 
-ITEM_NAME_TO_ID: dict[str, int] = {name: item.code for name, item in ITEM_DATA_BY_NAME.items() if item.code != -1}
+ITEM_DATA_BY_NAME: Mapping[str, GenericItemData] = {data.name: data for data in ITEM_DATA}
+ITEM_DATA_BY_ID: Mapping[int, GenericItemData] = {data.code: data for data in ITEM_DATA if data.code != -1}
+EXTRAS_BY_NAME: Mapping[str, ExtraData] = {data.name: data for data in ITEM_DATA if isinstance(data, ExtraData)}
+CHARACTERS_AND_VEHICLES_BY_NAME: Mapping[str, GenericCharacterData] = {data.name: data for data in ITEM_DATA
+                                                                       if isinstance(data, GenericCharacterData)}
+GENERIC_BY_NAME: Mapping[str, GenericItemData] = {data.name: data for data in ITEM_DATA if data.item_type == "Generic"}
+MINIKITS_BY_NAME: Mapping[str, MinikitItemData] = {data.name: data for data in ITEM_DATA
+                                                   if isinstance(data, MinikitItemData)}
 
-MINIKITS_BY_COUNT: dict[int, GenericItemData] = {bundle.bundle_size: bundle for bundle in MINIKITS_BY_NAME.values()}
+ITEM_NAME_TO_ID: Mapping[str, int] = {name: item.code for name, item in ITEM_DATA_BY_NAME.items() if item.code != -1}
+
+MINIKITS_BY_COUNT: Mapping[int, GenericItemData] = {bundle.bundle_size: bundle for bundle in MINIKITS_BY_NAME.values()}
+

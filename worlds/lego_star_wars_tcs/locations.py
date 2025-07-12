@@ -11,6 +11,7 @@ EXTRA_SHOP_LOCATION_START = 1000
 # the grid)
 
 LEVEL_SHORT_NAMES = [f"{episode}-{chapter}" for episode, chapter in itertools.product(range(1, 7), range(1, 7))]
+LEVEL_SHORT_NAMES_SET = frozenset(LEVEL_SHORT_NAMES)
 
 
 class LevelLocationData:

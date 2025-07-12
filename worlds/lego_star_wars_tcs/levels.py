@@ -92,7 +92,7 @@ class ChapterArea:
     def __post_init__(self):
         object.__setattr__(self, "short_name", f"{self.episode}-{self.number_in_episode}")
 
-        character_requirements = CHAPTER_AREA_CHARACTER_REQUIREMENTS[self.short_name]
+        character_requirements = CHAPTER_AREA_STORY_CHARACTERS[self.short_name]
         object.__setattr__(self, "character_requirements", character_requirements)
 
         shop_unlocks = frozenset([f"Purchase {character}" for character
@@ -128,22 +128,21 @@ class BonusArea:
 # GameLevelArea short_name to the set of characters needed to unlock that GameLevelArea
 # To find characters, grep the LEVELS directory for non-binary files, searching for '" player'. Note that vehicle levels
 # typically have an alternate color scheme vehicle for Player 2 which may not be collectable.
-CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
+CHAPTER_AREA_STORY_CHARACTERS: dict[str, frozenset[str]] = {
     k: frozenset(v) for k, v in {
-        # "1-1": {
-        #     "Obi-Wan Kenobi",
-        #     "Qui-Gon Jinn",
-        #     "TC-14",
-        # },
-        "1-1": set(),
+        "1-1": {
+            "Obi-Wan Kenobi",
+            "Qui-Gon Jinn",
+            "TC-14",
+        },
         "1-2": {
-            # "Obi-Wan Kenobi",
-            # "Qui-Gon Jinn",
+            "Obi-Wan Kenobi",
+            "Qui-Gon Jinn",
             "Jar Jar Binks",
         },
         "1-3": {
-            # "Obi-Wan Kenobi",
-            # "Qui-Gon Jinn",
+            "Obi-Wan Kenobi",
+            "Qui-Gon Jinn",
             "Captain Panaka",
             "Queen Amidala",
         },
@@ -151,18 +150,17 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
             "Anakin's Pod",
         },
         "1-5": {
-            # "Obi-Wan Kenobi",
-            # "Qui-Gon Jinn",
+            "Obi-Wan Kenobi",
+            "Qui-Gon Jinn",
             "Anakin Skywalker (Boy)",
             "Captain Panaka",
             "Padmé (Battle)",
             "R2-D2",
         },
-        "1-6": set(),
-        # "1-6": {
-        #     "Obi-Wan Kenobi",
-        #     "Qui-Gon Jinn",
-        # },
+        "1-6": {
+            "Obi-Wan Kenobi",
+            "Qui-Gon Jinn",
+        },
         "2-1": {
             "Anakin's Speeder",
         },
@@ -332,12 +330,6 @@ CHAPTER_AREA_CHARACTER_REQUIREMENTS: dict[str, frozenset[str]] = {
     }.items()
 }
 
-IMPORTANT_LEVEL_REQUIREMENT_CHARACTERS: frozenset[str] = frozenset({
-    "C-3PO",
-    "R2-D2",
-    "Chewbacca",
-})
-
 POWER_BRICK_REQUIREMENTS: dict[str, tuple[str, CharacterAbility | None]] = {
     # TODO: For future version, it is necessary to determine which Extras need Jedi/Protocol Droids to access.
     "1-1": ("Super Gonk", ASTROMECH),
@@ -488,7 +480,6 @@ CHAPTER_AREAS = [
 BONUS_AREAS = [
     BonusArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, 4, Counter({
         "Anakin's Pod": 1,
-        "Progressive Bonus Level": 1,
         "Gold Brick": 10,
     })),
     # There are a number of test levels in LEVELS.TXT that seem to not be counted, so the level IDs for Anakin's Flight
@@ -502,12 +493,10 @@ BONUS_AREAS = [
     # Status = 333
     BonusArea("Anakin's Flight", 0x86E3AC, 0x1, 333, 58, Counter({
         "Naboo Starfighter": 1,
-        "Progressive Bonus Level": 2,
         "Gold Brick": 30,
     })),
     BonusArea("Gunship Cavalry (Original)", 0x86E1A8, 0x1, 98, 15, Counter({
         "Republic Gunship": 1,
-        "Progressive Bonus Level": 3,
         "Gold Brick": 10,
     })),
     # Note: The base address may be incorrect/I do not know what the base address is supposed to be.
@@ -515,24 +504,19 @@ BONUS_AREAS = [
         "Darth Vader": 1,
         "Stormtrooper": 1,
         "C-3PO": 1,
-        "Progressive Bonus Level": 4,
         "Gold Brick": 20,
     })),
     BonusArea("LEGO City", 0x86E3B8, 0x1, 311, 59, Counter({
-        "Progressive Bonus Level": 5,
         "Gold Brick": 10,
     })),
     BonusArea("New Town", 0x86E3A0, 0x1, 309, 57, Counter({
-        "Progressive Bonus Level": 6,
         "Gold Brick": 50,
     })),
     # The bonus level was never completed, so there is just the trailer to watch (which can be skipped immediately).
     # No gold brick for watching the trailer, but it does unlock the shop slot for purchasing Indiana Jones in vanilla
     # todo: Add the Purchase Indiana Jones location.
     # It looks like the unfinished Indiana Jones level would have been Area 67, though this is inaccessible.
-    BonusArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, 67, Counter({
-        "Progressive Bonus Level": 1,
-    }), gold_brick=False)
+    BonusArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, 67, Counter(), gold_brick=False)
 ]
 
 # todo: Rewrite this to be cleaner, probably by splitting the BonusGameLevelArea requirements into characters and other
@@ -543,7 +527,7 @@ BONUS_AREA_REQUIREMENT_CHARACTERS = [
 ]
 
 ALL_AREA_REQUIREMENT_CHARACTERS: frozenset[str] = frozenset().union(
-    *CHAPTER_AREA_CHARACTER_REQUIREMENTS.values(),
+    *CHAPTER_AREA_STORY_CHARACTERS.values(),
     *BONUS_AREA_REQUIREMENT_CHARACTERS
 )
 
@@ -554,3 +538,14 @@ STATUS_LEVEL_IDS = (
         {area.status_level_id for area in CHAPTER_AREAS} | {area.status_level_id for area in BONUS_AREAS
                                                             if area.status_level_id != -1}
 )
+
+VEHICLE_CHAPTER_SHORTNAMES: frozenset[str] = frozenset({
+    "1-4",
+    "2-1",
+    "2-5",
+    "3-1",
+    "4-6",
+    "5-1",
+    "5-3",
+    "6-6",
+})
