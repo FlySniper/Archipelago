@@ -5,6 +5,7 @@ from collections import deque
 from time import perf_counter_ns
 
 from . import GameStateUpdater
+from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS
 from ..type_aliases import TCSContext
 
 
@@ -55,10 +56,6 @@ PAUSED_OR_STATUS_WHEN_0_ADDRESS = 0x9737D8
 # This address is usually -1/255 while playing or paused, 1 while tabbed out and 0 while both paused and tabbed out.
 # It is a more unstable than the previous value, while playing, however.
 TABBED_OUT_WHEN_1_ADDRESS = 0x9868C4
-
-# 0 when a menu is not open, 1 when a menu is open (pause screen, shop, custom character creator, select mode after
-# entering a level door). Increases to 2 when opening a submenu in the pause screen.
-OPENED_MENU_DEPTH_ADDRESS = 0x800944
 
 # 0 when playing, 1 when in a cutscene, same-level door transition, Indy trailer and title crawl.
 # Rarely unstable and seen as -1 briefly while playing

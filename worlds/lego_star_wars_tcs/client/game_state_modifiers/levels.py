@@ -1,14 +1,19 @@
 import logging
 from typing import AbstractSet, Iterable
 
+from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS
 from ..type_aliases import TCSContext
 from ...items import ITEM_DATA_BY_NAME, ITEM_DATA_BY_ID
-from ...levels import ChapterArea, CHAPTER_AREAS, SHORT_NAME_TO_CHAPTER_AREA
+from ...levels import ChapterArea, CHAPTER_AREAS, SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA
 
 
 debug_logger = logging.getLogger("TCS Debug")
 
 ALL_CHAPTER_AREAS_SET = frozenset(CHAPTER_AREAS)
+
+# Changes according to what Area door the player is stand in front of. It is 0xFF while in the rest of the Cantina, away
+# from an Area door.
+CURRENT_AREA_DOOR_ADDRESS = 0x8795A0
 
 
 class UnlockedChapterManager:
@@ -86,14 +91,27 @@ class UnlockedChapterManager:
             # acquired and the player has selected one of the 'all episodes' characters for purchase in the shop.
             temporary_story_completion = ALL_CHAPTER_AREAS_SET
         else:
-            cantina_room = ctx.read_current_cantina_room()
-            if cantina_room.value in self.unlocked_chapters_per_episode:
-                # If the player is in an Episode's room, Story mode needs to be completed for all the player's unlocked
-                # chapters so that the player can skip playing through Story mode and go straight to Free Play.
-                temporary_story_completion = self.unlocked_chapters_per_episode[cantina_room.value]
-            else:
-                # Do not temporarily complete any Story modes.
-                temporary_story_completion = set()
+            temporary_story_completion = set()
+            # TODO: Temporarily set the player's current chapter as completed so that they can save and exit from the
+            #  chapter instead of having to exit without saving. This should happen once individual minikit logic is
+            #  added because it can then be expected for a player to collect Minikits before a chapter is possible to
+            #  complete.
+            # If the player is in an Episode's room, and inside a Chapter door with the Chapter door's menu open, grant
+            # them temporary Story mode completion so that they can select Free Play.
+            cantina_room = ctx.read_current_cantina_room().value
+            if cantina_room in self.unlocked_chapters_per_episode:
+                # The player is in an Episode room in the cantina.
+                unlocked_areas_in_room = self.unlocked_chapters_per_episode[cantina_room]
+                if unlocked_areas_in_room:
+                    # There are unlocked chapters in this room (the player shouldn't be able to access an Episode room
+                    # unless it contains unlocked chapters...).
+                    area_id_of_door_the_player_is_in_front_of = ctx.read_uchar(CURRENT_AREA_DOOR_ADDRESS)
+                    area = AREA_ID_TO_CHAPTER_AREA.get(area_id_of_door_the_player_is_in_front_of)
+                    if area is not None and area in unlocked_areas_in_room:
+                        # The player is standing in front of, or within a chapter door that is unlocked.
+                        if ctx.read_uchar(OPENED_MENU_DEPTH_ADDRESS) > 0:
+                            # The player has a menu open (hopefully the menu within the chapter door.
+                            temporary_story_completion = {area}
 
         completed_free_play = ctx.free_play_completion_checker.completed_free_play
 
