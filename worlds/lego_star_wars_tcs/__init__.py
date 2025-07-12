@@ -1078,6 +1078,11 @@ class LegoStarWarsTCSWorld(World):
                     # Placing only the non-required Minikits first or slightly more than the number of non-required
                     # Minikits first was also tried, but placing all Minikits first seems to give fill the best chance
                     # of succeeding.
+                    #
+                    # Forcing Minikits first has the unfortunately sideeffect of priority fill picking Minikits first,
+                    # but that will just have to be put up with in order to generate well. Maybe a small buffer of
+                    # non-Minikit items could be placed first so that the items in the buffer end up on priority
+                    # locations.
                     return 1
                 else:
                     # For non-minimal players, place Minikits last. The helps prevent fill from filling most/all
