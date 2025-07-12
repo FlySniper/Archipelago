@@ -1071,11 +1071,18 @@ class LegoStarWarsTCSWorld(World):
     def fill_slot_data(self) -> Mapping[str, Any]:
         return {
             "apworld_version": constants.AP_WORLD_VERSION,
+            "enabled_chapters": sorted(self.enabled_chapters),
+            "enabled_episodes": sorted(self.enabled_episodes),
+            "enabled_bonuses": sorted(self.enabled_bonuses),
+            "starting_chapter": self.starting_chapter,
+            "starting_episode": self.starting_episode,
             **self.options.as_dict(
                 "received_item_messages",
                 "checked_location_messages",
                 "minikit_goal_amount",
                 "minikit_bundle_size",
+                "episode_unlock_requirement",
+                "all_episodes_character_purchase_requirements",
             )
         }
 
