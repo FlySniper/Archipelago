@@ -3,6 +3,7 @@ import re
 import struct
 from collections import deque
 from time import perf_counter_ns
+from typing import Any
 
 from . import GameStateUpdater
 from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS
@@ -86,6 +87,9 @@ class InGameTextDisplay(GameStateUpdater):
 
     def __init__(self):
         self.message_queue = deque()
+
+    def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
+        pass
 
     def _initialize(self, ctx: TCSContext):
         self.initialized = True

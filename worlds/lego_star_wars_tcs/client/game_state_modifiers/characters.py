@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from ..common_addresses import CHARACTERS_SHOP_START, ShopType
 from ..type_aliases import TCSContext, ApItemId
@@ -53,6 +54,9 @@ class AcquiredCharacters(ItemReceiver):
 
     def __init__(self):
         self.unlocked_characters = set()
+
+    def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
+        self.clear_received_items()
 
     def clear_received_items(self) -> None:
         # Characters are not progressive, so receiving a character again has no effect, but for consistency, clear them

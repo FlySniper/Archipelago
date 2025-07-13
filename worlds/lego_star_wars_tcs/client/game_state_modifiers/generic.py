@@ -1,5 +1,5 @@
 import logging
-from typing import Mapping, Sequence, AbstractSet
+from typing import Mapping, Sequence, AbstractSet, Any
 
 from ..type_aliases import TCSContext
 from ...items import (
@@ -17,6 +17,7 @@ RECEIVABLE_GENERIC_BY_AP_ID: Mapping[int, GenericItemData] = {
 EPISODE_UNLOCKS: Mapping[int, int] = {
     GENERIC_BY_NAME[f"Episode {i} Unlock"].code: i for i in range(1, 6+1)
 }
+ALL_EPISODES_TOKEN: int = GENERIC_BY_NAME["All Episodes Token"].code
 PROGRESSIVE_BONUS_CODE: int = GENERIC_BY_NAME["Progressive Bonus Level"].code
 PROGRESSIVE_SCORE_MULTIPLIER: int = GENERIC_BY_NAME["Progressive Score Multiplier"].code
 SCORE_MULIPLIER_EXTRAS: Sequence[ExtraData] = (
@@ -96,14 +97,20 @@ STEP_SCORE_MULTIPLIERS: Sequence[tuple[tuple[int, ...], int]] = [
 class AcquiredGeneric(ItemReceiver):
     receivable_ap_ids = RECEIVABLE_GENERIC_BY_AP_ID
 
-    unlocked_episodes: set[int]
-    progressive_bonus_count: int
-    progressive_score_count: int
+    received_episode_unlocks: set[int]
+    all_episodes_token_counts: int = 0
+    progressive_bonus_count: int = 0
+    progressive_score_count: int = 0
 
     def __init__(self):
-        # TODO: Allow Episode 1 to be randomized.
-        # TODO: Allow all Episodes to be unlocked from the start.
-        self.unlocked_episodes = {1}
+        self.received_episode_unlocks = set()
+
+    def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
+        self.clear_received_items()
+
+    def clear_received_items(self) -> None:
+        self.received_episode_unlocks.clear()
+        self.all_episodes_token_counts = 0
         self.progressive_bonus_count = 0
         self.progressive_score_count = 0
 
@@ -126,9 +133,12 @@ class AcquiredGeneric(ItemReceiver):
             if self.progressive_score_count < len(SCORE_MULIPLIER_EXTRAS):
                 ctx.acquired_extras.unlock_extra(SCORE_MULIPLIER_EXTRAS[self.progressive_score_count])
             self.progressive_score_count += 1
+        # 'All Episodes' tokens
+        elif ap_item_id == ALL_EPISODES_TOKEN:
+            self.all_episodes_token_counts += 1
         # Episode Unlocks
         elif ap_item_id in EPISODE_UNLOCKS:
-            self.unlocked_episodes.add(EPISODE_UNLOCKS[ap_item_id])
+            self.received_episode_unlocks.add(EPISODE_UNLOCKS[ap_item_id])
             ctx.unlocked_chapter_manager.on_character_or_episode_unlocked(ap_item_id)
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)

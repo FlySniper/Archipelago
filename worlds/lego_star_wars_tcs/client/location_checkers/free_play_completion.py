@@ -1,8 +1,10 @@
 import logging
+from typing import Any
 
 from ...levels import CHAPTER_AREAS, ChapterArea
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
 from ..type_aliases import ApLocationId, LevelId, TCSContext
+from ..common import ClientComponent
 
 
 debug_logger = logging.getLogger("TCS Debug")
@@ -63,7 +65,7 @@ def is_status_level_completion(ctx: TCSContext) -> bool:
 
 # TODO: How quickly can a player reasonably skip through the chapter completion screen? Do we need to check for chapter
 #  completion with a higher frequency than how often the game watcher is checking?
-class FreePlayChapterCompletionChecker:
+class FreePlayChapterCompletionChecker(ClientComponent):
     """
     Check if the player has completed a free play chapter by looking for the ending screen that tallies up new
     studs/minikits.
@@ -76,14 +78,33 @@ class FreePlayChapterCompletionChecker:
     sent_locations: set[ApLocationId]
     completed_free_play: set[ChapterArea]
     initial_setup_complete: bool
+    enabled_chapter_areas: set[ChapterArea] | None
 
     def __init__(self):
         self.sent_locations = set()
         self.completed_free_play = set()
+        self.enabled_chapter_areas = set()
         self.initial_setup_complete = False
 
-    def read_completed_free_play_from_save_data(self, ctx: TCSContext):
+    def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
+        enabled_chapters = set(slot_data["enabled_chapters"])
+        enabled_chapter_areas = set()
         for area in CHAPTER_AREAS:
+            if area.short_name in enabled_chapters:
+                enabled_chapter_areas.add(area)
+            else:
+                # There shouldn't be any present, but ensure that no data from disable chapters is present.
+                self.completed_free_play.discard(area)
+                self.sent_locations.discard(STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id])
+        self.enabled_chapter_areas = enabled_chapter_areas
+
+    def read_completed_free_play_from_save_data(self, ctx: TCSContext):
+        enabled_chapter_areas = self.enabled_chapter_areas
+        for area in CHAPTER_AREAS:
+            if enabled_chapter_areas is not None and area not in enabled_chapter_areas:
+                continue
+            # Either the chapter is enabled, or the player has not connected yet, so it is not known if the chapter is
+            # enabled.
             unlocked_byte = ctx.read_uchar(area.address + area.UNLOCKED_OFFSET)
             if unlocked_byte == 0b11:
                 self.completed_free_play.add(area)

@@ -426,21 +426,23 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 return True, None
         return True, server_seed_name_hash
 
-    def _read_slot_data(self, slot_data: dict):
+    def _read_slot_data(self, slot_data: dict[str, typing.Any]):
         # The connection to the server is assumed to be OK by this point, so slot_data can now be used to adjust client
         # behaviour.
-        received_item_messages = slot_data.get("received_item_messages")
-        if isinstance(received_item_messages, int):
-            self.received_item_messages = received_item_messages == options.ReceivedItemMessages.option_all
-        else:
-            logger.warning("Warning: 'received_item_messages' not found in slot data")
-        checked_location_messages = slot_data.get("checked_location_messages")
-        if isinstance(checked_location_messages, int):
-            self.checked_location_messages = checked_location_messages == options.CheckedLocationMessages.option_all
-        else:
-            logger.warning("Warning: 'checked_location_messages' not found in slot data")
+        received_item_messages = slot_data["received_item_messages"]
+        self.received_item_messages = received_item_messages == options.ReceivedItemMessages.option_all
 
-        self.acquired_minikits.goal_minikit_count = slot_data["minikit_goal_amount"]
+        checked_location_messages = slot_data["checked_location_messages"]
+        self.checked_location_messages = checked_location_messages == options.CheckedLocationMessages.option_all
+
+        self.acquired_characters.init_from_slot_data(slot_data)
+        self.acquired_extras.init_from_slot_data(slot_data)
+        self.acquired_generic.init_from_slot_data(slot_data)
+        self.unlocked_chapter_manager.init_from_slot_data(slot_data)
+        self.acquired_minikits.init_from_slot_data(slot_data)
+        self.text_display.init_from_slot_data(slot_data)
+
+        self.free_play_completion_checker.init_from_slot_data(slot_data)
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)

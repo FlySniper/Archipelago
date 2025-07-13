@@ -1,10 +1,12 @@
 import logging
-from typing import AbstractSet, Iterable
+from typing import AbstractSet, Callable, Any
 
+from ..common import ClientComponent
 from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS
 from ..type_aliases import TCSContext
 from ...items import ITEM_DATA_BY_NAME, ITEM_DATA_BY_ID
 from ...levels import ChapterArea, CHAPTER_AREAS, SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA
+from ... import options
 
 
 debug_logger = logging.getLogger("TCS Debug")
@@ -16,20 +18,63 @@ ALL_CHAPTER_AREAS_SET = frozenset(CHAPTER_AREAS)
 CURRENT_AREA_DOOR_ADDRESS = 0x8795A0
 
 
-class UnlockedChapterManager:
+class UnlockedChapterManager(ClientComponent):
     character_to_dependent_game_chapters: dict[int, list[str]]
     remaining_chapter_item_requirements: dict[str, set[int]]
 
     unlocked_chapters_per_episode: dict[int, set[ChapterArea]]
+    should_unlock_all_episodes_shop_slots: Callable[[TCSContext], bool] = staticmethod(lambda _ctx: False)
+
+    enabled_chapter_area_ids: set[int]
 
     def __init__(self) -> None:
-        self.unlocked_chapters_per_episode = {i: set() for i in range(1, 7)}
+        self.character_to_dependent_game_chapters = {}
+        self.remaining_chapter_item_requirements = {}
+        self.unlocked_chapters_per_episode = {}
+        self.enabled_chapter_area_ids = set()
+
+    def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
+        enabled_chapters = slot_data["enabled_chapters"]
+        enabled_episodes = slot_data["enabled_episodes"]
+        episode_unlock_requirement = slot_data["episode_unlock_requirement"]
+        all_episodes_character_purchase_requirements = slot_data["all_episodes_character_purchase_requirements"]
+
+        num_enabled_episodes = len(enabled_episodes)
+
+        self.enabled_chapter_area_ids = {SHORT_NAME_TO_CHAPTER_AREA[chapter_shortname].area_id
+                                         for chapter_shortname in enabled_chapters}
+
+        # Set 'All Episodes' unlock requirement.
+        tokens = options.AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
+        unlocks = options.AllEpisodesCharacterPurchaseRequirements.option_episodes_unlocked
+        disabled = options.AllEpisodesCharacterPurchaseRequirements.option_locations_disabled
+        if all_episodes_character_purchase_requirements == tokens:
+            self.should_unlock_all_episodes_shop_slots = (
+                lambda ctx: ctx.acquired_generic.all_episodes_token_counts == num_enabled_episodes)
+        elif all_episodes_character_purchase_requirements == unlocks:
+            self.should_unlock_all_episodes_shop_slots = (
+                lambda ctx: len(ctx.acquired_generic.received_episode_unlocks) == num_enabled_episodes)
+        elif all_episodes_character_purchase_requirements == disabled:
+            self.should_unlock_all_episodes_shop_slots = UnlockedChapterManager.should_unlock_all_episodes_shop_slots
+        else:
+            self.should_unlock_all_episodes_shop_slots = UnlockedChapterManager.should_unlock_all_episodes_shop_slots
+            raise RuntimeError(f"Unexpected 'All Episodes' character purchase requirement:"
+                               f" {all_episodes_character_purchase_requirements}")
+
+        self.unlocked_chapters_per_episode = {i: set() for i in enabled_episodes}
         item_id_to_chapter_area_short_name: dict[int, list[str]] = {}
         remaining_chapter_item_requirements: dict[str, set[int]] = {}
         for chapter_area in CHAPTER_AREAS:
+            if chapter_area.area_id not in self.enabled_chapter_area_ids:
+                continue
             character_requirements = chapter_area.character_requirements
             episode = chapter_area.episode
-            item_requirements = [f"Episode {episode} Unlock", *character_requirements]
+            if episode_unlock_requirement == options.EpisodeUnlockRequirement.option_episode_item:
+                item_requirements = [f"Episode {episode} Unlock", *character_requirements]
+            elif episode_unlock_requirement == options.EpisodeUnlockRequirement.option_open:
+                item_requirements = list(character_requirements)
+            else:
+                raise RuntimeError(f"Unexpected EpisodeUnlockRequirement: {episode_unlock_requirement}")
             code_requirements = set()
             for item_name in item_requirements:
                 item_code = ITEM_DATA_BY_NAME[item_name].code
@@ -65,7 +110,7 @@ class UnlockedChapterManager:
 
     async def update_game_state(self, ctx: TCSContext):
         temporary_story_completion: AbstractSet[ChapterArea]
-        if (len(ctx.acquired_generic.unlocked_episodes) == 6
+        if (self.should_unlock_all_episodes_shop_slots(ctx)
                 and ctx.acquired_characters.is_all_episodes_character_selected_in_shop(ctx)):
             # TODO: Instead of this, temporarily change the unlock conditions for these characters to 0 Gold Bricks.
             #  This will require finding the Collection data structs in memory at runtime.
@@ -106,7 +151,8 @@ class UnlockedChapterManager:
         # 36 writes on each game state update is undesirable, but necessary to easily allow for temporarily completing
         # Story modes.
         for area in CHAPTER_AREAS:
-            if area in completed_free_play:
+            enabled = area.area_id in self.enabled_chapter_area_ids
+            if enabled and area in completed_free_play:
                 # Set the chapter as unlocked and Story mode completed because Free Play has been completed.
                 # The second bit in the third byte is custom to the AP client and signifies that Free Play has been
                 # completed.
@@ -115,8 +161,11 @@ class UnlockedChapterManager:
                 # Set the chapter as unlocked and Story mode completed because Story mode for this chapter needs to be
                 # temporarily set as completed for some purpose.
                 ctx.write_bytes(area.address, b"\x01\x01", 2)
+            elif area.area_id not in self.enabled_chapter_area_ids:
+                # Set the chapter as locked, with Story mode incomplete.
+                ctx.write_bytes(area.address, b"\x00\x00", 2)
             else:
-                if area in self.unlocked_chapters_per_episode[area.episode]:
+                if enabled and area in self.unlocked_chapters_per_episode[area.episode]:
                     # Set the chapter as unlocked, but with Story mode incomplete because Free Play has not been
                     # completed. This prevents characters being for sale in the shop without completing Free Play for
                     # the chapter that unlocks those shop slots.

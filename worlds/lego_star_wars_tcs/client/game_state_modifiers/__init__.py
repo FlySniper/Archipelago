@@ -1,10 +1,11 @@
 import abc
 from typing import Container
 
+from ..common import ClientComponent
 from ..type_aliases import TCSContext
 
 
-class GameStateUpdater(abc.ABC):
+class GameStateUpdater(ClientComponent):
     @abc.abstractmethod
     async def update_game_state(self, ctx: TCSContext) -> None: ...
 
