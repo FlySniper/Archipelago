@@ -57,10 +57,12 @@ class GenericCharacterData(GenericItemData):
     character_index: int
     abilities: CharacterAbility = CharacterAbility.NONE
     shop_slot: int = field(init=False)
+    purchase_cost: int = field(init=False)
 
     def __post_init__(self):
-        shop_slot = CHARACTER_TO_SHOP_SLOT.get(self.name, -1)
+        shop_slot, studs_cost = CHARACTER_TO_SHOP_SLOT.get(self.name, (-1, 0))
         object.__setattr__(self, "shop_slot", shop_slot)
+        object.__setattr__(self, "purchase_cost", studs_cost)
 
 
 @dataclass(frozen=True)
@@ -88,162 +90,162 @@ class ExtraData(GenericItemData):
 
 # Purchasable characters and how they are unlocked, in the order they appear in the shop.
 # See the order of characters in COLLECTION.TXT that use "buy_in_shop", plus Indiana Jones, who is special.
-CHARACTER_SHOP_SLOTS: dict[str, str | None] = {
-    "Gonk Droid": None,
-    "PK Droid": None,
+CHARACTER_SHOP_SLOTS: dict[str, tuple[str | None, int]] = {
+    "Gonk Droid": (None, 3000),
+    "PK Droid": (None, 1500),
 
     # Episode 1
-    "Battle Droid": "1-1",
-    "Battle Droid (Security)": "1-1",
-    "Battle Droid (Commander)": "1-1",
-    "Droideka": "1-1",
+    "Battle Droid": ("1-1", 6500),
+    "Battle Droid (Security)": ("1-1", 8500),
+    "Battle Droid (Commander)": ("1-1", 10_000),
+    "Droideka": ("1-1", 40_000),
 
-    "Captain Tarpals": "1-2",
-    "Boss Nass": "1-2",
+    "Captain Tarpals": ("1-2", 17_500),
+    "Boss Nass": ("1-2", 15_000),
 
-    "Royal Guard": "1-3",
-    "Padmé": "1-3",
+    "Royal Guard": ("1-3", 10_000),
+    "Padmé": ("1-3", 20_000),
 
-    "Watto": "1-4",
-    "Pit Droid": "1-4",
+    "Watto": ("1-4", 16_000),
+    "Pit Droid": ("1-4", 4000),
 
     # No non-vehicle characters for 1-5
 
-    "Darth Maul": "1-6",
+    "Darth Maul": ("1-6", 60_000),
 
     # Episode 2
-    "Zam Wesell": "2-1",
-    "Dexter Jettster": "2-1",
+    "Zam Wesell": ("2-1", 27_500),
+    "Dexter Jettster": ("2-1", 10_000),
 
-    "Clone": "2-2",
-    "Lama Su": "2-2",
-    "Taun We": "2-2",
+    "Clone": ("2-2", 13_000),
+    "Lama Su": ("2-2", 9000),
+    "Taun We": ("2-2", 9000),
 
-    "Geonosian": "2-3",
-    "Battle Droid (Geonosis)": "2-3",
+    "Geonosian": ("2-3", 20_000),
+    "Battle Droid (Geonosis)": ("2-3", 8500),
 
-    "Super Battle Droid": "2-4",
-    "Jango Fett": "2-4",
-    "Boba Fett (Boy)": "2-4",
-    "Luminara": "2-4",
-    "Ki-Adi Mundi": "2-4",
-    "Kit Fisto": "2-4",
-    "Shaak Ti": "2-4",
-    "Aayla Secura": "2-4",
-    "Plo Koon": "2-4",
+    "Super Battle Droid": ("2-4", 25_000),
+    "Jango Fett": ("2-4", 70_000),
+    "Boba Fett (Boy)": ("2-4", 5500),
+    "Luminara": ("2-4", 28_000),
+    "Ki-Adi Mundi": ("2-4", 30_000),
+    "Kit Fisto": ("2-4", 35_000),
+    "Shaak Ti": ("2-4", 36_000),
+    "Aayla Secura": ("2-4", 37_000),
+    "Plo Koon": ("2-4", 39_000),
 
     # No non-vehicle characters for 2-5 or 2-6
 
     # Episode 3
     # No non-vehicle characters for 3-1
 
-    "Count Dooku": "3-2",
-    "Grievous' Bodyguard": "3-2",
+    "Count Dooku": ("3-2", 100_000),
+    "Grievous' Bodyguard": ("3-2", 42_000),
 
-    "General Grievous": "3-3",
+    "General Grievous": ("3-3", 70_000),
 
-    "Wookiee": "3-4",
-    "Clone (Episode 3)": "3-4",
-    "Clone (Episode 3, Pilot)": "3-4",
-    "Clone (Episode 3, Swamp)": "3-4",
-    "Clone (Episode 3, Walker)": "3-4",
+    "Wookiee": ("3-4", 16_000),
+    "Clone (Episode 3)": ("3-4", 10_000),
+    "Clone (Episode 3, Pilot)": ("3-4", 11_000),
+    "Clone (Episode 3, Swamp)": ("3-4", 12_000),
+    "Clone (Episode 3, Walker)": ("3-4", 12_000),
 
-    "Mace Windu (Episode 3)": "3-5",
-    "Disguised Clone": "3-5",
+    "Mace Windu (Episode 3)": ("3-5", 38_000),
+    "Disguised Clone": ("3-5", 12_000),
 
     # No non-vehicle characters for 3-6
 
     # Episode 4
-    "Rebel Trooper": "4-1",
-    "Stormtrooper": "4-1",
-    "Imperial Shuttle Pilot": "4-1",
+    "Rebel Trooper": ("4-1", 10_000),
+    "Stormtrooper": ("4-1", 10_000),
+    "Imperial Shuttle Pilot": ("4-1", 25_000),
 
-    "Tusken Raider": "4-2",
-    "Jawa": "4-2",
+    "Tusken Raider": ("4-2", 23_000),
+    "Jawa": ("4-2", 24_000),
 
-    "Sandtrooper": "4-3",
-    "Greedo": "4-3",
-    "Imperial Spy": "4-3",
+    "Sandtrooper": ("4-3", 14_000),
+    "Greedo": ("4-3", 60_000),
+    "Imperial Spy": ("4-3", 13_500),
 
-    "Beach Trooper": "4-4",
-    "Death Star Trooper": "4-4",
-    "TIE Fighter Pilot": "4-4",
-    "Imperial Officer": "4-4",
-    "Grand Moff Tarkin": "4-4",
+    "Beach Trooper": ("4-4", 20_000),
+    "Death Star Trooper": ("4-4", 19_000),
+    "TIE Fighter Pilot": ("4-4", 21_000),
+    "Imperial Officer": ("4-4", 28_000),
+    "Grand Moff Tarkin": ("4-4", 38_000),
 
     # No non-vehicle characters for 4-5 or 4-6
 
     # Episode 5
     # No non-vehicle characters for 5-1
 
-    "Han Solo (Hood)": "5-2",
-    "Rebel Trooper (Hoth)": "5-2",
-    "Rebel Pilot": "5-2",
-    "Snowtrooper": "5-2",
-    "Luke Skywalker (Hoth)": "5-2",
+    "Han Solo (Hood)": ("5-2", 20_000),
+    "Rebel Trooper (Hoth)": ("5-2", 16_000),
+    "Rebel Pilot": ("5-2", 15_000),
+    "Snowtrooper": ("5-2", 16_000),
+    "Luke Skywalker (Hoth)": ("5-2", 14_000),
 
     # No non-vehicle characters for 5-3, 5-4 or 5-5
 
-    "Lobot": "5-6",
-    "Ugnaught": "5-6",
-    "Bespin Guard": "5-6",
-    "Princess Leia (Prisoner)": "5-6",
+    "Lobot": ("5-6", 11_000),
+    "Ugnaught": ("5-6", 36_000),
+    "Bespin Guard": ("5-6", 15_000),
+    "Princess Leia (Prisoner)": ("5-6", 22_000),
 
     # Episode 6
-    "Gamorrean Guard": "6-1",
-    "Bib Fortuna": "6-1",
-    "Palace Guard": "6-1",
-    "Bossk": "6-1",
+    "Gamorrean Guard": ("6-1", 40_000),
+    "Bib Fortuna": ("6-1", 16_000),
+    "Palace Guard": ("6-1", 14_000),
+    "Bossk": ("6-1", 75_000),
 
-    "Skiff Guard": "6-2",
-    "Boba Fett": "6-2",
+    "Skiff Guard": ("6-2", 12_000),
+    "Boba Fett": ("6-2", 100_000),
 
     # No non-vehicle characters for 6-3
 
-    "Ewok": "6-4",
+    "Ewok": ("6-4", 34_000),
 
-    "Imperial Guard": "6-5",
-    "The Emperor": "6-5",
+    "Imperial Guard": ("6-5", 45_000),
+    "The Emperor": ("6-5", 275_000),
 
-    "Admiral Ackbar": "6-6",
+    "Admiral Ackbar": ("6-6", 33_000),
 
     # All Episodes complete
-    "IG-88": "ALL_EPISODES",
-    "Dengar": "ALL_EPISODES",
-    "4-LOM": "ALL_EPISODES",
-    "Ben Kenobi (Ghost)": "ALL_EPISODES",
-    "Anakin Skywalker (Ghost)": "ALL_EPISODES",
-    "Yoda (Ghost)": "ALL_EPISODES",
-    "R2-Q5": "ALL_EPISODES",
+    "IG-88": ("ALL_EPISODES", 100_000),
+    "Dengar": ("ALL_EPISODES", 70_000),
+    "4-LOM": ("ALL_EPISODES", 45_000),
+    "Ben Kenobi (Ghost)": ("ALL_EPISODES", 1_100_000),
+    "Anakin Skywalker (Ghost)": ("ALL_EPISODES", 1_000_000),
+    "Yoda (Ghost)": ("ALL_EPISODES", 1_200_000),
+    "R2-Q5": ("ALL_EPISODES", 100_000),
 
     # Watch Indiana Jones trailer
-    "Indiana Jones": "INDY_TRAILER",
+    "Indiana Jones": ("INDY_TRAILER", 50_000),
 
     # Episode 1 Vehicles
-    "Sebulba's Pod": "1-4",
+    "Sebulba's Pod": ("1-4", 20000),
 
     # Episode 2 Vehicles
-    "Zam's Airspeeder": "2-1",
+    "Zam's Airspeeder": ("2-1", 24000),
 
     # Episode 3 Vehicles
-    "Droid Trifighter": "3-1",
-    "Vulture Droid": "3-1",
-    "Clone Arcfighter": "3-1",
+    "Droid Trifighter": ("3-1", 28000),
+    "Vulture Droid": ("3-1", 30000),
+    "Clone Arcfighter": ("3-1", 33000),
 
     # Episode 4 Vehicles
-    "TIE Fighter": "4-6",
-    "TIE Interceptor": "4-6",
-    "TIE Fighter (Darth Vader)": "4-6",
+    "TIE Fighter": ("4-6", 35000),
+    "TIE Interceptor": ("4-6", 40000),
+    "TIE Fighter (Darth Vader)": ("4-6", 50000),
 
     # Episode 5 Vehicles
-    "TIE Bomber": "5-3",
-    "Imperial Shuttle": "5-3",
+    "TIE Bomber": ("5-3", 60000),
+    "Imperial Shuttle": ("5-3", 25000),
 }
 
 
 def _make_shop_slot_requirement_to_unlocks() -> dict[str | None, frozenset[str]]:
     d: dict[str | None, set[str]] = {}
-    for character_name, unlock_requirement in CHARACTER_SHOP_SLOTS.items():
+    for character_name, (unlock_requirement, _studs_cost) in CHARACTER_SHOP_SLOTS.items():
         if unlock_requirement not in d:
             names = set()
             d[unlock_requirement] = names

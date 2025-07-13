@@ -32,7 +32,7 @@ SHOP_INDEX_TO_CHARACTER_INDEX: dict[int, int] = {
 }
 
 SHOP_INDICES_UNLOCKED_WHEN_ALL_EPISODES_UNLOCKED: set[int] = {
-    CHARACTER_TO_SHOP_INDEX[name] for name, unlock_method in CHARACTER_SHOP_SLOTS.items()
+    CHARACTER_TO_SHOP_INDEX[name] for name, (unlock_method, _studs_cost) in CHARACTER_SHOP_SLOTS.items()
     if unlock_method == "ALL_EPISODES"
 }
 
