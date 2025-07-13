@@ -27,10 +27,6 @@ SCORE_MULIPLIER_EXTRAS: Sequence[ExtraData] = (
     EXTRAS_BY_NAME["Score x10"],
 )
 
-# Receiving these items does nothing currently.
-NOOP_ITEMS: tuple[int, ...] = tuple([
-    GENERIC_BY_NAME["Restart Level Trap"].code
-])
 BONUS_CHARACTER_REQUIREMENTS: Mapping[int, AbstractSet[int]] = {
     1: {CHARACTERS_AND_VEHICLES_BY_NAME["Anakin's Pod"].character_index},
     2: {CHARACTERS_AND_VEHICLES_BY_NAME["Naboo Starfighter"].character_index},
