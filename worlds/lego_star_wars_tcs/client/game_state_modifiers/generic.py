@@ -18,7 +18,6 @@ EPISODE_UNLOCKS: Mapping[int, int] = {
     GENERIC_BY_NAME[f"Episode {i} Unlock"].code: i for i in range(1, 6+1)
 }
 ALL_EPISODES_TOKEN: int = GENERIC_BY_NAME["All Episodes Token"].code
-PROGRESSIVE_BONUS_CODE: int = GENERIC_BY_NAME["Progressive Bonus Level"].code
 PROGRESSIVE_SCORE_MULTIPLIER: int = GENERIC_BY_NAME["Progressive Score Multiplier"].code
 SCORE_MULIPLIER_EXTRAS: Sequence[ExtraData] = (
     EXTRAS_BY_NAME["Score x2"],
@@ -99,7 +98,6 @@ class AcquiredGeneric(ItemReceiver):
 
     received_episode_unlocks: set[int]
     all_episodes_token_counts: int = 0
-    progressive_bonus_count: int = 0
     progressive_score_count: int = 0
 
     def __init__(self):
@@ -111,7 +109,6 @@ class AcquiredGeneric(ItemReceiver):
     def clear_received_items(self) -> None:
         self.received_episode_unlocks.clear()
         self.all_episodes_token_counts = 0
-        self.progressive_bonus_count = 0
         self.progressive_score_count = 0
 
     @property
@@ -120,16 +117,8 @@ class AcquiredGeneric(ItemReceiver):
         return COMBINED_SCORE_MULTIPLIERS[idx]
 
     def receive_generic(self, ctx: TCSContext, ap_item_id: int):
-        # Progressive Bonus Unlock
-        if ap_item_id == PROGRESSIVE_BONUS_CODE:
-            # if write_to_game:
-            #     # fixme: Even if a door is built, it won't open unless the player has enough gold bricks.
-            #     built_gold_brick_doors = ctx.read_uchar(BONUSES_BASE_ADDRESS)
-            #     built_gold_brick_doors |= (1 << self.progressive_bonus_count)
-            #     ctx.write_byte(BONUSES_BASE_ADDRESS, built_gold_brick_doors)
-            self.progressive_bonus_count += 1
         # Progressive Score Multiplier
-        elif ap_item_id == PROGRESSIVE_SCORE_MULTIPLIER:
+        if ap_item_id == PROGRESSIVE_SCORE_MULTIPLIER:
             if self.progressive_score_count < len(SCORE_MULIPLIER_EXTRAS):
                 ctx.acquired_extras.unlock_extra(SCORE_MULIPLIER_EXTRAS[self.progressive_score_count])
             self.progressive_score_count += 1
@@ -144,19 +133,5 @@ class AcquiredGeneric(ItemReceiver):
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
 
     async def update_game_state(self, ctx: TCSContext):
-        # TODO: Is it even possible to close the bonus door? The individual bonus doors cannot be built until the player
-        #   has enough Gold Bricks, but some of the doors have the same Gold Brick requirements, so making them
-        #   progressive wouldn't work unless we could control that. Forcefully unlocking a bonus level door will not
-        #   work unless the player has the required amount of Gold Bricks.
-        # Bonus levels. There are 6.
-        # The byte controls which of the bonus doors have been built, with 1 bit for each door in order of Gold Brick
-        # cost.
-        # todo: This byte should be an instance attribute that is updated whenever a Progressive Bonus Level is
-        #  received, and whenever a Character requirement for a Bonus level is received.
-        unlocked_bonuses_byte = 0
-        for i in range(1, 7):
-            if i <= self.progressive_bonus_count:
-                character_requirements = BONUS_CHARACTER_REQUIREMENTS.get(i)
-                if not character_requirements or character_requirements <= ctx.acquired_characters.unlocked_characters:
-                    unlocked_bonuses_byte |= (1 << (i - 1))
-        ctx.write_byte(BONUSES_BASE_ADDRESS, unlocked_bonuses_byte)
+        # Bonus level doors unlock as per vanilla, which is having enough Gold Bricks.
+        pass
