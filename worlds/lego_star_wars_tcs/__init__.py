@@ -963,8 +963,8 @@ class LegoStarWarsTCSWorld(World):
         victory.place_locked_item(self.create_event("Slave I"))
         cantina.locations.append(victory)
 
-        from Utils import visualize_regions
-        visualize_regions(cantina, "LegoStarWarsTheCompleteSage_Regions.puml", show_entrance_names=True)
+        # from Utils import visualize_regions
+        # visualize_regions(cantina, "LegoStarWarsTheCompleteSaga_Regions.puml", show_entrance_names=True)
 
     def set_abilities_rule(self, spot: Location | Entrance, abilities: CharacterAbility):
         if abilities:
