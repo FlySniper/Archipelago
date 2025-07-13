@@ -305,6 +305,8 @@ class LegoStarWarsTCSWorld(World):
         if self.options.minikit_goal_amount == MinikitGoalAmount.special_range_names["use_percentage_option"]:
             self.goal_minikit_count = max(1, round(
                 self.available_minikits * self.options.minikit_goal_amount_percentage / 100))
+        else:
+            self.goal_minikit_count = self.options.minikit_goal_amount.value
 
         # Only whole bundles are counted for logic, so any partial bundles require an extra whole bundle to goal.
         self.goal_minikit_bundle_count = (self.goal_minikit_count // bundle_size
