@@ -440,14 +440,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             logger.warning("Warning: 'checked_location_messages' not found in slot data")
 
-        # Guaranteed to be valid after self._validate_version is called.
-        multiworld_version = tuple(slot_data["apworld_version"])
-
-        if multiworld_version < (0, 2, 0):
-            # Older versions do not have the minikit count in slot data, and always required 270/360 minikits to goal.
-            self.acquired_minikits.goal_minikit_count = 270
-        else:
-            self.acquired_minikits.goal_minikit_count = slot_data["minikit_goal_amount"]
+        self.acquired_minikits.goal_minikit_count = slot_data["minikit_goal_amount"]
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
