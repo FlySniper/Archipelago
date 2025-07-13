@@ -1,7 +1,7 @@
 import struct
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import ClassVar, NamedTuple
 
 from .constants import (
     CharacterAbility,
@@ -87,6 +87,7 @@ class ChapterArea:
     shop_unlocks: frozenset[str] = field(init=False)
     power_brick_ability_requirements: CharacterAbility = field(init=False)
     power_brick_location_name: str = field(init=False)
+    power_brick_studs_cost: int = field(init=False)
     all_minikits_ability_requirements: CharacterAbility = field(init=False)
 
     def __post_init__(self):
@@ -99,12 +100,14 @@ class ChapterArea:
                                   in SHOP_SLOT_REQUIREMENT_TO_UNLOCKS.get(self.short_name, ())])
         object.__setattr__(self, "shop_unlocks", shop_unlocks)
 
-        power_brick_location_name, power_brick_ability_requirements = POWER_BRICK_REQUIREMENTS[self.short_name]
-        power_brick_location_name = f"Purchase {power_brick_location_name} ({self.short_name})"
+        power_brick = POWER_BRICK_REQUIREMENTS[self.short_name]
+        power_brick_location_name = f"Purchase {power_brick.name} ({self.short_name})"
         object.__setattr__(self, "power_brick_location_name", power_brick_location_name)
+        power_brick_ability_requirements = power_brick.ability_requirements
         if power_brick_ability_requirements is None:
             power_brick_ability_requirements = CharacterAbility.NONE
         object.__setattr__(self, "power_brick_ability_requirements", power_brick_ability_requirements)
+        object.__setattr__(self, "power_brick_studs_cost", power_brick.studs_cost)
 
         all_minikits_ability_requirements = ALL_MINIKITS_REQUIREMENTS[self.short_name]
         object.__setattr__(self, "all_minikits_ability_requirements", all_minikits_ability_requirements)
@@ -330,44 +333,51 @@ CHAPTER_AREA_STORY_CHARACTERS: dict[str, frozenset[str]] = {
     }.items()
 }
 
-POWER_BRICK_REQUIREMENTS: dict[str, tuple[str, CharacterAbility | None]] = {
+
+class _PowerBrickData(NamedTuple):
+    name: str
+    ability_requirements: CharacterAbility | None
+    studs_cost: int
+
+
+POWER_BRICK_REQUIREMENTS: dict[str, _PowerBrickData] = {
     # TODO: For future version, it is necessary to determine which Extras need Jedi/Protocol Droids to access.
-    "1-1": ("Super Gonk", ASTROMECH),
-    "1-2": ("Poo Money", BOUNTY_HUNTER),
-    "1-3": ("Walkie Talkie Disable", BOUNTY_HUNTER | SITH),
-    "1-4": ("Red Brick Detector", None),
-    "1-5": ("Super Slap", None),
-    "1-6": ("Force Grapple Leap", IMPERIAL),
-    "2-1": ("Stud Magnet", None),
-    "2-2": ("Disarm Troopers", IMPERIAL),
-    "2-3": ("Character Studs", None),
-    "2-4": ("Perfect Deflect", BOUNTY_HUNTER),
-    "2-5": ("Exploding Blaster Bolts", None),
-    "2-6": ("Force Pull", BOUNTY_HUNTER | SHORTIE),
-    "3-1": ("Vehicle Smart Bomb", None),
-    "3-2": ("Super Astromech", BOUNTY_HUNTER),
-    "3-3": ("Super Jedi Slam", None),
-    "3-4": ("Super Thermal Detonator", BOUNTY_HUNTER | SITH),
-    "3-5": ("Deflect Bolts", SITH | HIGH_JUMP),
-    "3-6": ("Dark Side", ASTROMECH),
-    "4-1": ("Super Blasters", None),
-    "4-2": ("Fast Force", BOUNTY_HUNTER),
-    "4-3": ("Super Lightsabers", None),
-    "4-4": ("Tractor Beam", None),
-    "4-5": ("Invincibility", None),
-    "4-6": ("Score x2", None),
-    "5-1": ("Self Destruct", VEHICLE_TIE),
-    "5-2": ("Fast Build", SITH),
-    "5-3": ("Score x4", None),
-    "5-4": ("Regenerate Hearts", SITH),
-    "5-5": ("Score x6", BOUNTY_HUNTER | HOVER),
-    "5-6": ("Minikit Detector", BOUNTY_HUNTER),
-    "6-1": ("Super Zapper", None),
-    "6-2": ("Bounty Hunter Rockets", None),
-    "6-3": ("Score x8", SHORTIE),
-    "6-4": ("Super Ewok Catapult", SHORTIE),
-    "6-5": ("Score x10", None),
-    "6-6": ("Infinite Torpedos", None),
+    "1-1": _PowerBrickData("Super Gonk", ASTROMECH, 100_000),
+    "1-2": _PowerBrickData("Poo Money", BOUNTY_HUNTER, 100_000),
+    "1-3": _PowerBrickData("Walkie Talkie Disable", BOUNTY_HUNTER | SITH, 5_000),
+    "1-4": _PowerBrickData("Red Brick Detector", None, 125_000),
+    "1-5": _PowerBrickData("Super Slap", None, 5_000),
+    "1-6": _PowerBrickData("Force Grapple Leap", IMPERIAL, 15_000),
+    "2-1": _PowerBrickData("Stud Magnet", None, 100_000),
+    "2-2": _PowerBrickData("Disarm Troopers", IMPERIAL, 100_000),
+    "2-3": _PowerBrickData("Character Studs", None, 100_000),
+    "2-4": _PowerBrickData("Perfect Deflect", BOUNTY_HUNTER, 20_000),
+    "2-5": _PowerBrickData("Exploding Blaster Bolts", None, 20_000),
+    "2-6": _PowerBrickData("Force Pull", BOUNTY_HUNTER | SHORTIE, 12_000),
+    "3-1": _PowerBrickData("Vehicle Smart Bomb", None, 15_000),
+    "3-2": _PowerBrickData("Super Astromech", BOUNTY_HUNTER, 10_000),
+    "3-3": _PowerBrickData("Super Jedi Slam", None, 11_000),
+    "3-4": _PowerBrickData("Super Thermal Detonator", BOUNTY_HUNTER | SITH, 25_000),
+    "3-5": _PowerBrickData("Deflect Bolts", SITH | HIGH_JUMP, 150_000),
+    "3-6": _PowerBrickData("Dark Side", ASTROMECH, 25_000),
+    "4-1": _PowerBrickData("Super Blasters", None, 15_000),
+    "4-2": _PowerBrickData("Fast Force", BOUNTY_HUNTER, 40_000),
+    "4-3": _PowerBrickData("Super Lightsabers", None, 40_000),
+    "4-4": _PowerBrickData("Tractor Beam", None, 15_000),
+    "4-5": _PowerBrickData("Invincibility", None, 1_000_000),
+    "4-6": _PowerBrickData("Score x2", None, 1_250_000),
+    "5-1": _PowerBrickData("Self Destruct", VEHICLE_TIE, 25_000),
+    "5-2": _PowerBrickData("Fast Build", SITH, 30_000),
+    "5-3": _PowerBrickData("Score x4", None, 2_500_000),
+    "5-4": _PowerBrickData("Regenerate Hearts", SITH, 150_000),
+    "5-5": _PowerBrickData("Score x6", BOUNTY_HUNTER | HOVER, 5_000_000),  # Note: In memory after Minikit Detector
+    "5-6": _PowerBrickData("Minikit Detector", BOUNTY_HUNTER, 250_000),  # Note: In memory before Score x6
+    "6-1": _PowerBrickData("Super Zapper", None, 14_000),
+    "6-2": _PowerBrickData("Bounty Hunter Rockets", None, 20_000),
+    "6-3": _PowerBrickData("Score x8", SHORTIE, 10_000_000),
+    "6-4": _PowerBrickData("Super Ewok Catapult", SHORTIE, 25_000),
+    "6-5": _PowerBrickData("Score x10", None, 20_000_000),  # Note: In memory after Infinite Torpedos
+    "6-6": _PowerBrickData("Infinite Torpedos", None, 25_000),  # Note: In memory before Score x10
 }
 
 ALL_MINIKITS_REQUIREMENTS: dict[str, CharacterAbility] = {
