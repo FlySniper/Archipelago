@@ -60,8 +60,9 @@ class GenericCharacterData(GenericItemData):
     purchase_cost: int = field(init=False)
 
     def __post_init__(self):
-        shop_slot, studs_cost = CHARACTER_TO_SHOP_SLOT.get(self.name, (-1, 0))
+        shop_slot = CHARACTER_TO_SHOP_SLOT.get(self.name, -1)
         object.__setattr__(self, "shop_slot", shop_slot)
+        _unlock_method, studs_cost = CHARACTER_SHOP_SLOTS.get(self.name, (..., 0))
         object.__setattr__(self, "purchase_cost", studs_cost)
 
 
@@ -243,20 +244,22 @@ CHARACTER_SHOP_SLOTS: dict[str, tuple[str | None, int]] = {
 }
 
 
-def _make_shop_slot_requirement_to_unlocks() -> dict[str | None, frozenset[str]]:
-    d: dict[str | None, set[str]] = {}
-    for character_name, (unlock_requirement, _studs_cost) in CHARACTER_SHOP_SLOTS.items():
+def _make_shop_slot_requirement_to_unlocks() -> Mapping[str | None, Mapping[str, int]]:
+    d: dict[str | None, dict[str, int]] = {}
+    for character_name, (unlock_requirement, studs_cost) in CHARACTER_SHOP_SLOTS.items():
         if unlock_requirement not in d:
-            names = set()
+            names: dict[str, int] = {}
             d[unlock_requirement] = names
         else:
             names = d[unlock_requirement]
-        names.add(character_name)
+        names[character_name] = studs_cost
 
-    return {k: frozenset(v) for k, v in d.items()}
+    return d
 
 
-SHOP_SLOT_REQUIREMENT_TO_UNLOCKS: dict[str | None, frozenset[str]] = _make_shop_slot_requirement_to_unlocks()
+SHOP_SLOT_REQUIREMENT_TO_UNLOCKS: Mapping[str | None, Mapping[str, int]] = (
+    _make_shop_slot_requirement_to_unlocks()
+)
 del _make_shop_slot_requirement_to_unlocks
 
 CHARACTER_TO_SHOP_SLOT = {name: i for i, name in enumerate(CHARACTER_SHOP_SLOTS.keys())}

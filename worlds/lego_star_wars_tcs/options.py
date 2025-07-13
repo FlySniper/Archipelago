@@ -291,18 +291,30 @@ class StartWithDetectors(DefaultOnToggle):
     display_name = "Start With Detector Extras"
 
 
-class MostExpensivePurchaseWithNoMultiplier(Range):
-    """The most expensive individual purchase the player can be expected to make without any score multipliers, in
-    thousands of Studs.
+class MostExpensivePurchaseWithNoScoreMultiplier(Range):
+    """
+    The most expensive individual purchase the player can be expected to make without any score multipliers, *in
+    thousands of Studs*.
+
+    For example, an option value of 100 means that purchases up to 100,000 studs in price can be expected to be
+    purchased without any score multipliers.
 
     The logical requirements for expensive purchases will scale with this value. For example, if a purchase of up to
     100,000 Studs is expected with no score multipliers, then a purchase of 100,001 up to 200,000 Studs is expected with
     a score multiplier of 2x.
 
-    The most expensive purchase is "Score x10", which costs 20 million studs."""
+    "Score x2" costs 1.25 million studs (1250 * 1000) in vanilla, so, for a more vanilla experience with potentially
+    more farming for Studs, set this option to 1250.
+
+    The most expensive purchase is "Score x10", which costs 20 million studs (20000 * 1000). Setting this options to
+    20000 means that all purchases are logically expected without score multipliers.
+    """
     display_name = "Most Expensive Purchase Without Score Multipliers"
     default = 100
-    range_start = 50
+    # Max purchase cost is 20_000_000
+    # 5 * 1000 * 3840 = 19_200_000 -> 5 is too low
+    # 6 * 1000 * 3840 = 23_040_000 -> 6 is the minimum allowed
+    range_start = 6
     range_end = 20000
 
 
@@ -364,6 +376,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     episode_unlock_requirement: EpisodeUnlockRequirement
     # todo: Requires logic rewrite
     # chapter_unlock_requirement: ChapterUnlockRequirement
+    most_expensive_purchase_with_no_multiplier: MostExpensivePurchaseWithNoScoreMultiplier
     all_episodes_character_purchase_requirements: AllEpisodesCharacterPurchaseRequirements
 
     # Start inventory helpers.
@@ -374,4 +387,3 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     checked_location_messages: CheckedLocationMessages
     # Future options, not implemented yet.
     # random_starting_level_max_starting_characters: RandomStartingLevelMaxStartingCharacters
-    # most_expensive_purchase_with_no_multiplier: MostExpensivePurchaseWithNoMultiplier

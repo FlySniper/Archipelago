@@ -18,7 +18,7 @@ from BaseClasses import (
 from Options import OptionError
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import components, Component, launch_subprocess, Type
-from worlds.generic.Rules import set_rule
+from worlds.generic.Rules import set_rule, add_rule
 
 from . import constants
 from .constants import CharacterAbility, GOLD_BRICK_EVENT_NAME
@@ -35,6 +35,7 @@ from .items import (
     MINIKITS_BY_COUNT,
     MINIKITS_BY_NAME,
     EXTRAS_BY_NAME,
+    SHOP_SLOT_REQUIREMENT_TO_UNLOCKS,
 )
 from .levels import (
     BonusArea,
@@ -120,6 +121,7 @@ class LegoStarWarsTCSWorld(World):
     goal_minikit_bundle_count: int = -1
     gold_brick_event_count: int = 0
     character_purchase_location_count: int = 0
+    required_score_multiplier_count: int = 0  # set in create_regions
 
     def __init__(self, multiworld, player: int):
         super().__init__(multiworld, player)
@@ -152,6 +154,8 @@ class LegoStarWarsTCSWorld(World):
             self.options.episode_unlock_requirement.value = passthrough["episode_unlock_requirement"]
             self.options.all_episodes_character_purchase_requirements.value = (
                 passthrough["all_episodes_character_purchase_requirements"])
+            self.options.most_expensive_purchase_with_no_multiplier.value = (
+                passthrough["most_expensive_purchase_with_no_multiplier"])
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -354,8 +358,10 @@ class LegoStarWarsTCSWorld(World):
                 # A goal macguffin.
                 classification = ItemClassification.progression_skip_balancing
             elif name == "Progressive Score Multiplier":
-                # Generic item that grants Score multiplier Extras, which are all at least Useful.
-                classification = ItemClassification.useful
+                # todo: Vary between progression and progression_skip_balancing depending on what percentage of
+                #  locations need them. Make them Useful
+                # Generic item that grants Score multiplier Extras, which are used in logic for purchases from the shop.
+                classification = ItemClassification.progression
             elif name == "All Episodes Token":
                 # Very few location checks.
                 classification = ItemClassification.progression_skip_balancing
@@ -540,14 +546,11 @@ class LegoStarWarsTCSWorld(World):
                                    if extra.code > 0 and name not in detectors]
 
         # todo: Add expensive purchase logic to determine the minimum number of Progressive Score Multiplier needed.
-        if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
-            # Require all but one score multiplier to be in the pool.
-            pool_required_extras = ["Progressive Score Multiplier"] * 4
-            non_required_extras.append("Progressive Score Multiplier")
-        else:
-            # Require up to Score x2 * x4 = x8 in the pool.
-            pool_required_extras = ["Progressive Score Multiplier"] * 2
-            non_required_extras.extend(["Progressive Score Multiplier"] * 3)
+        required_score_multipliers = self.required_score_multiplier_count
+        non_required_score_multipliers = 5 - required_score_multipliers
+        assert 0 <= required_score_multipliers <= 5
+        pool_required_extras = ["Progressive Score Multiplier"] * required_score_multipliers
+        non_required_extras.extend(["Progressive Score Multiplier"] * non_required_score_multipliers)
 
         # Try to add as many characters to the pool as this.
         reserved_character_location_count = self.character_purchase_location_count
@@ -849,13 +852,19 @@ class LegoStarWarsTCSWorld(World):
                                                                self.location_name_to_id[power_brick_location_name],
                                                                chapter_region)
                 chapter_region.locations.append(power_brick_location)
+                self.required_score_multiplier_count = max(
+                    self.required_score_multiplier_count,
+                    self._get_score_multiplier_requirement(chapter.power_brick_studs_cost))
 
                 # Character Purchases in the shop.
                 # Character purchases unlocked upon completing the chapter (normally in Story mode).
-                for shop_unlock in sorted(chapter.shop_unlocks):
+                for shop_unlock, studs_cost in chapter.shop_unlocks.items():
                     shop_location = LegoStarWarsTCSLocation(self.player, shop_unlock,
                                                             self.location_name_to_id[shop_unlock], chapter_region)
                     chapter_region.locations.append(shop_location)
+                    self.required_score_multiplier_count = max(
+                        self.required_score_multiplier_count,
+                        self._get_score_multiplier_requirement(studs_cost))
                 self.character_purchase_location_count += len(chapter.shop_unlocks)
 
                 # Minikits.
@@ -929,16 +938,9 @@ class LegoStarWarsTCSWorld(World):
         if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
             all_episodes = self.create_region("All Episodes Unlocked")
             cantina.connect(all_episodes, "Unlock All Episodes")
-            all_episodes_purchases = [
-                "Purchase IG-88",
-                "Purchase Dengar",
-                "Purchase 4-LOM",
-                "Purchase Ben Kenobi (Ghost)",
-                "Purchase Anakin Skywalker (Ghost)",
-                "Purchase Yoda (Ghost)",
-                "Purchase R2-Q5",
-            ]
-            for purchase in all_episodes_purchases:
+            all_episodes_purchases = SHOP_SLOT_REQUIREMENT_TO_UNLOCKS["ALL_EPISODES"]
+            for character_name in all_episodes_purchases.keys():
+                purchase = f"Purchase {character_name}"
                 location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase],
                                                    all_episodes)
                 all_episodes.locations.append(location)
@@ -971,6 +973,32 @@ class LegoStarWarsTCSWorld(World):
                 set_rule(spot, lambda state: state.has(ability_name, player))
             else:
                 set_rule(spot, lambda state: state.has_all(ability_names, player))
+
+    def _get_score_multiplier_requirement(self, studs_cost: int):
+        max_no_multiplier_cost = self.options.most_expensive_purchase_with_no_multiplier.value * 1000
+        count: int
+        if studs_cost <= max_no_multiplier_cost:
+            count = 0
+        elif studs_cost <= max_no_multiplier_cost * 2:
+            count = 1  # x2
+        elif studs_cost <= max_no_multiplier_cost * 8:
+            count = 2  # x2 x4 = x8
+        elif studs_cost <= max_no_multiplier_cost * 48:
+            count = 3  # x2 x4 x6 = x48
+        elif studs_cost <= max_no_multiplier_cost * 384:
+            count = 4  # x2 x4 x6 x8 = x384
+        elif studs_cost <= max_no_multiplier_cost * 3840:
+            count = 5  # x2 x4 x6 x8 x10 = x3840
+        else:
+            # The minimum value of the option range guarantee that x3840 is enough to purchase everything.
+            raise AssertionError(f"Studs cost {studs_cost} is too large. This is an error with the apworld.")
+
+        return count
+
+    def _add_score_multiplier_rule(self, spot: Location, studs_cost: int):
+        count = self._get_score_multiplier_requirement(studs_cost)
+        if count > 0:
+            add_rule(spot, lambda state, p=self.player, c=count: state.has("Progressive Score Multiplier", p, c))
 
     def set_rules(self) -> None:
         player = self.player
@@ -1017,10 +1045,16 @@ class LegoStarWarsTCSWorld(World):
                 # Set Power Brick logic
                 power_brick = self.get_location(chapter.power_brick_location_name)
                 set_chapter_spot_abilities_rule(power_brick, chapter.power_brick_ability_requirements)
+                self._add_score_multiplier_rule(power_brick, chapter.power_brick_studs_cost)
 
                 # Set Minikits logic
                 all_minikits_entrance = self.get_entrance(f"{chapter.name} - Collect All Minikits")
                 set_chapter_spot_abilities_rule(all_minikits_entrance, chapter.all_minikits_ability_requirements)
+
+                # Set Character Purchase logic
+                for shop_unlock, studs_cost in chapter.shop_unlocks.items():
+                    purchase_location = self.get_location(shop_unlock)
+                    self._add_score_multiplier_rule(purchase_location, studs_cost)
 
         # Bonus levels.
         gold_brick_requirements: set[int] = set()
@@ -1056,6 +1090,9 @@ class LegoStarWarsTCSWorld(World):
             elif self.options.all_episodes_character_purchase_requirements == "episodes_tokens":
                 set_rule(entrance,
                          lambda state, c=len(self.enabled_episodes), p=player: state.has("All Episodes Token", p, c))
+            for character_name, studs_cost in SHOP_SLOT_REQUIREMENT_TO_UNLOCKS["ALL_EPISODES"].items():
+                purchase_location = self.get_location(f"Purchase {character_name}")
+                self._add_score_multiplier_rule(purchase_location, studs_cost)
 
         # Victory.
         victory = self.get_location("Minikits Goal")
@@ -1134,6 +1171,7 @@ class LegoStarWarsTCSWorld(World):
                 "minikit_bundle_size",
                 "episode_unlock_requirement",
                 "all_episodes_character_purchase_requirements",
+                "most_expensive_purchase_with_no_multiplier",
             )
         }
 
