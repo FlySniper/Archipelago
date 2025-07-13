@@ -138,7 +138,7 @@ LOCATION_NAME_TO_ID = {
     "Purchase Super Gonk (1-1)": 78,
     "Purchase Poo Money (1-2)": 79,
     "Purchase Walkie Talkie Disable (1-3)": 80,
-    "Purchase Red Brick Detector (1-4)": 81,  # todo: Is this actually called Power Brick Detector?
+    "Purchase Power Brick Detector (1-4)": 81,
     "Purchase Super Slap (1-5)": 82,
     "Purchase Force Grapple Leap (1-6)": 83,
     "Purchase Stud Magnet (2-1)": 84,

@@ -345,7 +345,7 @@ POWER_BRICK_REQUIREMENTS: dict[str, _PowerBrickData] = {
     "1-1": _PowerBrickData("Super Gonk", ASTROMECH, 100_000),
     "1-2": _PowerBrickData("Poo Money", BOUNTY_HUNTER, 100_000),
     "1-3": _PowerBrickData("Walkie Talkie Disable", BOUNTY_HUNTER | SITH, 5_000),
-    "1-4": _PowerBrickData("Red Brick Detector", None, 125_000),
+    "1-4": _PowerBrickData("Power Brick Detector", None, 125_000),
     "1-5": _PowerBrickData("Super Slap", None, 5_000),
     "1-6": _PowerBrickData("Force Grapple Leap", IMPERIAL, 15_000),
     "2-1": _PowerBrickData("Stud Magnet", None, 100_000),

@@ -542,7 +542,7 @@ class LegoStarWarsTCSWorld(World):
         if self.options.start_with_detectors:
             non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.code > 0]
         else:
-            detectors = {"Minikit Detector", "Red Brick Detector"}
+            detectors = {"Minikit Detector", "Power Brick Detector"}
             assert detectors <= set(EXTRAS_BY_NAME.keys())
             non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items()
                                    if extra.code > 0 and name not in detectors]

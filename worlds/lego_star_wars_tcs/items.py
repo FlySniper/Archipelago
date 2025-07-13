@@ -396,7 +396,7 @@ ITEM_DATA: list[GenericItemData] = [
     _extra(122, "Super Gonk", 0x8, "1-1"),
     _extra(123, "Poo Money", 0x9, "1-2"),  # "Fertilizer" in manual
     _extra(124, "Walkie Talkie Disable", 0xA, "1-3"),
-    _extra(125, "Red Brick Detector", 0xB, "1-4"),
+    _extra(125, "Power Brick Detector", 0xB, "1-4"),
     _extra(126, "Super Slap", 0xC, "1-5"),
     _extra(127, "Force Grapple Leap", 0xD, "1-6"),
     _extra(128, "Stud Magnet", 0xE, "2-1"),
