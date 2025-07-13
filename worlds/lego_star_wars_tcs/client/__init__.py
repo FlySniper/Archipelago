@@ -12,7 +12,6 @@ ModuleUpdate.update()
 
 
 import logging
-import struct
 import typing
 from pymem import pymem
 from pymem.exception import ProcessNotFound, ProcessError, PymemError, WinAPIError
