@@ -3,7 +3,7 @@ from typing import Any
 
 from ...levels import CHAPTER_AREAS, ChapterArea
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
-from ..type_aliases import ApLocationId, LevelId, TCSContext
+from ..type_aliases import ApLocationId, LevelId, TCSContext, AreaId
 from ..common import ClientComponent
 
 
@@ -76,9 +76,9 @@ class FreePlayChapterCompletionChecker(ClientComponent):
     """
 
     sent_locations: set[ApLocationId]
-    completed_free_play: set[ChapterArea]
+    completed_free_play: set[AreaId]
     initial_setup_complete: bool
-    enabled_chapter_areas: set[ChapterArea] | None
+    enabled_chapter_areas: set[AreaId] | None
 
     def __init__(self):
         self.sent_locations = set()
@@ -88,26 +88,26 @@ class FreePlayChapterCompletionChecker(ClientComponent):
 
     def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
         enabled_chapters = set(slot_data["enabled_chapters"])
-        enabled_chapter_areas = set()
+        enabled_chapter_areas: set[AreaId] = set()
         for area in CHAPTER_AREAS:
             if area.short_name in enabled_chapters:
-                enabled_chapter_areas.add(area)
+                enabled_chapter_areas.add(area.area_id)
             else:
                 # There shouldn't be any present, but ensure that no data from disable chapters is present.
-                self.completed_free_play.discard(area)
+                self.completed_free_play.discard(area.area_id)
                 self.sent_locations.discard(STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id])
         self.enabled_chapter_areas = enabled_chapter_areas
 
     def read_completed_free_play_from_save_data(self, ctx: TCSContext):
         enabled_chapter_areas = self.enabled_chapter_areas
         for area in CHAPTER_AREAS:
-            if enabled_chapter_areas is not None and area not in enabled_chapter_areas:
+            if enabled_chapter_areas is not None and area.area_id not in enabled_chapter_areas:
                 continue
             # Either the chapter is enabled, or the player has not connected yet, so it is not known if the chapter is
             # enabled.
             unlocked_byte = ctx.read_uchar(area.address + area.UNLOCKED_OFFSET)
             if unlocked_byte == 0b11:
-                self.completed_free_play.add(area)
+                self.completed_free_play.add(area.area_id)
                 debug_logger.info("Read from save file that %s has been completed in Free Play", area.short_name)
                 self.sent_locations.add(STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id])
 
@@ -129,7 +129,7 @@ class FreePlayChapterCompletionChecker(ClientComponent):
                 and is_status_level_completion(ctx)):
             self.sent_locations.add(completion_location_id)
             area = STATUS_LEVEL_ID_TO_AREA[current_level_id]
-            self.completed_free_play.add(area)
+            self.completed_free_play.add(area.area_id)
             ctx.write_byte(area.address + area.UNLOCKED_OFFSET, 0b11)
 
         # Not required because only the intersection of ctx.missing_locations will be sent to the server, but removing

@@ -3,7 +3,7 @@ from typing import AbstractSet, Callable, Any
 
 from ..common import ClientComponent
 from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS
-from ..type_aliases import TCSContext
+from ..type_aliases import TCSContext, AreaId
 from ...items import ITEM_DATA_BY_NAME, ITEM_DATA_BY_ID
 from ...levels import ChapterArea, CHAPTER_AREAS, SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA
 from ... import options
@@ -11,7 +11,7 @@ from ... import options
 
 debug_logger = logging.getLogger("TCS Debug")
 
-ALL_CHAPTER_AREAS_SET = frozenset(CHAPTER_AREAS)
+ALL_CHAPTER_AREA_IDS_SET = frozenset({area.area_id for area in CHAPTER_AREAS})
 
 # Changes according to what Area door the player is stand in front of. It is 0xFF while in the rest of the Cantina, away
 # from an Area door.
@@ -22,7 +22,7 @@ class UnlockedChapterManager(ClientComponent):
     character_to_dependent_game_chapters: dict[int, list[str]]
     remaining_chapter_item_requirements: dict[str, set[int]]
 
-    unlocked_chapters_per_episode: dict[int, set[ChapterArea]]
+    unlocked_chapters_per_episode: dict[int, set[AreaId]]
     should_unlock_all_episodes_shop_slots: Callable[[TCSContext], bool] = staticmethod(lambda _ctx: False)
 
     enabled_chapter_area_ids: set[int]
@@ -105,11 +105,11 @@ class UnlockedChapterManager(ClientComponent):
         del self.character_to_dependent_game_chapters[character_ap_id]
 
     def unlock_chapter(self, chapter_area: ChapterArea):
-        self.unlocked_chapters_per_episode[chapter_area.episode].add(chapter_area)
+        self.unlocked_chapters_per_episode[chapter_area.episode].add(chapter_area.area_id)
         debug_logger.info("Unlocked chapter %s (%s)", chapter_area.name, chapter_area.short_name)
 
     async def update_game_state(self, ctx: TCSContext):
-        temporary_story_completion: AbstractSet[ChapterArea]
+        temporary_story_completion: AbstractSet[int]
         if (self.should_unlock_all_episodes_shop_slots(ctx)
                 and ctx.acquired_characters.is_all_episodes_character_selected_in_shop(ctx)):
             # TODO: Instead of this, temporarily change the unlock conditions for these characters to 0 Gold Bricks.
@@ -122,7 +122,7 @@ class UnlockedChapterManager(ClientComponent):
             # purchases in the shop.
             # To work around this, all Story mode completions are temporarily set when all Episode Unlocks have been
             # acquired and the player has selected one of the 'all episodes' characters for purchase in the shop.
-            temporary_story_completion = ALL_CHAPTER_AREAS_SET
+            temporary_story_completion = ALL_CHAPTER_AREA_IDS_SET
         else:
             temporary_story_completion = set()
             # TODO: Temporarily set the player's current chapter as completed so that they can save and exit from the
@@ -140,32 +140,33 @@ class UnlockedChapterManager(ClientComponent):
                     # unless it contains unlocked chapters...).
                     area_id_of_door_the_player_is_in_front_of = ctx.read_uchar(CURRENT_AREA_DOOR_ADDRESS)
                     area = AREA_ID_TO_CHAPTER_AREA.get(area_id_of_door_the_player_is_in_front_of)
-                    if area is not None and area in unlocked_areas_in_room:
+                    if area is not None and area.area_id in unlocked_areas_in_room:
                         # The player is standing in front of, or within a chapter door that is unlocked.
                         if ctx.read_uchar(OPENED_MENU_DEPTH_ADDRESS) > 0:
                             # The player has a menu open (hopefully the menu within the chapter door.
-                            temporary_story_completion = {area}
+                            temporary_story_completion = {area.area_id}
 
         completed_free_play = ctx.free_play_completion_checker.completed_free_play
 
         # 36 writes on each game state update is undesirable, but necessary to easily allow for temporarily completing
         # Story modes.
         for area in CHAPTER_AREAS:
-            enabled = area.area_id in self.enabled_chapter_area_ids
-            if enabled and area in completed_free_play:
+            area_id = area.area_id
+            enabled = area_id in self.enabled_chapter_area_ids
+            if enabled and area_id in completed_free_play:
                 # Set the chapter as unlocked and Story mode completed because Free Play has been completed.
                 # The second bit in the third byte is custom to the AP client and signifies that Free Play has been
                 # completed.
                 ctx.write_bytes(area.address, b"\x03\x01", 2)
-            elif area in temporary_story_completion:
+            elif area_id in temporary_story_completion:
                 # Set the chapter as unlocked and Story mode completed because Story mode for this chapter needs to be
                 # temporarily set as completed for some purpose.
                 ctx.write_bytes(area.address, b"\x01\x01", 2)
-            elif area.area_id not in self.enabled_chapter_area_ids:
+            elif area_id not in self.enabled_chapter_area_ids:
                 # Set the chapter as locked, with Story mode incomplete.
                 ctx.write_bytes(area.address, b"\x00\x00", 2)
             else:
-                if enabled and area in self.unlocked_chapters_per_episode[area.episode]:
+                if enabled and area_id in self.unlocked_chapters_per_episode[area.episode]:
                     # Set the chapter as unlocked, but with Story mode incomplete because Free Play has not been
                     # completed. This prevents characters being for sale in the shop without completing Free Play for
                     # the chapter that unlocks those shop slots.
