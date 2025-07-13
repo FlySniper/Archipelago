@@ -12,12 +12,33 @@ class MinikitGoalAmount(NamedRange):
 
     Each enabled episode chapter shuffles 10 Minikits into the item pool, which may be bundled to reduce the number
     Minikit items in the item pool.
+
+    Setting this option to "use_percentage_option" will use the Minikit Goal Amount Percentage option's value to
+    determine how many Minikit's are required to goal.
     """
     display_name = "Goal Minikits"
-    # todo: Add a named range as -1 to use a percentage, with that percentage controlled by a different option.
     range_start = 10
-    default = 270
     range_end = 360
+    special_range_names = {
+        "use_percentage_option": -1,
+    }
+    default = -1
+
+
+class MinikitGoalAmountPercentage(Range):
+    """
+    The percentage of Minikits in the item pool that are required to goal.
+
+    10 Minikits are added to the item pool for each enabled episode chapter, which may be bundled to reduce the number
+    of individual items.
+
+    This does nothing unless the Minikit Goal Amount option is set to "use_percentage_option" instead of a number.
+
+    The final number of Minikits required to goal is rounded to the nearest integer, but will always be at least 1.
+    """
+    range_start = 1
+    range_end = 100
+    default = 75
 
 
 class MinikitBundleSize(Choice):
@@ -328,6 +349,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
 
     # Goals.
     minikit_goal_amount: MinikitGoalAmount
+    minikit_goal_amount_percentage: MinikitGoalAmountPercentage
     minikit_bundle_size: MinikitBundleSize
 
     # Enabled/Available locations.

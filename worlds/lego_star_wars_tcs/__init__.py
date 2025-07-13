@@ -53,6 +53,7 @@ from .options import (
     LegoStarWarsTCSOptions,
     StartingChapter,
     AllEpisodesCharacterPurchaseRequirements,
+    MinikitGoalAmount,
 )
 
 
@@ -115,6 +116,7 @@ class LegoStarWarsTCSWorld(World):
     enabled_chapter_count: int = -1
     available_minikits: int = -1
     minikit_bundle_count: int = -1
+    goal_minikit_count: int = -1
     goal_minikit_bundle_count: int = -1
     gold_brick_event_count: int = 0
     character_purchase_location_count: int = 0
@@ -295,9 +297,14 @@ class LegoStarWarsTCSWorld(World):
                                   self.available_minikits)
                 self.options.minikit_goal_amount.value = self.available_minikits
 
+        # Calculate goal_minikit_count when set to a percentage of the available minikits.
+        if self.options.minikit_goal_amount == MinikitGoalAmount.special_range_names["use_percentage_option"]:
+            self.goal_minikit_count = max(1, round(
+                self.available_minikits * self.options.minikit_goal_amount_percentage / 100))
+
         # Only whole bundles are counted for logic, so any partial bundles require an extra whole bundle to goal.
-        self.goal_minikit_bundle_count = (self.options.minikit_goal_amount.value // bundle_size
-                                          + (self.options.minikit_goal_amount.value % bundle_size != 0))
+        self.goal_minikit_bundle_count = (self.goal_minikit_count // bundle_size
+                                          + (self.goal_minikit_count % bundle_size != 0))
 
         self.prog_useful_level_access_threshold_count = int(
             self.PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT * self.enabled_chapter_count)
@@ -1120,10 +1127,10 @@ class LegoStarWarsTCSWorld(World):
             "enabled_bonuses": sorted(self.enabled_bonuses),
             "starting_chapter": self.starting_chapter,
             "starting_episode": self.starting_episode,
+            "minikit_goal_amount": self.goal_minikit_count,
             **self.options.as_dict(
                 "received_item_messages",
                 "checked_location_messages",
-                "minikit_goal_amount",
                 "minikit_bundle_size",
                 "episode_unlock_requirement",
                 "all_episodes_character_purchase_requirements",
