@@ -15,7 +15,7 @@ RECEIVABLE_GENERIC_BY_AP_ID: Mapping[int, GenericItemData] = {
     item.code: item for item in GENERIC_BY_NAME.values() if item.code != -1 and not item.name.endswith("Stud")
 }
 EPISODE_UNLOCKS: Mapping[int, int] = {
-    GENERIC_BY_NAME[f"Episode {i} Unlock"].code: i for i in range(2, 6+1)
+    GENERIC_BY_NAME[f"Episode {i} Unlock"].code: i for i in range(1, 6+1)
 }
 PROGRESSIVE_BONUS_CODE: int = GENERIC_BY_NAME["Progressive Bonus Level"].code
 PROGRESSIVE_SCORE_MULTIPLIER: int = GENERIC_BY_NAME["Progressive Score Multiplier"].code

@@ -29,26 +29,14 @@ class UnlockedChapterManager:
         for chapter_area in CHAPTER_AREAS:
             character_requirements = chapter_area.character_requirements
             episode = chapter_area.episode
-            # TODO: Make an Episode 1 Unlock item, then just give it to the player when the client starts if random
-            #  starting chapter/episode is not implemented by the time the Episode 1 Unlock item is added..
-            item_requirements: Iterable[str]
-            if episode != 1:
-                item_requirements = [f"Episode {episode} Unlock", *character_requirements]
-            else:
-                item_requirements = character_requirements
-            # TODO: Once Obi-Wan, Qui-Gon and TC-14 are added as real items, remove this if-statement and precollect
-            #  starting characters instead. Then, all chapters will start locked.
-            if item_requirements:
-                code_requirements = set()
-                for item_name in item_requirements:
-                    item_code = ITEM_DATA_BY_NAME[item_name].code
-                    assert item_code != -1
-                    item_id_to_chapter_area_short_name.setdefault(item_code, []).append(chapter_area.short_name)
-                    code_requirements.add(item_code)
-                remaining_chapter_item_requirements[chapter_area.short_name] = code_requirements
-            else:
-                # Immediately unlocked.
-                self.unlocked_chapters_per_episode[episode].add(chapter_area)
+            item_requirements = [f"Episode {episode} Unlock", *character_requirements]
+            code_requirements = set()
+            for item_name in item_requirements:
+                item_code = ITEM_DATA_BY_NAME[item_name].code
+                assert item_code != -1
+                item_id_to_chapter_area_short_name.setdefault(item_code, []).append(chapter_area.short_name)
+                code_requirements.add(item_code)
+            remaining_chapter_item_requirements[chapter_area.short_name] = code_requirements
 
         self.character_to_dependent_game_chapters = item_id_to_chapter_area_short_name
         self.remaining_chapter_item_requirements = remaining_chapter_item_requirements
