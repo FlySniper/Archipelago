@@ -1,6 +1,6 @@
 from enum import auto, IntFlag
 
-GAME_NAME = "Lego Star Wars The Complete Saga"
+GAME_NAME = "Lego Star Wars: The Complete Saga"
 
 AP_WORLD_VERSION: tuple[int, int, int] = (1, 0, 0)
 
