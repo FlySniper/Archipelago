@@ -210,7 +210,7 @@ class PreferredChapters(ChapterOptionSet):
     default = frozenset()
 
 
-class PreferEntireEpisodes(Toggle):
+class PreferEntireEpisodes(DefaultOnToggle):
     """
     When enabled, after the generator has picked a chapter to be enabled out of the allowed chapters, it will continue
     picking additional chapters from the same episode until it runs out of allowed chapters in that episode.
