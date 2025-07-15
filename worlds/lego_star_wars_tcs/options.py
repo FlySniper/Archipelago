@@ -2,6 +2,16 @@ import itertools
 from dataclasses import dataclass
 from typing import Mapping, AbstractSet
 
+from Options import (
+    PerGameCommonOptions,
+    StartInventoryPool,
+    Choice,
+    Range,
+    NamedRange,
+    OptionSet,
+    DefaultOnToggle,
+    Toggle,
+)
 
 from .locations import LEVEL_SHORT_NAMES_SET
 
@@ -198,6 +208,23 @@ class PreferredChapters(ChapterOptionSet):
     # There is no point to using "All" for Preferred Chapters, so remove it from the valid_keys.
     valid_keys = set(ChapterOptionSet.valid_keys) - {"All"}
     default = frozenset()
+
+
+class PreferEntireEpisodes(Toggle):
+    """
+    When enabled, after the generator has picked a chapter to be enabled out of the allowed chapters, it will continue
+    picking additional chapters from the same episode until it runs out of allowed chapters in that episode.
+
+    For example, if the generator picks 3-2 as the first enabled chapter, its next picked chapters will be guaranteed to
+    be picked from the allowed chapters out of 3-1, 3-3, 3-4, 3-5 and 3-6.
+
+    The Starting Chapter is always the first picked enabled chapter.
+
+    With all chapters allowed to be enabled and an Enabled Chapters Count set to a multiple of 6, this option will
+    result in whole episodes being enabled.
+
+    When combined with the Preferred Chapters option, this option can be used to guarantee entire episodes.
+    """
 
 
 class ChapterUnlockRequirement(Choice):
@@ -432,6 +459,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     allowed_chapters: AllowedChapters
     starting_chapter: StartingChapter
     preferred_chapters: PreferredChapters
+    prefer_entire_episodes: PreferEntireEpisodes
 
     # Logic.
     # logic_difficulty: LogicDifficulty

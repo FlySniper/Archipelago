@@ -249,7 +249,20 @@ class LegoStarWarsTCSWorld(World):
             preferred_chapters = self.options.preferred_chapters.value_ungrouped
             if preferred_chapters:
                 non_starting_allowed_chapters.sort(key=lambda chapter: -1 if chapter in preferred_chapters else 0)
-
+            # If enabled, sort the allowed chapters into the order of the first occurrence of each episode.
+            if self.options.prefer_entire_episodes:
+                # The starting chapter is considered the first picked chapter.
+                initial_pick_order = [self.starting_chapter, *non_starting_allowed_chapters]
+                seen_episodes = 0
+                episode_pick_order: dict[str, int] = {}
+                for chapter in initial_pick_order:
+                    episode_str = chapter[0]
+                    if episode_str in episode_pick_order:
+                        continue
+                    episode_pick_order[episode_str] = seen_episodes
+                    seen_episodes += 1
+                non_starting_allowed_chapters.sort(key=lambda s: episode_pick_order[s[0]])
+            # Finally set the enabled chapters.
             self.enabled_chapters = {
                 self.starting_chapter,
                 *non_starting_allowed_chapters[:self.options.enabled_chapters_count.value - 1]
