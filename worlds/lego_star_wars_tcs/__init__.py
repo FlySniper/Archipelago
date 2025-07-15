@@ -969,7 +969,7 @@ class LegoStarWarsTCSWorld(World):
     def set_abilities_rule(self, spot: Location | Entrance, abilities: CharacterAbility):
         if abilities:
             player = self.player
-            ability_names = [ability.name for ability in abilities]
+            ability_names = cast(list[str], [ability.name for ability in abilities])
             if len(ability_names) == 1:
                 ability_name = ability_names[0]
                 set_rule(spot, lambda state: state.has(ability_name, player))
