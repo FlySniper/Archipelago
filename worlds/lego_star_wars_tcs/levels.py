@@ -486,10 +486,11 @@ CHAPTER_AREAS = [
 ]
 
 
-# todo: Need to consider the Gold Brick shop eventually. Also Bounty Hunter missions.
+# todo: Need to consider the Gold Brick shop eventually. Also Bounty Hunter missions. Also Challenges. Also
+#  Character/Minikit bonuses.
 BONUS_AREAS = [
     BonusArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, 4, Counter({
-        "Anakin's Pod": 1,
+        # "Anakin's Pod": 1,
         "Gold Brick": 10,
     })),
     # There are a number of test levels in LEVELS.TXT that seem to not be counted, so the level IDs for Anakin's Flight
@@ -502,18 +503,18 @@ BONUS_AREAS = [
     # Outro2 = 332
     # Status = 333
     BonusArea("Anakin's Flight", 0x86E3AC, 0x1, 333, 58, Counter({
-        "Naboo Starfighter": 1,
+        # "Naboo Starfighter": 1,
         "Gold Brick": 30,
     })),
     BonusArea("Gunship Cavalry (Original)", 0x86E1A8, 0x1, 98, 15, Counter({
-        "Republic Gunship": 1,
+        # "Republic Gunship": 1,
         "Gold Brick": 10,
     })),
     # Note: The base address may be incorrect/I do not know what the base address is supposed to be.
     BonusArea("A New Hope (Bonus Level)", 0x86E249, 0x8, 150, 29, Counter({
-        "Darth Vader": 1,
-        "Stormtrooper": 1,
-        "C-3PO": 1,
+        # "Darth Vader": 1,
+        # "Stormtrooper": 1,
+        # "C-3PO": 1,
         "Gold Brick": 20,
     })),
     BonusArea("LEGO City", 0x86E3B8, 0x1, 311, 59, Counter({
