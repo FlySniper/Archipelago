@@ -271,15 +271,20 @@ class LegoStarWarsTCSWorld(World):
             self.enabled_episodes = {SHORT_NAME_TO_CHAPTER_AREA[s].episode for s in self.enabled_chapters}
             self.enabled_chapter_count = len(self.enabled_chapters)
             if self.options.all_episodes_character_purchase_requirements == "episodes_unlocked":
+                # Only warn if the 'All Episodes' character shop purchases are enabled.
+                warn = self.options.enable_all_episodes_purchases.value
                 if self.options.episode_unlock_requirement == "open":
-                    self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
-                                      " 'Episodes Unlocked' because Episode unlock requirements were set to 'Open'")
+                    if warn:
+                        self._log_warning("'All Episodes' character shop unlocks were set to require 'Episodes Tokens' "
+                                          " instead of 'Episodes Unlocked' because Episode unlock requirements were"
+                                          " set to 'Open'")
                     tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
                     option = self.options.all_episodes_character_purchase_requirements
                     option.value = tokens
                 elif len(self.enabled_episodes) == 1:
-                    self._log_warning("'All Episodes' character shop unlocks were set to 'Episodes Tokens' from"
-                                      " 'Episodes Unlocked' because the only enabled Episode is the starting Episode")
+                    if warn:
+                        self._log_warning("'All Episodes' character shop unlocks were set to require 'Episodes Tokens'"
+                                          " from 'Episodes Unlocked' because there is only 1 Episode enabled.")
                     tokens = AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
                     option = self.options.all_episodes_character_purchase_requirements
                     option.value = tokens
@@ -944,7 +949,7 @@ class LegoStarWarsTCSWorld(World):
             self.character_purchase_location_count += 1
 
         # 'All Episodes' character purchases.
-        if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
+        if self.options.enable_all_episodes_purchases:
             all_episodes = self.create_region("All Episodes Unlocked")
             cantina.connect(all_episodes, "Unlock All Episodes")
             all_episodes_purchases = SHOP_SLOT_REQUIREMENT_TO_UNLOCKS["ALL_EPISODES"]
@@ -1091,7 +1096,7 @@ class LegoStarWarsTCSWorld(World):
                 lambda state, item_=GOLD_BRICK_EVENT_NAME, count_=gold_brick_count: state.has(item_, player, count_))
 
         # 'All Episodes' character unlocks.
-        if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
+        if self.options.enable_all_episodes_purchases:
             entrance = self.get_entrance("Unlock All Episodes")
             if self.options.all_episodes_character_purchase_requirements == "episodes_unlocked":
                 entrance_unlocks = tuple([f"Episode {i} Unlock" for i in range(1, 7) if i in self.enabled_episodes])

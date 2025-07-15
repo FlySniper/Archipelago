@@ -243,6 +243,23 @@ class EnableBonusLocations(Toggle):
     """
 
 
+class EnableAllEpisodesCharacterPurchaseLocations(Toggle):
+    """
+    Enable the expensive character purchase locations for IG-88, Dengar, 4-LOM, Ben Kenobi (Ghost), Anakin Skywalker
+    (Ghost), Yoda (Ghost) and R2-Q5.
+
+    In vanilla, these locations unlock after completing Story mode for every chapter, but the AP randomizer changes
+    these shop purchases to unlock according to the All Episodes Character Purchase Requirements option.
+
+    Even when the locations are disabled, the vanilla characters, IG-88, Dengar etc. may still be added to the item
+    pool.
+
+    Attempting to purchase the vanilla characters from the shop while the locations are disabled will not unlock the
+    vanilla characters.
+    """
+    display_name = "Enable 'All Episodes' Character Purchase Locations"
+
+
 class ChapterUnlockRequirement(Choice):
     """Choose how Chapters within an Episode are unlocked.
 
@@ -287,7 +304,6 @@ class AllEpisodesCharacterPurchaseRequirements(Choice):
     - Locations Disabled: The shop purchase locations will not be included in the multiworld.
 
     """
-    option_locations_disabled = 0
     option_episodes_unlocked = 1
     option_episodes_tokens = 2
     default = 2
@@ -477,6 +493,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     preferred_chapters: PreferredChapters
     prefer_entire_episodes: PreferEntireEpisodes
     enable_bonus_locations: EnableBonusLocations
+    enable_all_episodes_purchases: EnableAllEpisodesCharacterPurchaseLocations
 
     # Logic.
     # logic_difficulty: LogicDifficulty
