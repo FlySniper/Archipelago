@@ -536,6 +536,10 @@ class LegoStarWarsTCSWorld(World):
 
         possible_pool_character_names = list(possible_pool_character_items.values())
         self.random.shuffle(possible_pool_character_names)
+        # Sort preferred characters first so that they are picked in preference.
+        preferred_characters = self.options.preferred_characters.value
+        if preferred_characters:
+            possible_pool_character_names.sort(key=lambda char: -1 if char.name in preferred_characters else 0)
 
         for character in possible_pool_character_names:
             if remaining_abilities_to_fulfil & character.abilities:
@@ -718,24 +722,9 @@ class LegoStarWarsTCSWorld(World):
 
         # Create as many non-required characters as there are reserved character locations.
         self.random.shuffle(non_required_characters)
-        # todo: Replace with an option to force characters to be in the item pool.
-        # # If the world has at least a 12th of the game enabled, force some more useful characters to be in the pool that
-        # # otherwise might not be.
-        # if self.enabled_chapter_count >= 3:
-        #     always_try_to_include_chars = {
-        #         # Droideka is the fastest unlockable character, so always try to include it.
-        #         "Droideka"
-        #     }
-        #     # Ghosts are invincible and untargetable, so always try to include a Ghost in the item pool.
-        #     always_try_to_include_ghost = self.random.choice(
-        #         ["Ben Kenobi (Ghost)", "Anakin Skywalker (Ghost)", "Yoda (Ghost)"])
-        #     always_try_to_include_chars.add(always_try_to_include_ghost)
-        #     # Yoda can clip through a *lot* of ceilings, so always try to include Yoda in the item pool.
-        #     if always_try_to_include_ghost != "Yoda (Ghost)":
-        #         always_try_to_include_chars.add("Yoda")
-        #     # Sort the characters, to always include, first so that they will be picked in preference to other characters.
-        #     non_required_characters.sort(
-        #         key=lambda char_: -1 if char_.name in always_try_to_include_chars else 0)
+        # Sort preferred characters first so that they are picked in preference.
+        if preferred_characters:
+            non_required_characters.sort(key=lambda char: -1 if char.name in preferred_characters else 0)
         picked_chars = non_required_characters[:reserved_character_location_count]
         leftover_chars = non_required_characters[reserved_character_location_count:]
         for char in picked_chars:

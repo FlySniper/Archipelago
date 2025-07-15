@@ -14,6 +14,7 @@ from Options import (
 )
 
 from .locations import LEVEL_SHORT_NAMES_SET
+from .items import CHARACTERS_AND_VEHICLES_BY_NAME
 
 
 CHAPTER_OPTION_KEYS: Mapping[str, AbstractSet[str]] = {
@@ -404,6 +405,19 @@ class RandomStartingLevelMaxStartingCharacters(Range):
     default = 7
 
 
+class PreferredCharacters(OptionSet):
+    """
+    Specify characters that the generator should try to always include in the item pool.
+
+    When the number of enabled Chapters is reduced from the maximum, the number of items to add to the item pool is also
+    reduced, so not all characters may get added to the item pool.
+
+    The names of all items can be found by starting the Lego Star Wars: The Complete Saga client and entering the
+    `/items` command.
+    """
+    valid_keys = {char.name for char in CHARACTERS_AND_VEHICLES_BY_NAME.values() if char.code > 0}
+
+
 class StartWithDetectors(DefaultOnToggle):
     """Start with the Minikit Detector and Power Brick Detector unlocked.
 
@@ -504,7 +518,8 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     most_expensive_purchase_with_no_multiplier: MostExpensivePurchaseWithNoScoreMultiplier
     all_episodes_character_purchase_requirements: AllEpisodesCharacterPurchaseRequirements
 
-    # Start inventory helpers.
+    # Items.
+    preferred_characters: PreferredCharacters
     start_with_detectors: StartWithDetectors
 
     # Client behaviour.
