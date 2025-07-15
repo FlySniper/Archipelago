@@ -156,6 +156,7 @@ class LegoStarWarsTCSWorld(World):
                 passthrough["all_episodes_character_purchase_requirements"])
             self.options.most_expensive_purchase_with_no_multiplier.value = (
                 passthrough["most_expensive_purchase_with_no_multiplier"])
+            self.options.enable_bonus_locations.value = passthrough["enable_bonus_locations"]
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -828,24 +829,26 @@ class LegoStarWarsTCSWorld(World):
                 completion_loc = LegoStarWarsTCSLocation(self.player, completion_name,
                                                          self.location_name_to_id[completion_name], chapter_region)
                 chapter_region.locations.append(completion_loc)
-                # Completion Gold Brick event.
-                completion_gold_brick = LegoStarWarsTCSLocation(self.player, f"{completion_name} - Gold Brick",
-                                                                None, chapter_region)
-                completion_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                self.gold_brick_event_count += 1
-                chapter_region.locations.append(completion_gold_brick)
+                if self.options.enable_bonus_locations:
+                    # Completion Gold Brick event.
+                    completion_gold_brick = LegoStarWarsTCSLocation(self.player, f"{completion_name} - Gold Brick",
+                                                                    None, chapter_region)
+                    completion_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                    self.gold_brick_event_count += 1
+                    chapter_region.locations.append(completion_gold_brick)
 
                 # True Jedi.
                 true_jedi_name = f"{chapter.short_name} True Jedi"
                 true_jedi_loc = LegoStarWarsTCSLocation(self.player, true_jedi_name,
                                                         self.location_name_to_id[true_jedi_name], chapter_region)
                 chapter_region.locations.append(true_jedi_loc)
-                # True Jedi Gold Brick event.
-                true_jedi_gold_brick = LegoStarWarsTCSLocation(self.player, f"{true_jedi_name} - Gold Brick",
-                                                               None, chapter_region)
-                true_jedi_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                self.gold_brick_event_count += 1
-                chapter_region.locations.append(true_jedi_gold_brick)
+                if self.options.enable_bonus_locations:
+                    # True Jedi Gold Brick event.
+                    true_jedi_gold_brick = LegoStarWarsTCSLocation(self.player, f"{true_jedi_name} - Gold Brick",
+                                                                   None, chapter_region)
+                    true_jedi_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                    self.gold_brick_event_count += 1
+                    chapter_region.locations.append(true_jedi_gold_brick)
 
                 # Power Brick.
                 power_brick_location_name = chapter.power_brick_location_name
@@ -877,12 +880,13 @@ class LegoStarWarsTCSWorld(World):
                                                        chapter_minikits)
                     chapter_minikits.locations.append(location)
                     available_minikits_check += 1
-                # All Minikits Gold Brick.
-                all_minikits_gold_brick = LegoStarWarsTCSLocation(self.player, f"{chapter_minikits.name} - Gold Brick",
-                                                                  None, chapter_minikits)
-                all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                self.gold_brick_event_count += 1
-                chapter_minikits.locations.append(all_minikits_gold_brick)
+                if self.options.enable_bonus_locations:
+                    # All Minikits Gold Brick.
+                    all_minikits_gold_brick = LegoStarWarsTCSLocation(
+                        self.player, f"{chapter_minikits.name} - Gold Brick", None, chapter_minikits)
+                    all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                    self.gold_brick_event_count += 1
+                    chapter_minikits.locations.append(all_minikits_gold_brick)
 
         # Available minikit count is calculated in generate_early.
         if self.available_minikits != available_minikits_check:
@@ -892,48 +896,52 @@ class LegoStarWarsTCSWorld(World):
                               self.available_minikits,
                               available_minikits_check)
 
-        # Bonuses.
-        bonuses = self.create_region("Bonuses")
-        cantina.connect(bonuses, "Bonuses Door")
-        gold_brick_costs: dict[int, list[BonusArea]] = {}
-        for area in BONUS_AREAS:
-            gold_brick_costs.setdefault(area.item_requirements["Gold Brick"], []).append(area)
+        if self.options.enable_bonus_locations:
+            # Bonuses.
+            bonuses = self.create_region("Bonuses")
+            cantina.connect(bonuses, "Bonuses Door")
+            gold_brick_costs: dict[int, list[BonusArea]] = {}
+            for area in BONUS_AREAS:
+                gold_brick_costs.setdefault(area.item_requirements["Gold Brick"], []).append(area)
 
-        previous_gold_brick_region = bonuses
-        for gold_brick_cost, areas in sorted(gold_brick_costs.items(), key=lambda t: t[0]):
-            if gold_brick_cost == 0:
-                region = bonuses
-            elif gold_brick_cost > self.gold_brick_event_count:
-                # There are not enough Gold Brick events available to enable any more bonuses.
-                break
-            else:
-                region = self.create_region(f"{gold_brick_cost} Gold Bricks Collected")
-                player = self.player
-                previous_gold_brick_region.connect(
-                    region, f"Collect {gold_brick_cost} Gold Bricks",
-                    lambda state, cost_=gold_brick_cost, item_=GOLD_BRICK_EVENT_NAME: state.has(item_, player, cost_))
-                previous_gold_brick_region = region
+            previous_gold_brick_region = bonuses
+            for gold_brick_cost, areas in sorted(gold_brick_costs.items(), key=lambda t: t[0]):
+                if gold_brick_cost == 0:
+                    region = bonuses
+                elif gold_brick_cost > self.gold_brick_event_count:
+                    # There are not enough Gold Brick events available to enable any more bonuses.
+                    break
+                else:
+                    region = self.create_region(f"{gold_brick_cost} Gold Bricks Collected")
+                    player = self.player
+                    previous_gold_brick_region.connect(
+                        region, f"Collect {gold_brick_cost} Gold Bricks",
+                        lambda state, cost_=gold_brick_cost, item_=GOLD_BRICK_EVENT_NAME: (
+                            state.has(item_, player, cost_)))
+                    previous_gold_brick_region = region
 
-            for area in areas:
-                location = LegoStarWarsTCSLocation(self.player, area.name, self.location_name_to_id[area.name], region)
-                region.locations.append(location)
-                self.enabled_bonuses.add(area.name)
-                for item in area.item_requirements:
-                    if item in CHARACTERS_AND_VEHICLES_BY_NAME:
-                        self.character_chapter_access_counts[item] += 1
-                if not area.gold_brick:
-                    continue
-                gold_brick_location = LegoStarWarsTCSLocation(self.player, f"{area.name} - Gold Brick", None, region)
-                gold_brick_location.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                self.gold_brick_event_count += 1
-                region.locations.append(gold_brick_location)
+                for area in areas:
+                    location = LegoStarWarsTCSLocation(
+                        self.player, area.name, self.location_name_to_id[area.name], region)
+                    region.locations.append(location)
+                    self.enabled_bonuses.add(area.name)
+                    for item in area.item_requirements:
+                        if item in CHARACTERS_AND_VEHICLES_BY_NAME:
+                            self.character_chapter_access_counts[item] += 1
+                    if not area.gold_brick:
+                        continue
+                    gold_brick_location = LegoStarWarsTCSLocation(
+                        self.player, f"{area.name} - Gold Brick", None, region)
+                    gold_brick_location.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                    self.gold_brick_event_count += 1
+                    region.locations.append(gold_brick_location)
 
-        # Indiana Jones shop purchase. Unlocks in the shop after watching the Lego Indiana Jones trailer.
-        purchase_indy_name = "Purchase Indiana Jones"
-        purchase_indy = LegoStarWarsTCSLocation(self.player, purchase_indy_name,
-                                                self.location_name_to_id[purchase_indy_name], bonuses)
-        bonuses.locations.append(purchase_indy)
-        self.character_purchase_location_count += 1
+            # Indiana Jones shop purchase. Unlocks in the shop after watching the Lego Indiana Jones trailer.
+            purchase_indy_name = "Purchase Indiana Jones"
+            purchase_indy = LegoStarWarsTCSLocation(self.player, purchase_indy_name,
+                                                    self.location_name_to_id[purchase_indy_name], bonuses)
+            bonuses.locations.append(purchase_indy)
+            self.character_purchase_location_count += 1
 
         # 'All Episodes' character purchases.
         if self.options.all_episodes_character_purchase_requirements != "locations_disabled":
@@ -1173,6 +1181,7 @@ class LegoStarWarsTCSWorld(World):
                 "episode_unlock_requirement",
                 "all_episodes_character_purchase_requirements",
                 "most_expensive_purchase_with_no_multiplier",
+                "enable_bonus_locations",
             )
         }
 
