@@ -230,16 +230,17 @@ class PreferEntireEpisodes(DefaultOnToggle):
 class EnableBonusLocations(Toggle):
     """
     The Bonuses Door in the Cantina has a number of levels that require Gold Bricks to access. When this option is
-    enabled, completing each of these levels (in Story Mode if they have a Story mode) will be a location to check.
+    enabled, completing each of these Bonus levels (in Story Mode if they have a Story mode) will be a location to
+    check.
 
-    Additionally, watching the Lego Indiana Jones trailer, and purchasing Indiana Jones from the shop are added as
-    locations to check.
+    Additionally, watching the Lego Indiana Jones trailer (it can be skipped once started), and purchasing Indiana Jones
+    from the shop are added as locations to check.
 
     Gold Brick logic currently only counts Gold Bricks earned from Chapter completion, True Jedi, 10/10 Minikits in a
-    Chapter, and the singular Gold Bricks awarded for completing Bonus levels.
+    Chapter, and the singular Gold Bricks awarded for completing other Bonus levels.
 
-    Depending on other options, not all Chapters could be enabled, so if there are not enough Gold Bricks available for
-    a Bonus level to be accessed, that Bonus level will not be included in the multiworld.
+    Depending on other options, not all Chapters could be enabled, so if there are not enough Gold Bricks logically
+    available for a Bonus level to be accessed, that Bonus level will not be included in the multiworld.
     """
 
 
