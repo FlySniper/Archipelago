@@ -510,7 +510,8 @@ class LegoStarWarsTCSWorld(World):
         )
         self.starting_character_abilities = starting_abilities
 
-        # Determine what abilities must be supplied by the item pool.
+        # Determine what abilities must be supplied by the item pool for all locations to be reachable with all items in
+        # the item pool.
         required_character_abilities_in_pool = CharacterAbility.NONE
         for shortname in self.enabled_chapters:
             power_brick_abilities = POWER_BRICK_REQUIREMENTS[shortname][1]
