@@ -1,9 +1,27 @@
 import itertools
 from dataclasses import dataclass
+from typing import Mapping, AbstractSet
 
-from Options import PerGameCommonOptions, StartInventoryPool, Choice, Range, NamedRange, OptionSet, DefaultOnToggle
 
-from .locations import LEVEL_SHORT_NAMES
+from .locations import LEVEL_SHORT_NAMES_SET
+
+
+CHAPTER_OPTION_KEYS: Mapping[str, AbstractSet[str]] = {
+    **{chapter: {chapter} for chapter in LEVEL_SHORT_NAMES_SET},
+    "All": LEVEL_SHORT_NAMES_SET,
+    "Prequel Trilogy": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] in "123"},
+    "Original Trilogy": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] in "456"},
+    **{f"Episode {s}": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] == s} for s in "123456"},
+}
+
+
+class ChapterOptionSet(OptionSet):
+    valid_keys = set(CHAPTER_OPTION_KEYS.keys())
+
+    @property
+    def value_ungrouped(self) -> set[str]:
+        """Ungroup all grouped chapters in .value into a single set of individual chapters."""
+        return set().union(*(CHAPTER_OPTION_KEYS[key] for key in self.value))
 
 
 class MinikitGoalAmount(NamedRange):
@@ -86,7 +104,7 @@ class AllowedChapterTypes(Choice):
     default = 0
 
 
-class AllowedChapters(OptionSet):
+class AllowedChapters(ChapterOptionSet):
     """Choose the chapter levels that are allowed to be picked when choosing which chapters will be enabled.
 
     Special values:
@@ -129,14 +147,55 @@ class AllowedChapters(OptionSet):
       - 5-3
       - 6-5
     """
-    valid_keys = {
-        "All",
-        "Prequel Trilogy",
-        "Original Trilogy",
-        *[f"Episode {i}" for i in range(1, 7)],
-        *LEVEL_SHORT_NAMES,  # "1-1", "1-2", etc.
-    }
     default = frozenset({"All"})
+
+
+class PreferredChapters(ChapterOptionSet):
+    """
+    When the generator is picking which chapters should be enabled, pick from these preferred chapters first.
+
+    If a preferred chapter is not allowed to be picked because it is not included in the Allowed Chapters option, it
+    will not be picked.
+
+    This option can be used to guarantee that certain chapters are present in a generated world.
+
+    Individual chapters can be specified, e.g. "1-1", "5-4".
+
+    Special values:
+    - "Prequel Trilogy": All chapters in episodes 1, 2 and 3 will be preferred.
+    - "Original Trilogy": All chapters in episode 4, 5 and 6 will be preferred.
+    - "Episode {number}": e.g. "Episode 3" will make all chapters in Episode 3, so 3-1 through to 3-6, be preferred.
+
+    Examples:
+    # Prefer 1-1 (Negotiations)
+    preferred_chapters: ["1-1"]
+
+    # Prefer 1-1 (Negotiations) (alt.)
+    preferred_chapters:
+      - 1-1
+
+    # Prefer vehicle levels
+    preferred_chapters:
+      - 1-4
+      - 2-2
+      - 2-5
+      - 3-1
+      - 4-6
+      - 5-1
+      - 5-3
+      - 6-6
+
+    # A mix of values
+    preferred_chapters:
+      - Prequel Trilogy
+      - Episode 4
+      - 5-2
+      - 5-3
+      - 6-5
+    """
+    # There is no point to using "All" for Preferred Chapters, so remove it from the valid_keys.
+    valid_keys = set(ChapterOptionSet.valid_keys) - {"All"}
+    default = frozenset()
 
 
 class ChapterUnlockRequirement(Choice):
@@ -370,6 +429,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     allowed_chapter_types: AllowedChapterTypes
     allowed_chapters: AllowedChapters
     starting_chapter: StartingChapter
+    preferred_chapters: PreferredChapters
 
     # Logic.
     # logic_difficulty: LogicDifficulty

@@ -185,26 +185,7 @@ class LegoStarWarsTCSWorld(World):
         # Normal options parsing.
         else:
             # Determine all available chapters to pick from.
-            allowed_chapters: set[str] = set()
-            allowed_chapters_casefold = {v.casefold() for v in self.options.allowed_chapters.value}
-            if "all" in allowed_chapters_casefold:
-                allowed_chapters = set(LEVEL_SHORT_NAMES_SET)
-            else:
-                if "prequel trilogy" in allowed_chapters_casefold:
-                    allowed_chapters.update(f"{episode}-{chapter}"
-                                            for episode, chapter in itertools.product(range(1, 4), range(1, 7)))
-                    allowed_chapters_casefold.remove("prequel trilogy")
-                if "original trilogy" in allowed_chapters_casefold:
-                    allowed_chapters.update(f"{episode}-{chapter}"
-                                            for episode, chapter in itertools.product(range(4, 7), range(1, 7)))
-                    allowed_chapters_casefold.remove("original trilogy")
-                for i in range(1, 7):
-                    episode_key = f"episode {i}"
-                    if episode_key in allowed_chapters_casefold:
-                        allowed_chapters.update(f"{i}-{chapter}" for chapter in range(1, 7))
-                        allowed_chapters_casefold.remove(episode_key)
-                assert allowed_chapters_casefold <= LEVEL_SHORT_NAMES_SET
-                allowed_chapters.update(allowed_chapters_casefold)
+            allowed_chapters: set[str] = self.options.allowed_chapters.value_ungrouped
             if self.options.allowed_chapter_types == "no_vehicles":
                 # Remove vehicle chapters
                 allowed_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
@@ -261,12 +242,17 @@ class LegoStarWarsTCSWorld(World):
                                   self.options.enabled_chapters_count.value,
                                   len(allowed_chapters))
                 self.options.enabled_chapters_count.value = len(allowed_chapters)
+            # Sort once to ensure deterministic generation.
+            non_starting_allowed_chapters = sorted(allowed_chapters - {self.starting_chapter})
+            self.random.shuffle(non_starting_allowed_chapters)
+            # Determine preferred chapters and then sort again to put any preferred chapters first.
+            preferred_chapters = self.options.preferred_chapters.value_ungrouped
+            if preferred_chapters:
+                non_starting_allowed_chapters.sort(key=lambda chapter: -1 if chapter in preferred_chapters else 0)
 
-            non_starting_allowed_chapters = allowed_chapters - {self.starting_chapter}
             self.enabled_chapters = {
                 self.starting_chapter,
-                *self.random.sample(sorted(non_starting_allowed_chapters),
-                                    k=self.options.enabled_chapters_count.value - 1),
+                *non_starting_allowed_chapters[:self.options.enabled_chapters_count.value - 1]
             }
             self.enabled_episodes = {SHORT_NAME_TO_CHAPTER_AREA[s].episode for s in self.enabled_chapters}
             self.enabled_chapter_count = len(self.enabled_chapters)
