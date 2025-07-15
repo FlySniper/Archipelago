@@ -107,6 +107,8 @@ class AllowedChapterTypes(Choice):
 class AllowedChapters(ChapterOptionSet):
     """Choose the chapter levels that are allowed to be picked when choosing which chapters will be enabled.
 
+    Individual chapters can be specified, e.g. "1-1", "5-4".
+
     Special values:
     - "All": All chapters will be allowed.
     - "Prequel Trilogy": All chapters in episodes 1, 2 and 3 will be allowed.
@@ -115,21 +117,21 @@ class AllowedChapters(ChapterOptionSet):
 
     Examples:
     # Enable only 1-1 (Negotiations)
-    enabled_levels: ["1-1"]
+    allowed_chapters: ["1-1"]
 
     # Enable only 1-1 (Negotiations) (alt.)
-    enabled_levels:
+    allowed_chapters:
       - 1-1
 
     # Enable all
-    enabled_levels: ["All"]
+    allowed_chapters: ["All"]
 
     # Enable all (alt.)
-    enabled_levels:
+    allowed_chapters:
       - All
 
     # Enable only vehicle levels
-    enabled_levels:
+    allowed_chapters:
       - 1-4
       - 2-2
       - 2-5
@@ -140,7 +142,7 @@ class AllowedChapters(ChapterOptionSet):
       - 6-6
 
     # A mix of values
-    enabled levels:
+    allowed_chapters:
       - Prequel Trilogy
       - Episode 4
       - 5-2
