@@ -89,6 +89,17 @@ the player has a Jedi and a Protocol droid because the logic was designed around
 starting characters do not include a Jedi and a Protocol Droid, a Jedi and/or a Protocol Droid (usually TC-14) will be
 added to the starting characters.
 
+### Player 2 picking locked characters
+
+When loading a save file for the first time, it is possible for Player 2 to load in as Obi-Wan Kenobi or swap to Qui-Gon
+Jinn, even if those characters should be locked. Upon entering a Chapter in Free Play, Player 2 will continue using that
+character.
+
+When entering a Chapter in Free Play with only one Character unlocked for that level type (vehicle/non-vehicle), Player
+2 will pick a locked Character.
+
+Locked characters should not be used until they are actually unlocked.
+
 ### In-game messages
 
 Dying while a received item/checked location message is displayed will cause you to lose studs, but no studs will spawn
