@@ -504,6 +504,76 @@ class StartWithDetectors(DefaultOnToggle):
     display_name = "Start With Detector Extras"
 
 
+class FillerWeightCharacters(Range):
+    """
+    This option controls the weight of characters when choosing which items to fill out the rest of the space in the
+    item pool. A higher weight in comparison to the other Filler Weight options results in more characters in the item
+    pool, compared to other items used to fill out the rest of the item pool.
+
+    The generator tries to fill the item pool with as many Characters and Extras as would be unlocked, in vanilla, by
+    all the enabled locations.
+
+    Archipelago locations that don't have a corresponding vanilla item, and Minikits being bundled, results in some free
+    space in the item pool for any kind of item.
+    """
+    # Many characters are just reskins of another character, and the generator already guarantees that the item pool
+    # contains enough characters to reach every location. There are also often many character unlocks for each chapter
+    # completed.
+    range_start = 0
+    range_end = 100
+    default = 50
+
+
+class FillerWeightExtras(Range):
+    """
+    This option controls the weight of Extras when choosing which items to fill out the rest of the space in the
+    item pool. A higher weight in comparison to the other Filler Weight options results in more Extras in the item
+    pool, compared to other items used to fill out the rest of the item pool.
+
+    The generator tries to fill the item pool with as many Characters and Extras as would be unlocked, in vanilla, by
+    all the enabled locations.
+
+    Archipelago locations that don't have a corresponding vanilla item, and Minikits being bundled, results in some free
+    space in the item pool for any kind of item.
+    """
+    # There is only one Extra reserved in the item pool per chapter and Extras tend to have unique effects, so the
+    # default weight is higher.
+    range_start = 0
+    range_end = 100
+    default = 25
+
+
+class FillerWeightJunk(Range):
+    """
+    This option controls the weight of Studs, Power Ups and other junk filler Archipelago items when choosing which
+    items to fill out the rest of the space in the item pool. A higher weight in comparison to the other Filler Weight
+    options results in more Studs and other filler Archipelago items in the item pool, compared to other items used to
+    fill out the rest of the item pool.
+
+    Purple Stud is currently the only junk filler Archipelago item that is implemented, but more will likely be added in
+    the future.
+
+    The generator tries to fill the item pool with as many Characters and Extras as would be unlocked, in vanilla, by
+    all the enabled locations.
+
+    Archipelago locations that don't have a corresponding vanilla item, and Minikits being bundled, results in some free
+    space in the item pool for any kind of item.
+    """
+    range_start = 0
+    range_end = 100
+    default = 25
+
+
+class FillerMode(Choice):
+    """
+    The generator tries to fill the item pool with as many Characters and Extras as would be unlocked, in vanilla, by
+    all the enabled locations.
+
+    Archipelago locations that don't have a corresponding vanilla item, and Minikits being bundled, results in some free
+    space in the item pool for any kind of item.
+    """
+
+
 class MostExpensivePurchaseWithNoScoreMultiplier(Range):
     """
     The most expensive individual purchase the player can be expected to make without any score multipliers, *in
@@ -643,6 +713,9 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     preferred_characters: PreferredCharacters
     preferred_extras: PreferredExtras
     start_with_detectors: StartWithDetectors
+    filler_weight_characters: FillerWeightCharacters
+    filler_weight_extras: FillerWeightExtras
+    filler_weight_junk: FillerWeightJunk
 
     # Client behaviour.
     received_item_messages: ReceivedItemMessages

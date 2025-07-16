@@ -306,6 +306,12 @@ class LegoStarWarsTCSWorld(World):
                                   self.available_minikits)
                 self.options.minikit_goal_amount.value = self.available_minikits
 
+            # Sanity check Filler Weights options.
+            if (self.options.filler_weight_characters
+                    + self.options.filler_weight_extras
+                    + self.options.filler_weight_junk == 0):
+                self._option_error("At least one Filler Weight option must be set greater than zero")
+
         # Calculate goal_minikit_count when set to a percentage of the available minikits.
         if self.options.minikit_goal_amount == MinikitGoalAmount.special_range_names["use_percentage_option"]:
             self.goal_minikit_count = max(1, round(
@@ -799,48 +805,99 @@ class LegoStarWarsTCSWorld(World):
         num_to_fill -= len(picked_extras)
         assert num_to_fill >= 0
 
-        leftover_item_names = [(char.name for char in leftover_chars), leftover_extras]
-        leftover_excludable_items = []
-        leftover_non_excludable_items = []
-        for names in leftover_item_names:
-            for name in names:
-                item = create_item(name)
-                if item.excludable:
-                    leftover_excludable_items.append(item)
-                else:
-                    leftover_non_excludable_items.append(item)
+        # Determine items to fill out the rest of the item pool according to the weights in the options.
+        leftover_choices: list[list[LegoStarWarsTCSItem]] = []
+        leftover_weights: list[int] = []
 
-        # Create required excludable items.
-        if required_excludable_count:
-            self.random.shuffle(leftover_excludable_items)
-            required_excludable = leftover_excludable_items[:required_excludable_count]
-            leftover_excludable_items = leftover_excludable_items[required_excludable_count:]
-            still_to_create = required_excludable_count - len(required_excludable)
-            if still_to_create:
-                # There are still some required excludable items, so create Purple Stud items until the count is reached
-                for _ in range(still_to_create):
-                    required_excludable.append(create_item("Purple Stud"))
-            assert len(required_excludable) == required_excludable_count
-            for item in required_excludable:
-                add_to_pool(item)
-            num_to_fill -= required_excludable_count
-            assert num_to_fill >= 0
+        leftover_character_items = list(map(create_item, (char.name for char in leftover_chars)))
+        character_weight = self.options.filler_weight_characters.value
+        if character_weight and leftover_character_items:
+            leftover_choices.append(leftover_character_items)
+            leftover_weights.append(character_weight)
 
-        # Fill out whatever space is left in the item pool.
-        if num_to_fill:
-            self.random.shuffle(leftover_non_excludable_items)
-            to_add = leftover_non_excludable_items[:num_to_fill]
-            for item in to_add:
-                add_to_pool(item)
-            num_to_fill -= len(to_add)
-            if num_to_fill:
-                to_add = leftover_excludable_items[:num_to_fill]
-                for item in to_add:
-                    add_to_pool(item)
-                num_to_fill -= len(to_add)
-                if num_to_fill:
-                    for _ in range(num_to_fill):
-                        add_to_pool(create_item("Purple Stud"))
+        leftover_extra_items = list(map(create_item, leftover_extras))
+        extras_weight = self.options.filler_weight_extras.value
+        if extras_weight and leftover_extra_items:
+            leftover_choices.append(leftover_extra_items)
+            leftover_weights.append(extras_weight)
+
+        def create_excludable_junk_items(count: int):
+            # Only Purple Studs currently.
+            # names = self.random.choices(
+            #     ["Purple Stud", "Power Up", "Upgrade Studs"],
+            #     [100, 5, 5],
+            #     k=count)
+            # return [create_item(name) for name in names]
+            return [create_item("Purple Stud") for _ in range(count)]
+
+        junk_weight = self.options.filler_weight_junk.value
+        if junk_weight:
+            leftover_junk = create_excludable_junk_items(num_to_fill)
+            leftover_choices.append(leftover_junk)
+            leftover_weights.append(junk_weight)
+
+        all_leftover_items: Iterable[LegoStarWarsTCSItem]
+        if not leftover_choices:
+            # While there is always at least one nonzero weight, it's possible to have run out of Extras or Characters.
+            all_leftover_items = []
+        elif len(leftover_choices) == 1:
+            all_leftover_items = leftover_choices[0]
+        else:
+            weighted_leftover_items: list[LegoStarWarsTCSItem] = []
+            needed_excludable = required_excludable_count
+            # Items will be popped from the ends rather than taken from the start, so reverse the lists.
+            for item_list in leftover_choices:
+                item_list.reverse()
+            while (len(weighted_leftover_items) < num_to_fill or needed_excludable > 0) and leftover_choices:
+                picked_list = self.random.choices(leftover_choices, leftover_weights, k=1)[0]
+                item = picked_list.pop()
+                if needed_excludable > 0 and item.excludable:
+                    needed_excludable -= 1
+                weighted_leftover_items.append(item)
+                if not picked_list:
+                    # The picked list is now empty, so update leftover_choices
+                    next_leftover_choices: list[list[LegoStarWarsTCSItem]] = []
+                    next_leftover_weights: list[int] = []
+                    for item_list, weight in zip(leftover_choices, leftover_weights):
+                        if item_list:
+                            next_leftover_choices.append(item_list)
+                            next_leftover_weights.append(weight)
+
+                    leftover_choices = next_leftover_choices
+                    leftover_weights = next_leftover_weights
+
+                    if len(leftover_choices) == 1:
+                        # There is only one list left, so append all elements from it.
+                        remaining_list = next_leftover_choices[0]
+                        weighted_leftover_items.extend(reversed(remaining_list))
+                        remaining_list.clear()
+                        break
+
+            all_leftover_items = weighted_leftover_items
+
+        # Split the all_leftover_items into separate lists for required excludable items and other leftover items.
+        excludable_leftover_items = []
+        leftover_items = []
+        for item in all_leftover_items:
+            if required_excludable_count > 0 and item.excludable:
+                excludable_leftover_items.append(item)
+                required_excludable_count -= 1
+            else:
+                leftover_items.append(item)
+        if len(excludable_leftover_items) < required_excludable_count:
+            excludable_leftover_items.extend(create_excludable_junk_items(required_excludable_count))
+        # Required excludable items must be picked first.
+        leftover_items = excludable_leftover_items + leftover_items
+        if len(leftover_items) < num_to_fill:
+            leftover_items.extend(create_excludable_junk_items(num_to_fill - len(leftover_items)))
+        else:
+            leftover_items = leftover_items[:num_to_fill]
+        assert len(leftover_items) == num_to_fill
+
+        for item in leftover_items:
+            add_to_pool(item)
+
+        assert len(item_pool) == len(unfilled_locations)
 
         self.multiworld.itempool.extend(item_pool)
 
