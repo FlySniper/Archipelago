@@ -564,12 +564,14 @@ class LegoStarWarsTCSWorld(World):
         non_required_characters = list(possible_pool_character_items.values())
 
         if self.options.start_with_detectors:
-            non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.code > 0]
-        else:
             detectors = {"Minikit Detector", "Power Brick Detector"}
             assert detectors <= set(EXTRAS_BY_NAME.keys())
             non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items()
                                    if extra.code > 0 and name not in detectors]
+            for detector in sorted(detectors):
+                self.push_precollected(self.create_item(detector))
+        else:
+            non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.code > 0]
 
         # todo: Add expensive purchase logic to determine the minimum number of Progressive Score Multiplier needed.
         required_score_multipliers = self.required_score_multiplier_count
