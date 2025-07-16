@@ -521,7 +521,7 @@ class FillerWeightCharacters(Range):
     # completed.
     range_start = 0
     range_end = 100
-    default = 50
+    default = 40
 
 
 class FillerWeightExtras(Range):
@@ -540,7 +540,7 @@ class FillerWeightExtras(Range):
     # default weight is higher.
     range_start = 0
     range_end = 100
-    default = 25
+    default = 30
 
 
 class FillerWeightJunk(Range):
@@ -561,7 +561,7 @@ class FillerWeightJunk(Range):
     """
     range_start = 0
     range_end = 100
-    default = 25
+    default = 30
 
 
 class FillerMode(Choice):
