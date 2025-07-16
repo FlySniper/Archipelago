@@ -435,9 +435,23 @@ class LegoStarWarsTCSWorld(World):
         return LegoStarWarsTCSItem(name, ItemClassification.progression, None, self.player)
 
     def create_items(self) -> None:
-        # vehicle_chapters_available = not VEHICLE_CHAPTER_SHORTNAMES.isdisjoint(self.enabled_chapters)
+        # todo: Reserve spaces in the item pool for vehicles and non-vehicles separately, based on how many locations
+        #  unlock characters of the each type.
+        vehicle_chapters_enabled = not VEHICLE_CHAPTER_SHORTNAMES.isdisjoint(self.enabled_chapters)
         possible_pool_character_items = {name: char for name, char in CHARACTERS_AND_VEHICLES_BY_NAME.items()
-                                         if char.code > 0}
+                                         if char.code > 0 and (vehicle_chapters_enabled or char.item_type != "Vehicle")}
+        # If Gunship Cavalry (Original), Pod Race (Original) and Anakin's Flight get updated to require Vehicles again,
+        # then Republic Gunship, Anakin's Pod and Naboo Starfighter would be required items to included in the pool.
+        # if not vehicle_chapters_enabled:
+        #     if "Anakin's Flight" in self.enabled_bonuses:
+        #         vehicle = CHARACTERS_AND_VEHICLES_BY_NAME["Naboo Starfighter"]
+        #         possible_pool_character_items[vehicle.name] = vehicle
+        #     if "Gunship Cavalry (Original)" in self.enabled_bonuses:
+        #         vehicle = CHARACTERS_AND_VEHICLES_BY_NAME["Republic Gunship"]
+        #         possible_pool_character_items[vehicle.name] = vehicle
+        #     if "Mos Espa Pod Race (Original)" in self.enabled_bonuses:
+        #         vehicle = CHARACTERS_AND_VEHICLES_BY_NAME["Anakin's Pod"]
+        #         possible_pool_character_items[vehicle.name] = vehicle
 
         # Add characters necessary to unlock the starting chapter into starting inventory.
         for name in CHAPTER_AREA_STORY_CHARACTERS[self.starting_chapter]:
