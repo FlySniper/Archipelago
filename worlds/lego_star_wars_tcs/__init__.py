@@ -122,7 +122,7 @@ class LegoStarWarsTCSWorld(World):
     goal_minikit_count: int = -1
     goal_minikit_bundle_count: int = -1
     gold_brick_event_count: int = 0
-    character_purchase_location_count: int = 0
+    character_unlock_location_count: int = 0
     required_score_multiplier_count: int = 0  # set in create_regions
 
     def __init__(self, multiworld, player: int):
@@ -159,6 +159,8 @@ class LegoStarWarsTCSWorld(World):
             self.options.most_expensive_purchase_with_no_multiplier.value = (
                 passthrough["most_expensive_purchase_with_no_multiplier"])
             self.options.enable_bonus_locations.value = passthrough["enable_bonus_locations"]
+            self.options.enable_story_character_unlock_locations.value = (
+                passthrough["enable_story_character_unlock_locations"])
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -327,6 +329,11 @@ class LegoStarWarsTCSWorld(World):
 
         self.prog_useful_level_access_threshold_count = int(
             self.PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT * self.enabled_chapter_count)
+
+        if self.options.enable_story_character_unlock_locations:
+            # There are often multiple Chapters that can send each Story character unlock location, so enable path
+            # display in spoilers with paths enabled.
+            self.topology_present = True
 
     def evaluate_effective_item(self,
                                 name: str,
@@ -589,7 +596,7 @@ class LegoStarWarsTCSWorld(World):
         non_required_extras.extend(["Progressive Score Multiplier"] * non_required_score_multipliers)
 
         # Try to add as many characters to the pool as this.
-        reserved_character_location_count = self.character_purchase_location_count
+        reserved_character_location_count = self.character_unlock_location_count
 
         # Try to create as many Extras as this.
         reserved_power_brick_location_count = self.enabled_chapter_count
@@ -909,9 +916,15 @@ class LegoStarWarsTCSWorld(World):
         return r
 
     def create_regions(self) -> None:
+        # Create the origin region.
         cantina = self.create_region(self.origin_region_name)
+
         # Double check that the minikit counts is as expected.
         available_minikits_check = 0
+
+        # All regions that connect to story character unlock regions.
+        story_character_unlock_regions: dict[str, list[Region]] = {}
+
         for episode_number in range(1, 7):
             if episode_number not in self.enabled_episodes:
                 continue
@@ -974,7 +987,7 @@ class LegoStarWarsTCSWorld(World):
                     self.required_score_multiplier_count = max(
                         self.required_score_multiplier_count,
                         self._get_score_multiplier_requirement(studs_cost))
-                self.character_purchase_location_count += len(chapter.shop_unlocks)
+                self.character_unlock_location_count += len(chapter.shop_unlocks)
 
                 # Minikits.
                 chapter_minikits = self.create_region(f"{chapter.name} Minikits")
@@ -992,6 +1005,22 @@ class LegoStarWarsTCSWorld(World):
                     all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
                     self.gold_brick_event_count += 1
                     chapter_minikits.locations.append(all_minikits_gold_brick)
+
+                # Story Character unlocks.
+                for character in sorted(CHAPTER_AREA_STORY_CHARACTERS[chapter.short_name]):
+                    story_character_unlock_regions.setdefault(character, []).append(chapter_region)
+
+        for character, parent_regions in story_character_unlock_regions.items():
+            character_region = self.create_region(f"Unlock {character}")
+            loc_name = f"Chapter Completion - Unlock {character}"
+            character_location = LegoStarWarsTCSLocation(
+                self.player, loc_name, self.location_name_to_id[loc_name], character_region
+            )
+            character_region.locations.append(character_location)
+            for parent_region in parent_regions:
+                parent_region.connect(character_region)
+
+        self.character_unlock_location_count += len(story_character_unlock_regions)
 
         # Available minikit count is calculated in generate_early.
         if self.available_minikits != available_minikits_check:
@@ -1046,7 +1075,7 @@ class LegoStarWarsTCSWorld(World):
             purchase_indy = LegoStarWarsTCSLocation(self.player, purchase_indy_name,
                                                     self.location_name_to_id[purchase_indy_name], bonuses)
             bonuses.locations.append(purchase_indy)
-            self.character_purchase_location_count += 1
+            self.character_unlock_location_count += 1
 
         # 'All Episodes' character purchases.
         if self.options.enable_all_episodes_purchases:
@@ -1058,7 +1087,7 @@ class LegoStarWarsTCSWorld(World):
                 location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase],
                                                    all_episodes)
                 all_episodes.locations.append(location)
-            self.character_purchase_location_count += len(all_episodes_purchases)
+            self.character_unlock_location_count += len(all_episodes_purchases)
 
         # Starting character purchases.
         starting_purchases = [
@@ -1068,7 +1097,7 @@ class LegoStarWarsTCSWorld(World):
         for purchase in starting_purchases:
             location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase], cantina)
             cantina.locations.append(location)
-        self.character_purchase_location_count += len(starting_purchases)
+        self.character_unlock_location_count += len(starting_purchases)
 
         # Victory event
         victory = LegoStarWarsTCSLocation(self.player, "Minikits Goal", parent=cantina)
@@ -1287,6 +1316,7 @@ class LegoStarWarsTCSWorld(World):
                 "all_episodes_character_purchase_requirements",
                 "most_expensive_purchase_with_no_multiplier",
                 "enable_bonus_locations",
+                "enable_story_character_unlock_locations",
             )
         }
 

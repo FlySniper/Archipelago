@@ -228,6 +228,26 @@ class PreferEntireEpisodes(DefaultOnToggle):
     """
 
 
+class EnableChapterCompletionCharacterUnlockLocations(DefaultOnToggle):
+    """
+    Enable locations for unlocking Story mode characters that would normally unlock when completing a Chapter in
+    vanilla.
+
+    In vanilla, completing any Chapter with C-3PO as a playable Story mode character would unlock C-3PO. In vanilla,
+    this would mean completing either 2-3, 4-1, 5-2 or 6-1 because Chapters within an Episode unlock in order in
+    vanilla, but the AP randomizer allows for Chapters to be unlocked out-of-order, so, additionally, completing any of
+    4-2, 4-3, 4-4, 4-5, 5-6, 6-2 or 6-4, would also send the Story Character Unlock location for C-3PO.
+
+    The first Chapter completed that would unlock a Story mode character will send the Unlock location for that
+    character.
+
+    Because Story mode is skipped in the AP randomizer, these character unlock locations are sent when the Chapters are
+    completed in Free Play.
+
+    With all Chapters enabled, this adds 56 locations.
+    """
+
+
 class EnableBonusLocations(Toggle):
     """
     The Bonuses Door in the Cantina has a number of levels that require Gold Bricks to access. When this option is
@@ -242,6 +262,8 @@ class EnableBonusLocations(Toggle):
 
     Depending on other options, not all Chapters could be enabled, so if there are not enough Gold Bricks logically
     available for a Bonus level to be accessed, that Bonus level will not be included in the multiworld.
+
+    With all Chapters enabled, this adds 8 locations.
     """
 
 
@@ -258,6 +280,8 @@ class EnableAllEpisodesCharacterPurchaseLocations(Toggle):
 
     Attempting to purchase the vanilla characters from the shop while the locations are disabled will not unlock the
     vanilla characters.
+
+    This adds 7 locations.
     """
     display_name = "Enable 'All Episodes' Character Purchase Locations"
 
@@ -698,6 +722,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     starting_chapter: StartingChapter
     preferred_chapters: PreferredChapters
     prefer_entire_episodes: PreferEntireEpisodes
+    enable_story_character_unlock_locations: EnableChapterCompletionCharacterUnlockLocations
     enable_bonus_locations: EnableBonusLocations
     enable_all_episodes_purchases: EnableAllEpisodesCharacterPurchaseLocations
 
