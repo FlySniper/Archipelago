@@ -430,6 +430,72 @@ class PreferredCharacters(OptionSet):
     })
 
 
+class PreferredExtras(OptionSet):
+    """
+    Specify Extras that the generator should try to always include in the item pool.
+
+    When the number of enabled Chapters is reduced from the maximum, the number of items to add to the item pool is also
+    reduced, so not all Extras may get added to the item pool.
+
+    The names of all items can be found by starting the Lego Star Wars: The Complete Saga client and entering the
+    `/items` command.
+
+    Score Multipliers that are logically required, due to the Most Expensive Purchase With No Score Multiplier option,
+    will always be included in the item pool.
+
+    When Progressive Score Multiplier items are enabled (always enabled currently), preferring "Score x{number}" to be
+    included in the item pool will try to ensure there are enough Progressive Score Multiplier items to unlock that
+    score multiplier.
+    """
+    valid_keys = {
+        # Progressive Score Multiplier is an AP-specific item, and this option does not support specifying multiple of
+        # an item, so the individual "Score x{number}" Extras are included as valid keys instead.
+        *(extra.name for extra in EXTRAS_BY_NAME.values() if extra.code > 0
+          and extra.name != "Progressive Score Multiplier"),
+        "Score x2",
+        "Score x4",
+        "Score x6",
+        "Score x8",
+        "Score x10",
+    }
+    default = frozenset({
+        # Out-of-logic access:
+        # Out-of-logic SITH access
+        "Dark Side",
+        # Out-of-logic BOUNTY_HUNTER access (silver bricks only)
+        "Exploding Blaster Bolts",
+        # Out-of-logic BLASTER access (grapple only)
+        "Force Grapple Leap",
+        # Out-of-logic BOUNTY_HUNTER access (silver bricks only)
+        "Self Destruct",
+        # Out-of-logic BOUNTY_HUNTER access (silver bricks only)
+        "Super Ewok Catapult",
+
+        # Speed up playing:
+        # Useful for survivability/True Jedi, especially in vehicle chapters, and a few places where hostile NPCs can be
+        # used to activate buttons.
+        "Deflect Bolts",
+        # Useful for survivability/True Jedi and a few places where NPCs can be used to activate buttons
+        "Disarm Troopers",
+        # Useful for speeding up playing through chapters
+        "Fast Force",
+        # Useful for speeding up playing through chapters
+        "Fast Build",
+        # Useful for speeding up playing through chapters
+        "Infinite Torpedos"
+        # Useful for survivability/True Jedi and a few places where hostile NPCs can be used to activate buttons.
+        "Invincibility",
+        # All score multipliers are useful for speeding up Studs farming and getting True Jedi
+        "Score x2",
+        "Score x4",
+        "Score x6",
+        "Score x8",
+        "Score x10",
+        # Useful for speeding up playing through chapters and getting True Jedi
+        "Stud Magnet",
+    })
+
+
 class StartWithDetectors(DefaultOnToggle):
     """Start with the Minikit Detector and Power Brick Detector unlocked.
 
@@ -575,6 +641,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
 
     # Items.
     preferred_characters: PreferredCharacters
+    preferred_extras: PreferredExtras
     start_with_detectors: StartWithDetectors
 
     # Client behaviour.

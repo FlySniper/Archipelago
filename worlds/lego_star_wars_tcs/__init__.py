@@ -754,6 +754,42 @@ class LegoStarWarsTCSWorld(World):
 
         # Create as many non-required extras as there are reserved power brick locations.
         self.random.shuffle(non_required_extras)
+        # Sort preferred Extras first so that they are picked in preference.
+        preferred_extras = self.options.preferred_extras.value
+        if preferred_extras:
+            # todo: Once Progressive Score Multipliers can be disabled, this if-condition also needs to check that
+            #  Progressive Score Multipliers are enabled.
+            # Swap out Progressive Score Multiplier with individual Score multipliers so that only the preferred
+            if non_required_score_multipliers:
+                score_multipliers = [
+                    "Score x10",
+                    "Score x8",
+                    "Score x6",
+                    "Score x4",
+                    "Score x2",
+                ]
+                # Find the highest preferred Score multiplier and ensure the lower multipliers are also preferred.
+                for i, multiplier in enumerate(score_multipliers[:-1]):
+                    if multiplier in preferred_extras:
+                        preferred_extras.update(score_multipliers[i + 1:])
+                        break
+                score_multipliers_set = set(score_multipliers)
+
+                # Replace "Progressive Score Multiplier" with individual multipliers.
+                progressive_replacements = score_multipliers[:non_required_score_multipliers]
+                self.random.shuffle(progressive_replacements)
+
+                non_required_extras = [progressive_replacements.pop() if e == "Progressive Score Multiplier" else e
+                                       for e in non_required_extras]
+                # Sort preferred extras to the front so that they get picked first.
+                non_required_extras.sort(key=lambda extra: -1 if extra in preferred_extras else 0)
+                # Replace individual multipliers with "Progressive Score Multiplier".
+                non_required_extras = ["Progressive Score Multiplier" if e in score_multipliers_set else e
+                                       for e in non_required_extras]
+            else:
+                # Sort preferred extras to the front so that they get picked first.
+                non_required_extras.sort(key=lambda extra: -1 if extra in preferred_extras else 0)
+
         picked_extras = non_required_extras[:reserved_power_brick_location_count]
         leftover_extras = non_required_extras[reserved_power_brick_location_count:]
         for extra in picked_extras:
