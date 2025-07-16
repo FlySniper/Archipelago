@@ -482,7 +482,7 @@ class PreferredExtras(OptionSet):
         # Useful for speeding up playing through chapters
         "Fast Build",
         # Useful for speeding up playing through chapters
-        "Infinite Torpedos"
+        "Infinite Torpedos",
         # Useful for survivability/True Jedi and a few places where hostile NPCs can be used to activate buttons.
         "Invincibility",
         # All score multipliers are useful for speeding up Studs farming and getting True Jedi
