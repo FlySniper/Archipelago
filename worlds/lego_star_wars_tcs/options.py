@@ -14,7 +14,7 @@ from Options import (
 )
 
 from .locations import LEVEL_SHORT_NAMES_SET
-from .items import CHARACTERS_AND_VEHICLES_BY_NAME
+from .items import CHARACTERS_AND_VEHICLES_BY_NAME, EXTRAS_BY_NAME
 
 
 CHAPTER_OPTION_KEYS: Mapping[str, AbstractSet[str]] = {
@@ -414,8 +414,20 @@ class PreferredCharacters(OptionSet):
 
     The names of all items can be found by starting the Lego Star Wars: The Complete Saga client and entering the
     `/items` command.
+
+    If no vehicle Chapters are enabled, no vehicle characters will be included in the item pool.
     """
     valid_keys = {char.name for char in CHARACTERS_AND_VEHICLES_BY_NAME.values() if char.code > 0}
+    default = frozenset({
+        # Highest base movement speed or non-Extra-Toggle characters, lots of glitches.
+        "Droideka",
+        # Lots of glitches, also a ghost.
+        "Yoda (Ghost)",
+        # High Jump + Triple jump glitch can get a lot of vertical height.
+        # Grevous' Bodyguard can reach similar heights, and has higher movement speed, but has a super-high single jump
+        # + slam double jump, so cannot get as much horizontal distance compared to General Grievous.
+        "General Grievous",
+    })
 
 
 class StartWithDetectors(DefaultOnToggle):
@@ -488,6 +500,49 @@ class CheckedLocationMessages(Choice):
     default = 0
     option_all = 0
     option_none = 1
+
+
+class LogicDifficulty(Choice):
+    # todo: Maybe just remove Extras (other than score multipliers) logic from None difficulty?
+    """
+    - None:
+      - Tries to match developer intended strategies.
+      - Includes some combat logic for avoidable/ignorable enemies.
+      - Extras (except Score Multipliers for expensive purchases) are not included in logic.
+    - Normal:
+      - No glitches expected.
+      - Players that have played most of the vanilla game should be able to play with this difficulty.
+      - Expects more platforming that probably wasn't developer intended, but it generally quite obvious and simple.
+      - Logic starts expecting the use of Extras:
+        - Self Destruct, Exploding Blaster Bolts, and Super Ewok Catapult can be expected for destroying Silver Brick
+        objects.
+        - Force Grapple Leap can be expected to use Grapple points.
+        - Dark Side can be expected to use Sith Force. There are a few, rare cases where P1 and P2 are expected to use
+        Sith Force simultaneously. The CPU co-op partner will only use Sith Force with Sith characters, so these cases
+        can require a small amount of controlling both characters simultaneously if the only access to Sith Force is
+        through Dark Side.
+      - (incomplete, most levels will use None difficulty logic)
+    - Moderate:
+      - Simpler glitches expected.
+      - Players that play the AP randomizer often should be able to perform all tricks in this difficulty efficiency,
+      after some practice and/or learning.
+      - Slam triple jumps included in logic.
+      - Expects more platforming off of terrain
+      - (incomplete, most levels will use None difficulty logic)
+    - Hard:
+      - More difficult jumps and tricks.
+      - (incomplete, most levels will use None difficulty logic)
+    """
+    # - Expert: Includes out-of-bounds clips and 1P2C that is more than just holding down a single button for P2.
+    # Comparable to Glitched logic in ViolaGuy's TCS randomizer.
+    # - Super Expert: Super Jumps, DV3 Skip, CCT door clip and more. Comparable to Super Glitched logic in ViolaGuy's
+    # standalone TCS randomizer.
+    option_none = 0
+    option_normal = 1
+    option_moderate = 2
+    option_hard = 3
+    # option_expert = 4
+    # option_super_expert = 5
 
 
 @dataclass
