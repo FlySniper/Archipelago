@@ -586,7 +586,6 @@ class LegoStarWarsTCSWorld(World):
         # Try to create as many Extras as this.
         reserved_power_brick_location_count = self.enabled_chapter_count
 
-
         # As many minikit bundles as this will always be created. This may be fewer than is required to goal, but
         # reducing the total bundle count can make a seed longer, so all minikit bundles should be considered to be
         # required.
