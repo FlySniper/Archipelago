@@ -38,6 +38,7 @@ class UnlockedChapterManager(ClientComponent):
         enabled_episodes = slot_data["enabled_episodes"]
         episode_unlock_requirement = slot_data["episode_unlock_requirement"]
         all_episodes_character_purchase_requirements = slot_data["all_episodes_character_purchase_requirements"]
+        all_episodes_purchases_enabled = bool(slot_data["enable_all_episodes_purchases"])
 
         num_enabled_episodes = len(enabled_episodes)
 
@@ -45,21 +46,22 @@ class UnlockedChapterManager(ClientComponent):
                                          for chapter_shortname in enabled_chapters}
 
         # Set 'All Episodes' unlock requirement.
-        tokens = options.AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
-        unlocks = options.AllEpisodesCharacterPurchaseRequirements.option_episodes_unlocked
-        disabled = options.AllEpisodesCharacterPurchaseRequirements.option_locations_disabled
-        if all_episodes_character_purchase_requirements == tokens:
-            self.should_unlock_all_episodes_shop_slots = (
-                lambda ctx: ctx.acquired_generic.all_episodes_token_counts == num_enabled_episodes)
-        elif all_episodes_character_purchase_requirements == unlocks:
-            self.should_unlock_all_episodes_shop_slots = (
-                lambda ctx: len(ctx.acquired_generic.received_episode_unlocks) == num_enabled_episodes)
-        elif all_episodes_character_purchase_requirements == disabled:
+        if not all_episodes_purchases_enabled:
             self.should_unlock_all_episodes_shop_slots = UnlockedChapterManager.should_unlock_all_episodes_shop_slots
         else:
-            self.should_unlock_all_episodes_shop_slots = UnlockedChapterManager.should_unlock_all_episodes_shop_slots
-            raise RuntimeError(f"Unexpected 'All Episodes' character purchase requirement:"
-                               f" {all_episodes_character_purchase_requirements}")
+            tokens = options.AllEpisodesCharacterPurchaseRequirements.option_episodes_tokens
+            unlocks = options.AllEpisodesCharacterPurchaseRequirements.option_episodes_unlocked
+            if all_episodes_character_purchase_requirements == tokens:
+                self.should_unlock_all_episodes_shop_slots = (
+                    lambda ctx: ctx.acquired_generic.all_episodes_token_counts == num_enabled_episodes)
+            elif all_episodes_character_purchase_requirements == unlocks:
+                self.should_unlock_all_episodes_shop_slots = (
+                    lambda ctx: len(ctx.acquired_generic.received_episode_unlocks) == num_enabled_episodes)
+            else:
+                self.should_unlock_all_episodes_shop_slots = (
+                    UnlockedChapterManager.should_unlock_all_episodes_shop_slots)
+                raise RuntimeError(f"Unexpected 'All Episodes' character purchase requirement:"
+                                   f" {all_episodes_character_purchase_requirements}")
 
         self.unlocked_chapters_per_episode = {i: set() for i in enabled_episodes}
         item_id_to_chapter_area_short_name: dict[int, list[str]] = {}

@@ -161,6 +161,7 @@ class LegoStarWarsTCSWorld(World):
             self.options.enable_bonus_locations.value = passthrough["enable_bonus_locations"]
             self.options.enable_story_character_unlock_locations.value = (
                 passthrough["enable_story_character_unlock_locations"])
+            self.options.enable_all_episodes_purchases.value = passthrough["enable_all_episodes_purchases"]
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -1317,6 +1318,7 @@ class LegoStarWarsTCSWorld(World):
                 "most_expensive_purchase_with_no_multiplier",
                 "enable_bonus_locations",
                 "enable_story_character_unlock_locations",
+                "enable_all_episodes_purchases",
             )
         }
 
