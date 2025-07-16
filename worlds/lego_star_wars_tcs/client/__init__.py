@@ -237,8 +237,6 @@ UNUSED_AREA_DWORD_SLOT_NAME_END = UNUSED_AREA_DWORD_SLOT_NAME_START + 16
 UNUSED_AREA_DWORD_SLOT_NAME_AREAS = slice(UNUSED_AREA_DWORD_SLOT_NAME_START,
                                           UNUSED_AREA_DWORD_SLOT_NAME_END)
 
-import random
-
 
 class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
     def __init__(self, ctx: CommonContext):
@@ -248,6 +246,7 @@ class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
         """Queue a debug message to be displayed in-game"""
         if isinstance(self.ctx, LegoStarWarsTheCompleteSagaContext):
             if self.ctx.slot:
+                import random
                 self.ctx.text_display.queue_message(random.choice([
                     "The quick brown fox jumps over the lazy dog!",  # English
                     "Voix ambiguë d'un cœur qui, au zéphyr, préfère les jattes de kiwis.",  # French
