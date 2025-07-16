@@ -144,17 +144,15 @@ class FreePlayChapterCompletionChecker(ClientComponent):
         # does 'Save and Exit', changing the Level ID to a 'status' level and accidentally sending a location check.
         current_level_id = ctx.read_current_level_id()
         completion_location_id = STATUS_LEVEL_ID_TO_AP_ID.get(current_level_id)
-        area = STATUS_LEVEL_ID_TO_AREA[current_level_id]
-        area_id = area.area_id
-        if (completion_location_id is not None
-                and area_id not in self.completed_free_play
-                and is_in_free_play(ctx)
-                and is_status_level_completion(ctx)):
-            completion_locations = self.chapter_completion_locations.get(area.area_id, ())
-            self.sent_locations.update(completion_locations)
-            ctx.update_datastorage_free_play_completion([area_id])
-            self.completed_free_play.add(area.area_id)
-            ctx.write_byte(area.address + area.UNLOCKED_OFFSET, 0b11)
+        if completion_location_id is not None:
+            area = STATUS_LEVEL_ID_TO_AREA[current_level_id]
+            area_id = area.area_id
+            if area_id not in self.completed_free_play and is_in_free_play(ctx) and is_status_level_completion(ctx):
+                completion_locations = self.chapter_completion_locations.get(area.area_id, ())
+                self.sent_locations.update(completion_locations)
+                ctx.update_datastorage_free_play_completion([area_id])
+                self.completed_free_play.add(area.area_id)
+                ctx.write_byte(area.address + area.UNLOCKED_OFFSET, 0b11)
 
         # Not required because only the intersection of ctx.missing_locations will be sent to the server, but removing
         # checked locations (server state) here helps with debugging by reducing self.sent_locations to only new checks.
