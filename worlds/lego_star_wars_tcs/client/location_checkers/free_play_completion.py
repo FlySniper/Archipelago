@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from ...levels import CHAPTER_AREAS, ChapterArea
+from ...levels import CHAPTER_AREAS, ChapterArea, AREA_ID_TO_CHAPTER_AREA
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
 from ..type_aliases import ApLocationId, LevelId, TCSContext, AreaId
 from ..common import ClientComponent
@@ -100,16 +100,29 @@ class FreePlayChapterCompletionChecker(ClientComponent):
 
     def read_completed_free_play_from_save_data(self, ctx: TCSContext):
         enabled_chapter_areas = self.enabled_chapter_areas
+        completed_area_ids: list[int] = []
         for area in CHAPTER_AREAS:
-            if enabled_chapter_areas is not None and area.area_id not in enabled_chapter_areas:
+            area_id = area.area_id
+            if enabled_chapter_areas is not None and area_id not in enabled_chapter_areas:
                 continue
             # Either the chapter is enabled, or the player has not connected yet, so it is not known if the chapter is
             # enabled.
             unlocked_byte = ctx.read_uchar(area.address + area.UNLOCKED_OFFSET)
             if unlocked_byte == 0b11:
-                self.completed_free_play.add(area.area_id)
+                self.completed_free_play.add(area_id)
                 debug_logger.info("Read from save file that %s has been completed in Free Play", area.short_name)
                 self.sent_locations.add(STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id])
+                completed_area_ids.append(area_id)
+        ctx.update_datastorage_free_play_completion(completed_area_ids)
+
+    def update_from_datastorage(self, area_ids: list[int]):
+        debug_logger.info("Updating Free Play Completion area_ids from datastorage: %s", area_ids)
+        for area_id in area_ids:
+            self.completed_free_play.add(area_id)
+            area = AREA_ID_TO_CHAPTER_AREA[area_id]
+            ap_id = STATUS_LEVEL_ID_TO_AP_ID[area.status_level_id]
+            # The location should have been sent already, but try sending it again just in-case.
+            self.sent_locations.add(ap_id)
 
     async def initialize(self, ctx: TCSContext):
         if not self.initial_setup_complete:
@@ -129,7 +142,10 @@ class FreePlayChapterCompletionChecker(ClientComponent):
                 and is_status_level_completion(ctx)):
             self.sent_locations.add(completion_location_id)
             area = STATUS_LEVEL_ID_TO_AREA[current_level_id]
-            self.completed_free_play.add(area.area_id)
+            area_id = area.area_id
+            if area_id not in self.completed_free_play:
+                ctx.update_datastorage_free_play_completion([area_id])
+                self.completed_free_play.add(area.area_id)
             ctx.write_byte(area.address + area.UNLOCKED_OFFSET, 0b11)
 
         # Not required because only the intersection of ctx.missing_locations will be sent to the server, but removing

@@ -237,6 +237,9 @@ UNUSED_AREA_DWORD_SLOT_NAME_END = UNUSED_AREA_DWORD_SLOT_NAME_START + 16
 UNUSED_AREA_DWORD_SLOT_NAME_AREAS = slice(UNUSED_AREA_DWORD_SLOT_NAME_START,
                                           UNUSED_AREA_DWORD_SLOT_NAME_END)
 
+COMPLETED_FREE_PLAY_KEY_PREFIX = "tcs_completed_free_play_"
+COMPLETED_FREE_PLAY_KEY_FORMAT = COMPLETED_FREE_PLAY_KEY_PREFIX + "{team}_{slot}"
+
 
 class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
     def __init__(self, ctx: CommonContext):
@@ -329,6 +332,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.client_expected_idx = 0
 
         self.fully_connected = False
+
+    @property
+    def datastorage_free_play_completion_key(self) -> str:
+        return COMPLETED_FREE_PLAY_KEY_FORMAT.format(team=self.team, slot=self.slot)
 
     def on_print_json(self, args: dict) -> None:
         super().on_print_json(args)
@@ -499,6 +506,37 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             # Setting this to non-None indicates to the game watcher loop to start fully running.
             self.last_connected_slot = self.auth
             self.auth_status = AuthStatus.AUTHENTICATED
+            # Get, and subscribe to, updates to Free Play completions
+            Utils.async_start(self.send_msgs(
+                [
+                    {
+                        "cmd": "Get",
+                        "keys": [self.datastorage_free_play_completion_key]
+                    },
+                    {
+                        "cmd": "SetNotify",
+                        "keys": [self.datastorage_free_play_completion_key]
+                    }
+                ]
+            ))
+        elif cmd == "SetReply":
+            key: str = args["key"]
+            if key.startswith(COMPLETED_FREE_PLAY_KEY_PREFIX) and key == self.datastorage_free_play_completion_key:
+                value = args["value"]
+                if value is not None:
+                    self.free_play_completion_checker.update_from_datastorage(value)
+
+    def update_datastorage_free_play_completion(self, area_ids: list[int]):
+        if not area_ids:
+            return
+        debug_logger.info("Sending Free Play Completion area_ids to datastorage: %s", area_ids)
+        Utils.async_start(self.send_msgs([{
+            "cmd": "Set",
+            "key": self.datastorage_free_play_completion_key,
+            "default": [],
+            "want_reply": False,
+            "operations": [{"operation": "update", "value": area_ids}]
+        }]))
 
     def on_multiworld_or_slot_changed(self):
         # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
