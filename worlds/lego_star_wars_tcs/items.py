@@ -478,7 +478,7 @@ ITEM_DATA: list[GenericItemData] = [
     _vehicle(195, "TIE Fighter", 37, abilities=VEHICLE_TIE),
     _vehicle(196, "TIE Fighter (Darth Vader)", 182, abilities=VEHICLE_TIE),
     _vehicle(197, "TIE Bomber", 209, abilities=VEHICLE_TIE),
-    _vehicle(198, "Imperial Shuttle", 198, abilities=VEHICLE_TIE),
+    _vehicle(198, "Imperial Shuttle", 198),
     MinikitItemData(199, "Minikit", 1),
     MinikitItemData(200, "2 Minikits", 2),
     MinikitItemData(201, "10 Minikits", 10),
