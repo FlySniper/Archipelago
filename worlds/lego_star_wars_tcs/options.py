@@ -78,7 +78,7 @@ class MinikitBundleSize(Choice):
     FillError when generating Lego Star Wars: The Complete Saga on its own, or with other games that can struggle to
     place all items.
 
-    Low bundle sizes also mean fewer filler studs in the item pool.
+    Low bundle sizes also mean fewer filler items in the item pool.
     """
     display_name = "Minikit Bundle Size"
     option_individual = 1
@@ -90,14 +90,9 @@ class MinikitBundleSize(Choice):
 
 
 class EnabledChaptersCount(Range):
-    """Choose how many randomly picked chapters from Enabled Chapters Choice should be enabled.
+    """Choose how many randomly picked chapters from Allowed Chapters should be enabled.
 
     If there are fewer allowed chapters than the count to enable, all the allowed chapters will be enabled.
-
-    3 Gold Bricks can be logically acquired per Chapter (Completion + True Jedi + 10/10 Minikits). If there are not
-    enough Gold Bricks available to open a Bonus Level, that Bonus Level will be disabled.
-
-    All 36 chapters enabled
     """
     range_start = 1
     range_end = 36
@@ -107,7 +102,7 @@ class EnabledChaptersCount(Range):
 class AllowedChapterTypes(Choice):
     """Specify additional filtering of the allowed chapters that can be enabled.
 
-    - All: No additional filtering, all chapters specified in Allowed Chapters Choice are allowed.
+    - All: No additional filtering, all chapters specified in the Allowed Chapters option are allowed.
     - No Vehicles: No vehicle chapters (1-4, 2-1, 2-5, 3-1, 4-6, 5-1, 5-3, 6-6) will be allowed.
     """
     option_all = 0
@@ -116,7 +111,7 @@ class AllowedChapterTypes(Choice):
 
 
 class AllowedChapters(ChapterOptionSet):
-    """Choose the chapter levels that are allowed to be picked when choosing which chapters will be enabled.
+    """Choose the chapter levels that are allowed to be picked when randomly choosing which chapters will be enabled.
 
     Individual chapters can be specified, e.g. "1-1", "5-4".
 
@@ -165,7 +160,7 @@ class AllowedChapters(ChapterOptionSet):
 
 class PreferredChapters(ChapterOptionSet):
     """
-    When the generator is picking which chapters should be enabled, pick from these preferred chapters first.
+    When the generator picks which chapters should be enabled, it will pick from these preferred chapters first.
 
     If a preferred chapter is not allowed to be picked because it is not included in the Allowed Chapters option, it
     will not be picked.
@@ -211,7 +206,7 @@ class PreferredChapters(ChapterOptionSet):
     default = frozenset()
 
 
-class PreferEntireEpisodes(DefaultOnToggle):
+class PreferEntireEpisodes(Toggle):
     """
     When enabled, after the generator has picked a chapter to be enabled out of the allowed chapters, it will continue
     picking additional chapters from the same episode until it runs out of allowed chapters in that episode.
@@ -305,7 +300,7 @@ class ChapterUnlockRequirement(Choice):
 class EpisodeUnlockRequirement(Choice):
     """Choose how Episodes are unlocked.
 
-    The Episode of your starting Chapter will be unlocked from the start.
+    The Episode of your starting Chapter will always be unlocked from the start.
 
     - Open: All Episodes will be unlocked from the start.
     - Episode Item: Each Episode will unlock after receiving an unlock item for that Episode, e.g. "Episode 5 Unlock".
@@ -327,8 +322,6 @@ class AllEpisodesCharacterPurchaseRequirements(Choice):
     - Episodes Tokens: A number of "Episode Complete Token" items will be added to the item pool, equal to the number of
     enabled Episodes. All of these "Episode Complete Token" items will need to be received to unlock the characters for
     purchase.
-    - Locations Disabled: The shop purchase locations will not be included in the multiworld.
-
     """
     option_episodes_unlocked = 1
     option_episodes_tokens = 2
@@ -344,7 +337,13 @@ class AllEpisodesCharacterPurchaseRequirements(Choice):
 class StartingChapter(Choice):
     """Choose the starting chapter. The Episode the starting level belongs to will be accessible from the start.
 
-    Due to the way the logic currently assumes the player has access to a Jedi and a Protocol Droid, if access to the
+    Known issues:
+    - If the starting chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
+    to the Archipelago server, the starting Episode door will appear locked (red light), but this is only visual.
+    - If the starting chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
+    to the Archipelago server, the Episode 1 door will be open, but it will correctly lock itself upon re-entering the
+    main room of the Cantina.
+    - Due to the way the logic currently assumes the player has access to a Jedi and a Protocol Droid, if access to the
     chosen starting chapter does not include a Jedi and Protocol Droid in its requirements, a Jedi character and/or
     TC-14 will be added to the starting inventory.
 
@@ -717,8 +716,8 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     # Enabled/Available locations.
     # Chapters.
     enabled_chapters_count: EnabledChaptersCount
-    allowed_chapter_types: AllowedChapterTypes
     allowed_chapters: AllowedChapters
+    allowed_chapter_types: AllowedChapterTypes
     starting_chapter: StartingChapter
     preferred_chapters: PreferredChapters
     prefer_entire_episodes: PreferEntireEpisodes
