@@ -13,7 +13,7 @@ class TestLevels(TestCase):
 
     def test_shop_unlocks(self):
         for area in CHAPTER_AREAS:
-            for shop_unlock_location, _cost in area.shop_unlocks:
+            for shop_unlock_location, _cost in area.shop_unlocks.items():
                 self.assertIn(shop_unlock_location, LOCATION_NAME_TO_ID)
 
     def test_power_bricks(self):
