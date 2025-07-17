@@ -1088,6 +1088,9 @@ class LegoStarWarsTCSWorld(World):
                 location = LegoStarWarsTCSLocation(self.player, purchase, self.location_name_to_id[purchase],
                                                    all_episodes)
                 all_episodes.locations.append(location)
+                purchase_cost = CHARACTERS_AND_VEHICLES_BY_NAME[character_name].purchase_cost
+                self.required_score_multiplier_count = max(self.required_score_multiplier_count,
+                                                           self._get_score_multiplier_requirement(purchase_cost))
             self.character_unlock_location_count += len(all_episodes_purchases)
 
         # Starting character purchases.
