@@ -1210,12 +1210,15 @@ class LegoStarWarsTCSWorld(World):
                 continue
             requirements = area.item_requirements
             gold_brick_requirements.add(requirements[GOLD_BRICK_EVENT_NAME])
-            # Gold Brick requirements are set on the entrances.
+            # Gold Brick requirements are set on the entrances, so remove them from the location requirements.
+            requirements = requirements.copy()
             requirements[GOLD_BRICK_EVENT_NAME] = 0
             if requirements.total():
                 completion = self.get_location(area.name)
                 item_counts: Mapping[str, int] = dict(+requirements)
-                set_rule(completion, lambda state, items_=item_counts: state.has_all_counts(items_, player))
+                assert all(v == 1 for v in item_counts.values()), ("Aside from Gold Bricks, all bonus requirements"
+                                                                   " should be singular items")
+                set_rule(completion, lambda state, items_=tuple(item_counts.keys()): state.has_all(items_, player))
                 if area.gold_brick:
                     gold_brick = self.get_location(f"{area.name} - Gold Brick")
                     set_rule(gold_brick, completion.access_rule)

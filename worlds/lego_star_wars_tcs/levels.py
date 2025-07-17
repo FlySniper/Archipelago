@@ -518,9 +518,17 @@ BONUS_AREAS = [
         "Gold Brick": 20,
     })),
     BonusArea("LEGO City", 0x86E3B8, 0x1, 311, 59, Counter({
+        SITH.name: 1,
+        HIGH_JUMP.name: 1,
+        BLASTER.name: 1,
+        BOUNTY_HUNTER.name: 1,
         "Gold Brick": 10,
     })),
     BonusArea("New Town", 0x86E3A0, 0x1, 309, 57, Counter({
+        SITH.name: 1,
+        HIGH_JUMP.name: 1,
+        BLASTER.name: 1,
+        BOUNTY_HUNTER.name: 1,
         "Gold Brick": 50,
     })),
     # The bonus level was never completed, so there is just the trailer to watch (which can be skipped immediately).
