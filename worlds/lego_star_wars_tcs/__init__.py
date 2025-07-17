@@ -1,4 +1,3 @@
-import itertools
 import logging
 import re
 from collections import Counter
@@ -382,7 +381,7 @@ class LegoStarWarsTCSWorld(World):
                 classification = ItemClassification.progression_skip_balancing
             elif name == "Progressive Score Multiplier":
                 # todo: Vary between progression and progression_skip_balancing depending on what percentage of
-                #  locations need them. Make them Useful
+                #  locations need them. Make them Useful if none are needed.
                 # Generic item that grants Score multiplier Extras, which are used in logic for purchases from the shop.
                 classification = ItemClassification.progression
             elif name == "All Episodes Token":
@@ -589,7 +588,6 @@ class LegoStarWarsTCSWorld(World):
         else:
             non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.code > 0]
 
-        # todo: Add expensive purchase logic to determine the minimum number of Progressive Score Multiplier needed.
         required_score_multipliers = self.required_score_multiplier_count
         non_required_score_multipliers = 5 - required_score_multipliers
         assert 0 <= required_score_multipliers <= 5
@@ -1108,6 +1106,7 @@ class LegoStarWarsTCSWorld(World):
         victory.place_locked_item(self.create_event("Slave I"))
         cantina.locations.append(victory)
 
+        # For debugging.
         # from Utils import visualize_regions
         # visualize_regions(cantina, "LegoStarWarsTheCompleteSaga_Regions.puml", show_entrance_names=True)
 
