@@ -245,6 +245,9 @@ COMPLETED_FREE_PLAY_KEY_FORMAT = COMPLETED_FREE_PLAY_KEY_PREFIX + DATA_STORAGE_K
 LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
 LEVEL_ID_KEY_FORMAT = LEVEL_ID_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
 
+CANTINA_ROOM_KEY_PREFIX = "tcs_cantina_room_"
+CANTINA_ROOM_KEY_FORMAT = CANTINA_ROOM_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
+
 
 class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
     def __init__(self, ctx: CommonContext):
@@ -282,6 +285,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     game_process: pymem.Pymem | None = None
     #previous_level_id: int = -1
     current_level_id: int = 0  # Title screen
+    current_cantina_room: CantinaRoom = CantinaRoom.UNKNOWN
     # Memory in the GOG version is offset 32 bytes after GOG_MEMORY_OFFSET_START.
     # todo: Memory in the retail version is offset ?? bytes after ??.
     _gog_memory_offset: int = 0
@@ -862,14 +866,29 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.update_current_level_id(level_id)
         return level_id
 
+    def update_current_cantina_room(self, new_cantina_room: CantinaRoom) -> None:
+        current_cantina_room = self.current_cantina_room
+        if new_cantina_room != current_cantina_room:
+            # Update client state.
+            self.current_cantina_room = new_cantina_room
+            # Update the datastorage value in the background.
+            Utils.async_start(self.send_msgs([{
+                "key": CANTINA_ROOM_KEY_FORMAT.format(slot=self.slot, team=self.team),
+                "want_reply": False,
+                "operations": [{"operation": "replace", "value": new_cantina_room.value}]
+            }]))
+
     def read_current_cantina_room(self) -> CantinaRoom:
         if not self.read_current_level_id() == LEVEL_ID_CANTINA:
-            return CantinaRoom.NOT_IN_CANTINA
-        current_room_id = self.read_uchar(CANTINA_ROOM_ID)
-        if 0 <= current_room_id <= 8:
-            return CantinaRoom(current_room_id)
+            room = CantinaRoom.NOT_IN_CANTINA
         else:
-            return CantinaRoom.UNKNOWN
+            current_room_id = self.read_uchar(CANTINA_ROOM_ID)
+            if 0 <= current_room_id <= 8:
+                room = CantinaRoom(current_room_id)
+            else:
+                room = CantinaRoom.UNKNOWN
+        self.update_current_cantina_room(room)
+        return room
 
     def is_in_game(self) -> bool:
         # There are more than 255 levels, but far fewer than 65536, so assume 2 bytes.
@@ -954,6 +973,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.unlocked_chapter_manager = UnlockedChapterManager()
         self.client_expected_idx = 0
         self.current_level_id = 0
+        self.current_cantina_room = CantinaRoom.UNKNOWN
 
         self.free_play_completion_checker = FreePlayChapterCompletionChecker()
         self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
