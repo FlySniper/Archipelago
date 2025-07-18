@@ -237,8 +237,13 @@ UNUSED_AREA_DWORD_SLOT_NAME_END = UNUSED_AREA_DWORD_SLOT_NAME_START + 16
 UNUSED_AREA_DWORD_SLOT_NAME_AREAS = slice(UNUSED_AREA_DWORD_SLOT_NAME_START,
                                           UNUSED_AREA_DWORD_SLOT_NAME_END)
 
+DATA_STORAGE_KEY_SUFFIX = "{team}_{slot}"
+
 COMPLETED_FREE_PLAY_KEY_PREFIX = "tcs_completed_free_play_"
-COMPLETED_FREE_PLAY_KEY_FORMAT = COMPLETED_FREE_PLAY_KEY_PREFIX + "{team}_{slot}"
+COMPLETED_FREE_PLAY_KEY_FORMAT = COMPLETED_FREE_PLAY_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
+
+LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
+LEVEL_ID_KEY_FORMAT = LEVEL_ID_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
 
 
 class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
@@ -275,7 +280,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     disabled_locations: set[int]  # Server state.
 
     game_process: pymem.Pymem | None = None
-    previous_level_id: int = -1
+    #previous_level_id: int = -1
     current_level_id: int = 0  # Title screen
     # Memory in the GOG version is offset 32 bytes after GOG_MEMORY_OFFSET_START.
     # todo: Memory in the retail version is offset ?? bytes after ??.
@@ -829,6 +834,21 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # if the default value is found, then the slot name has not been set and vice versa.
         return read_bytes != ChapterArea.UNUSED_CHALLENGE_BEST_TIME_VALUE
 
+    def is_connected_to_server(self):
+        return self.server is not None and not self.server.socket.closed
+
+    def update_current_level_id(self, new_level_id: int):
+        current_level_id = self.current_level_id
+        if new_level_id != current_level_id:
+            # Update client state.
+            self.current_level_id = new_level_id
+            # Update the datastorage value in the background.
+            Utils.async_start(self.send_msgs([{
+                "key": LEVEL_ID_KEY_FORMAT.format(slot=self.slot, team=self.team),
+                "want_reply": False,
+                "operations": [{"operation": "replace", "value": new_level_id}]
+            }]))
+
     def read_current_level_id(self) -> int:
         """
         Read the current level ID from memory.
@@ -838,7 +858,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         :return: The current level ID.
         """
-        return self.read_ushort(CURRENT_LEVEL_ID)
+        level_id = self.read_ushort(CURRENT_LEVEL_ID)
+        self.update_current_level_id(level_id)
+        return level_id
 
     def read_current_cantina_room(self) -> CantinaRoom:
         if not self.read_current_level_id() == LEVEL_ID_CANTINA:
@@ -931,6 +953,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         self.unlocked_chapter_manager = UnlockedChapterManager()
         self.client_expected_idx = 0
+        self.current_level_id = 0
 
         self.free_play_completion_checker = FreePlayChapterCompletionChecker()
         self.true_jedi_and_minikit_checker = TrueJediAndMinikitChecker()
@@ -1189,7 +1212,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     if last_message != msg:
                         log_message(msg)
                         slot_name = ctx.read_slot_name()
-                        if ctx.server is None or ctx.server.socket.closed:
+                        if not ctx.is_connected_to_server():
                             # A previous connection must have been made, but the server connection has been lost
                             # unintentionally (it will attempt to auto-reconnect).
                             # todo: Make these messages display for longer somehow (extra argument to queue_message?).
