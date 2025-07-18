@@ -323,7 +323,7 @@ ITEM_DATA: list[GenericItemData] = [
     _char(49, "Battle Droid (Security)", 70),
     _char(50, "Battle Droid (Commander)", 68),
     _char(51, "Droideka", 65),
-    _char(52, "Captain Tarpals", 276),
+    _char(52, "Captain Tarpals", 276, abilities=HIGH_JUMP),
     _char(53, "Boss Nass", 254),
     _char(54, "Royal Guard", 101, abilities=BLASTER),
     _char(55, "Watto", 269),
