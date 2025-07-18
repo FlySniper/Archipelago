@@ -422,7 +422,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         debug_logger.info("Seed hash from server is %s", server_seed_name_hash)
         if save_data_seed_name_hash is not None:
             if server_seed_name_hash != save_data_seed_name_hash:
-                asyncio.create_task(self.disconnect())
+                Utils.async_start(self.disconnect())
                 logger.info("Connection aborted: The server's seed does not match the save file's seed.")
                 self.last_connected_seed_name = None
                 self.last_connected_slot = None
@@ -470,7 +470,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if self.last_connected_seed_name is None:
                 # The client should be just about to disconnect from failing to match the server's seed.
                 # Disconnect again just in-case.
-                asyncio.create_task(self.disconnect())
+                Utils.async_start(self.disconnect())
                 return
 
             slot_data = args.get("slot_data")
@@ -478,7 +478,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 if not self._validate_version(slot_data):
                     # _validate_version should have logged the appropriate message to the user.
                     self.last_connected_seed_name = None
-                    asyncio.create_task(self.disconnect())
+                    Utils.async_start(self.disconnect())
                     return
             else:
                 logger.error("Error: slot_data missing from Connected message, something is probably broken.")
