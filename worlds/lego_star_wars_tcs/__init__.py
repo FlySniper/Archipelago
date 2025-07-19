@@ -133,20 +133,20 @@ class LegoStarWarsTCSWorld(World):
         self.enabled_bonuses = set()
         self.character_chapter_access_counts = Counter()
 
-    def _log_info(self, message: str, *args, **kwargs) -> None:
-        logger.info("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
+    def _log_info(self, message: str, *args) -> None:
+        logger.info("Lego Star Wars TCS (%s): " + message, self.player_name, *args)
 
-    def _log_warning(self, message: str, *args, **kwargs) -> None:
-        logger.warning("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
+    def _log_warning(self, message: str, *args) -> None:
+        logger.warning("Lego Star Wars TCS (%s): " + message, self.player_name, *args)
 
-    def _log_error(self, message: str, *args, **kwargs) -> None:
-        logger.error("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
+    def _log_error(self, message: str, *args) -> None:
+        logger.error("Lego Star Wars TCS (%s): " + message, self.player_name, *args)
 
-    def _raise_error(self, ex_type: Callable[[str], Exception], message: str, *args, **kwargs) -> NoReturn:
-        raise ex_type(("Lego Star Wars TCS (%s): " + message).format(self.player_name, *args, **kwargs))
+    def _raise_error(self, ex_type: Callable[[str], Exception], message: str, *args) -> NoReturn:
+        raise ex_type(("Lego Star Wars TCS (%s): " + message) % (self.player_name, *args))
 
-    def _option_error(self, message: str, *args, **kwargs) -> NoReturn:
-        self._raise_error(OptionError, message, *args, **kwargs)
+    def _option_error(self, message: str, *args) -> NoReturn:
+        self._raise_error(OptionError, message, *args)
 
     def generate_early(self) -> None:
         # Universal Tracker support.
