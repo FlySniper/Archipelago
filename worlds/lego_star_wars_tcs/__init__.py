@@ -208,6 +208,9 @@ class LegoStarWarsTCSWorld(World):
             elif starting_chapter_option == StartingChapter.option_random_non_vehicle:
                 starting_chapters = set(LEVEL_SHORT_NAMES_SET).difference(VEHICLE_CHAPTER_SHORTNAMES)
             elif starting_chapter_option == StartingChapter.option_random_vehicle:
+                if self.options.allowed_chapter_types == "no_vehicles":
+                    self._option_error("'random_vehicle' starting Chapter cannot be used when Allowed Chapter Types is"
+                                       " set to 'no_vehicles'.")
                 starting_chapters = set(VEHICLE_CHAPTER_SHORTNAMES)
             elif match := re.fullmatch(r"random_episode_([1-6])", starting_chapter_option.current_key):
                 episode = int(match.group(1))
