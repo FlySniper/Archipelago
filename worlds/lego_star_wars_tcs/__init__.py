@@ -1006,9 +1006,10 @@ class LegoStarWarsTCSWorld(World):
                     self.gold_brick_event_count += 1
                     chapter_minikits.locations.append(all_minikits_gold_brick)
 
-                # Story Character unlocks.
-                for character in sorted(CHAPTER_AREA_STORY_CHARACTERS[chapter.short_name]):
-                    story_character_unlock_regions.setdefault(character, []).append(chapter_region)
+                if self.options.enable_story_character_unlock_locations:
+                    # Story Character unlocks.
+                    for character in sorted(CHAPTER_AREA_STORY_CHARACTERS[chapter.short_name]):
+                        story_character_unlock_regions.setdefault(character, []).append(chapter_region)
 
         for character, parent_regions in story_character_unlock_regions.items():
             character_region = self.create_region(f"Unlock {character}")
