@@ -19,16 +19,16 @@ from .items import CHARACTERS_AND_VEHICLES_BY_NAME, EXTRAS_BY_NAME
 
 
 CHAPTER_OPTION_KEYS: Mapping[str, AbstractSet[str]] = {
-    **{chapter: {chapter} for chapter in LEVEL_SHORT_NAMES_SET},
     "All": LEVEL_SHORT_NAMES_SET,
     "Prequel Trilogy": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] in "123"},
     "Original Trilogy": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] in "456"},
     **{f"Episode {s}": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] == s} for s in "123456"},
+    **{chapter: {chapter} for chapter in LEVEL_SHORT_NAMES_SET},
 }
 
 
 class ChapterOptionSet(OptionSet):
-    valid_keys = set(CHAPTER_OPTION_KEYS.keys())
+    valid_keys = list(CHAPTER_OPTION_KEYS.keys())
 
     @property
     def value_ungrouped(self) -> set[str]:
@@ -203,7 +203,7 @@ class PreferredChapters(ChapterOptionSet):
       - 6-5
     """
     # There is no point to using "All" for Preferred Chapters, so remove it from the valid_keys.
-    valid_keys = set(ChapterOptionSet.valid_keys) - {"All"}
+    valid_keys = [key for key in ChapterOptionSet.valid_keys if key != "All"]
     default = frozenset()
 
 
