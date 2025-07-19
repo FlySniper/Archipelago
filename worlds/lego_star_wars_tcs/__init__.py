@@ -546,7 +546,11 @@ class LegoStarWarsTCSWorld(World):
         for shortname in self.enabled_chapters:
             power_brick_abilities = POWER_BRICK_REQUIREMENTS[shortname][1]
             if power_brick_abilities is not None:
-                required_character_abilities_in_pool |= power_brick_abilities
+                if isinstance(power_brick_abilities, tuple):
+                    # Pick any one of the required abilities at random.
+                    required_character_abilities_in_pool |= self.random.choice(power_brick_abilities)
+                else:
+                    required_character_abilities_in_pool |= power_brick_abilities
             required_character_abilities_in_pool |= ALL_MINIKITS_REQUIREMENTS[shortname]
         # Remove counts <= 0.
         level_access_character_counts = +self.character_chapter_access_counts
@@ -1113,14 +1117,42 @@ class LegoStarWarsTCSWorld(World):
         # visualize_regions(cantina, "LegoStarWarsTheCompleteSaga_Regions.puml", show_entrance_names=True)
 
     def set_abilities_rule(self, spot: Location | Entrance, abilities: CharacterAbility):
-        if abilities:
-            player = self.player
-            ability_names = cast(list[str], [ability.name for ability in abilities])
-            if len(ability_names) == 1:
-                ability_name = ability_names[0]
-                set_rule(spot, lambda state: state.has(ability_name, player))
+        player = self.player
+        ability_names = cast(list[str], [ability.name for ability in abilities])
+        if len(ability_names) == 0:
+            set_rule(spot, Location.access_rule if isinstance(spot, Location) else Entrance.access_rule)
+        elif len(ability_names) == 1:
+            ability_name = ability_names[0]
+            set_rule(spot, lambda state: state.has(ability_name, player))
+        else:
+            set_rule(spot, lambda state: state.has_all(ability_names, player))
+
+    def set_any_abilities_rule(self, spot: Location | Entrance, *any_abilities: CharacterAbility):
+        for any_ability in any_abilities:
+            if not any_ability:
+                # No requirements overrides any other ability requirements
+                self.set_abilities_rule(spot, any_ability)
+                return
+        if not any_abilities:
+            self.set_abilities_rule(spot, CharacterAbility.NONE)
+            return
+        any_abilities_set = set(any_abilities)
+        if len(any_abilities_set) == 1:
+            self.set_abilities_rule(spot, next(iter(any_abilities_set)))
+        else:
+            sorted_abilities = sorted(any_abilities_set, key=lambda a: (a.bit_count(), a.value))
+            ability_names = [cast(list[str], [a.name for a in any_ability]) for any_ability in sorted_abilities]
+            if all(len(names) == 1 for names in ability_names):
+                # Optimize for all abilities being only a single flag each.
+                singular_names = {names[0] for names in ability_names}
+                set_rule(spot, lambda state, items_=tuple(singular_names), p=self.player: state.has_all(items_, p))
             else:
-                set_rule(spot, lambda state: state.has_all(ability_names, player))
+                def rule(state: CollectionState):
+                    for names in ability_names:
+                        if state.has_all(names, self.player):
+                            return True
+                    return False
+                set_rule(spot, rule)
 
     def _get_score_multiplier_requirement(self, studs_cost: int):
         max_no_multiplier_cost = self.options.most_expensive_purchase_with_no_multiplier.value * 1000
@@ -1186,9 +1218,9 @@ class LegoStarWarsTCSWorld(World):
                     generic_character = CHARACTERS_AND_VEHICLES_BY_NAME[character_name]
                     entrance_abilities |= generic_character.abilities
 
-                def set_chapter_spot_abilities_rule(spot: Location | Entrance, abilities: CharacterAbility):
+                def set_chapter_spot_abilities_rule(spot: Location | Entrance, *abilities: CharacterAbility):
                     # Remove any requirements already satisfied by the chapter entrance before setting the rule.
-                    self.set_abilities_rule(spot, abilities & ~entrance_abilities)
+                    self.set_any_abilities_rule(spot, *[ability & ~entrance_abilities for ability in abilities])
 
                 # Set Power Brick logic
                 power_brick = self.get_location(chapter.power_brick_location_name)
