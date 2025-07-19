@@ -55,6 +55,7 @@ from .options import (
     StartingChapter,
     AllEpisodesCharacterPurchaseRequirements,
     MinikitGoalAmount,
+    OPTION_GROUPS,
 )
 
 
@@ -70,6 +71,7 @@ components.append(Component("Lego Star Wars: The Complete Saga Client",
 
 class LegoStarWarsTCSWebWorld(WebWorld):
     theme = "partyTime"
+    option_groups = OPTION_GROUPS
     tutorials = [Tutorial(
         "Multiworld Setup Guide",
         "A guide for setting up Lego Star Wars: The Complete Saga to be played in Archipelago.",

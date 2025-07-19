@@ -11,6 +11,7 @@ from Options import (
     OptionSet,
     DefaultOnToggle,
     Toggle,
+    OptionGroup,
 )
 
 from .locations import LEVEL_SHORT_NAMES_SET
@@ -746,3 +747,42 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     checked_location_messages: CheckedLocationMessages
     # Future options, not implemented yet.
     # random_starting_level_max_starting_characters: RandomStartingLevelMaxStartingCharacters
+
+
+OPTION_GROUPS: list[OptionGroup] = [
+    OptionGroup("Goal Options", [
+        MinikitGoalAmount,
+        MinikitGoalAmountPercentage,
+    ]),
+    OptionGroup("Chapter Options", [
+        EnabledChaptersCount,
+        AllowedChapters,
+        AllowedChapterTypes,
+        StartingChapter,
+        PreferredChapters,
+        PreferEntireEpisodes,
+    ]),
+    OptionGroup("Location Options", [
+        EnableChapterCompletionCharacterUnlockLocations,
+        EnableBonusLocations,
+        EnableAllEpisodesCharacterPurchaseLocations,
+    ]),
+    OptionGroup("Logic Options", [
+        EpisodeUnlockRequirement,
+        MostExpensivePurchaseWithNoScoreMultiplier,
+        AllEpisodesCharacterPurchaseRequirements,
+    ]),
+    OptionGroup("Item Options", [
+        MinikitBundleSize,
+        StartWithDetectors,
+        PreferredCharacters,
+        PreferredExtras,
+        FillerWeightCharacters,
+        FillerWeightExtras,
+        FillerWeightJunk,
+    ]),
+    OptionGroup("Client Options", [
+        ReceivedItemMessages,
+        CheckedLocationMessages,
+    ])
+]
