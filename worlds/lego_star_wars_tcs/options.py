@@ -614,7 +614,7 @@ class FillerMode(Choice):
     """
 
 
-class MostExpensivePurchaseWithNoScoreMultiplier(Range):
+class MostExpensivePurchaseWithNoScoreMultiplier(NamedRange):
     """
     The most expensive individual purchase the player can be expected to make without any score multipliers, *in
     thousands of Studs*.
@@ -639,6 +639,24 @@ class MostExpensivePurchaseWithNoScoreMultiplier(Range):
     # 6 * 1000 * 3840 = 23_040_000 -> 6 is the minimum allowed
     range_start = 6
     range_end = 20000
+    special_range_names = {
+        "Minimum (6000 Studs)": 6,
+        "10000 Studs": 10,
+        "25000 Studs": 25,
+        "50000 Studs": 50,
+        "75000 Studs": 75,
+        "Default (100000 Studs)": 100,
+        "250000 Studs": 250,
+        "500000 Studs": 500,
+        "750000 Studs": 750,
+        "1 million Studs": 1000,
+        "Vanilla (1.25 million Studs)": 1250,
+        "2.5 million Studs": 2500,
+        "5 million Studs": 5000,
+        "7.5 million Studs": 7500,
+        "10 million Studs": 10000,
+        "No Score Multipliers Expected": 20000,
+    }
 
 
 class ReceivedItemMessages(Choice):
