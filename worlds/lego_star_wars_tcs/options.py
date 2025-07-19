@@ -23,7 +23,7 @@ CHAPTER_OPTION_KEYS: Mapping[str, AbstractSet[str]] = {
     "Prequel Trilogy": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] in "123"},
     "Original Trilogy": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] in "456"},
     **{f"Episode {s}": {chapter for chapter in LEVEL_SHORT_NAMES_SET if chapter[0] == s} for s in "123456"},
-    **{chapter: {chapter} for chapter in LEVEL_SHORT_NAMES_SET},
+    **{chapter: {chapter} for chapter in sorted(LEVEL_SHORT_NAMES_SET)},
 }
 
 
