@@ -143,7 +143,7 @@ class LegoStarWarsTCSWorld(World):
         logger.error("Lego Star Wars TCS (%s): " + message, self.player_name, *args, **kwargs)
 
     def _raise_error(self, ex_type: Callable[[str], Exception], message: str, *args, **kwargs) -> NoReturn:
-        raise ex_type(("Lego Star Wars TCS (%s): " + message).format(*args, **kwargs))
+        raise ex_type(("Lego Star Wars TCS (%s): " + message).format(self.player_name, *args, **kwargs))
 
     def _option_error(self, message: str, *args, **kwargs) -> NoReturn:
         self._raise_error(OptionError, message, *args, **kwargs)
