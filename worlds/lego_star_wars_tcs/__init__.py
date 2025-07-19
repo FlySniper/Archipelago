@@ -1224,7 +1224,7 @@ class LegoStarWarsTCSWorld(World):
 
                 # Set Power Brick logic
                 power_brick = self.get_location(chapter.power_brick_location_name)
-                set_chapter_spot_abilities_rule(power_brick, chapter.power_brick_ability_requirements)
+                set_chapter_spot_abilities_rule(power_brick, *chapter.power_brick_ability_requirements)
                 self._add_score_multiplier_rule(power_brick, chapter.power_brick_studs_cost)
 
                 # Set Minikits logic

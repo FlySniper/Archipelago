@@ -85,7 +85,7 @@ class ChapterArea:
     short_name: str = field(init=False)
     character_requirements: frozenset[str] = field(init=False)
     shop_unlocks: dict[str, int] = field(init=False)
-    power_brick_ability_requirements: CharacterAbility = field(init=False)
+    power_brick_ability_requirements: tuple[CharacterAbility, ...] = field(init=False)
     power_brick_location_name: str = field(init=False)
     power_brick_studs_cost: int = field(init=False)
     all_minikits_ability_requirements: CharacterAbility = field(init=False)
@@ -105,7 +105,9 @@ class ChapterArea:
         object.__setattr__(self, "power_brick_location_name", power_brick_location_name)
         power_brick_ability_requirements = power_brick.ability_requirements
         if power_brick_ability_requirements is None:
-            power_brick_ability_requirements = CharacterAbility.NONE
+            power_brick_ability_requirements = (CharacterAbility.NONE,)
+        elif isinstance(power_brick_ability_requirements, CharacterAbility):
+            power_brick_ability_requirements = (power_brick_ability_requirements,)
         object.__setattr__(self, "power_brick_ability_requirements", power_brick_ability_requirements)
         object.__setattr__(self, "power_brick_studs_cost", power_brick.studs_cost)
 
@@ -336,7 +338,7 @@ CHAPTER_AREA_STORY_CHARACTERS: dict[str, frozenset[str]] = {
 
 class _PowerBrickData(NamedTuple):
     name: str
-    ability_requirements: CharacterAbility | None
+    ability_requirements: CharacterAbility | tuple[CharacterAbility, ...] | None
     studs_cost: int
 
 
@@ -356,7 +358,7 @@ POWER_BRICK_REQUIREMENTS: dict[str, _PowerBrickData] = {
     "2-6": _PowerBrickData("Force Pull", BOUNTY_HUNTER | SHORTIE, 12_000),
     "3-1": _PowerBrickData("Vehicle Smart Bomb", None, 15_000),
     "3-2": _PowerBrickData("Super Astromech", BOUNTY_HUNTER, 10_000),
-    "3-3": _PowerBrickData("Super Jedi Slam", None, 11_000),
+    "3-3": _PowerBrickData("Super Jedi Slam", (HOVER, HIGH_JUMP), 11_000),
     "3-4": _PowerBrickData("Super Thermal Detonator", BOUNTY_HUNTER | SITH, 25_000),
     "3-5": _PowerBrickData("Deflect Bolts", SITH | HIGH_JUMP, 150_000),
     "3-6": _PowerBrickData("Dark Side", ASTROMECH, 25_000),
