@@ -455,7 +455,7 @@ class PreferredCharacters(OptionSet):
     If no vehicle Chapters are enabled, no vehicle characters will be included in the item pool.
     """
     display_name = "Preferred Characters"
-    valid_keys = {char.name for char in CHARACTERS_AND_VEHICLES_BY_NAME.values() if char.code > 0}
+    valid_keys = {char.name for char in CHARACTERS_AND_VEHICLES_BY_NAME.values() if char.is_sendable}
     default = frozenset({
         # Highest base movement speed or non-Extra-Toggle characters, lots of glitches.
         "Droideka",
@@ -489,7 +489,7 @@ class PreferredExtras(OptionSet):
     valid_keys = {
         # Progressive Score Multiplier is an AP-specific item, and this option does not support specifying multiple of
         # an item, so the individual "Score x{number}" Extras are included as valid keys instead.
-        *(extra.name for extra in EXTRAS_BY_NAME.values() if extra.code > 0
+        *(extra.name for extra in EXTRAS_BY_NAME.values() if extra.is_sendable
           and extra.name != "Progressive Score Multiplier"),
         "Score x2",
         "Score x4",

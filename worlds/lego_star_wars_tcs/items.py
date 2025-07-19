@@ -45,6 +45,10 @@ class GenericItemData:
     name: str
     item_type: ClassVar[ItemType] = "Generic"
 
+    @property
+    def is_sendable(self):
+        return self.code > 0
+
 
 @dataclass(frozen=True)
 class MinikitItemData(GenericItemData):
@@ -499,7 +503,7 @@ USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {
 
 
 ITEM_DATA_BY_NAME: Mapping[str, GenericItemData] = {data.name: data for data in ITEM_DATA}
-ITEM_DATA_BY_ID: Mapping[int, GenericItemData] = {data.code: data for data in ITEM_DATA if data.code != -1}
+ITEM_DATA_BY_ID: Mapping[int, GenericItemData] = {data.code: data for data in ITEM_DATA if data.is_sendable}
 EXTRAS_BY_NAME: Mapping[str, ExtraData] = {data.name: data for data in ITEM_DATA if isinstance(data, ExtraData)}
 CHARACTERS_AND_VEHICLES_BY_NAME: Mapping[str, GenericCharacterData] = {data.name: data for data in ITEM_DATA
                                                                        if isinstance(data, GenericCharacterData)}
@@ -507,7 +511,38 @@ GENERIC_BY_NAME: Mapping[str, GenericItemData] = {data.name: data for data in IT
 MINIKITS_BY_NAME: Mapping[str, MinikitItemData] = {data.name: data for data in ITEM_DATA
                                                    if isinstance(data, MinikitItemData)}
 
-ITEM_NAME_TO_ID: Mapping[str, int] = {name: item.code for name, item in ITEM_DATA_BY_NAME.items() if item.code != -1}
+ITEM_NAME_TO_ID: Mapping[str, int] = {name: item.code for name, item in ITEM_DATA_BY_NAME.items() if item.is_sendable}
 
 MINIKITS_BY_COUNT: Mapping[int, GenericItemData] = {bundle.bundle_size: bundle for bundle in MINIKITS_BY_NAME.values()}
 
+
+def _ability_to_character() -> Mapping[CharacterAbility, Sequence[GenericCharacterData]]:
+    ability_to_character: dict[CharacterAbility, list[GenericCharacterData]] = {}
+    for char in CHARACTERS_AND_VEHICLES_BY_NAME.values():
+        for ability in char.abilities:
+            ability_to_character.setdefault(ability, []).append(char)
+    return {k: tuple(v) for k, v in ability_to_character.items()}
+
+
+ABILITY_TO_CHARACTERS: Mapping[CharacterAbility, Sequence[GenericCharacterData]] = _ability_to_character()
+# ABILITY_TO_CHARACTER_NAMES: Mapping[CharacterAbility, Sequence[str]] = {
+#     ability: tuple(char.name for char in characters) for ability, characters in ABILITY_TO_CHARACTERS.items()
+# }
+
+
+def _ability_to_readable(ability: CharacterAbility) -> str:
+    return ability.name.replace("_", " ").title() + " Characters"  # type: ignore # (.name is str | None)
+
+
+ITEM_GROUPS: dict[str, set[str]] = {
+    **{_ability_to_readable(ability): {c.name for c in characters if c.is_sendable}
+       for ability, characters in ABILITY_TO_CHARACTERS.items()},
+    "Non-Vehicle Characters": {c.name for c in CHARACTERS_AND_VEHICLES_BY_NAME.values()
+                               if isinstance(c, CharacterData) and c.is_sendable},
+    "Vehicle Characters": {v.name for v in CHARACTERS_AND_VEHICLES_BY_NAME.values()
+                           if isinstance(v, VehicleData) and v.is_sendable},
+    "Characters": {c.name for c in CHARACTERS_AND_VEHICLES_BY_NAME.values() if c.is_sendable},
+    "Extras": {e.name for e in EXTRAS_BY_NAME.values() if e.is_sendable} | {"Progressive Score Multiplier"},
+    "Minikits": {m.name for m in MINIKITS_BY_COUNT.values() if m.is_sendable},
+    "Episode Unlocks": {f"Episode {i} Unlock" for i in "123456"}
+}

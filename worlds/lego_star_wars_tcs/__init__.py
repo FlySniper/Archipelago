@@ -35,6 +35,7 @@ from .items import (
     MINIKITS_BY_NAME,
     EXTRAS_BY_NAME,
     SHOP_SLOT_REQUIREMENT_TO_UNLOCKS,
+    ITEM_GROUPS,
 )
 from .levels import (
     BonusArea,
@@ -95,6 +96,7 @@ class LegoStarWarsTCSWorld(World):
 
     item_name_to_id = ITEM_NAME_TO_ID
     location_name_to_id = LOCATION_NAME_TO_ID
+    item_name_groups = ITEM_GROUPS
 
     origin_region_name = "Cantina"
 
@@ -461,7 +463,8 @@ class LegoStarWarsTCSWorld(World):
         #  unlock characters of the each type.
         vehicle_chapters_enabled = not VEHICLE_CHAPTER_SHORTNAMES.isdisjoint(self.enabled_chapters)
         possible_pool_character_items = {name: char for name, char in CHARACTERS_AND_VEHICLES_BY_NAME.items()
-                                         if char.code > 0 and (vehicle_chapters_enabled or char.item_type != "Vehicle")}
+                                         if char.is_sendable and (vehicle_chapters_enabled
+                                                                  or char.item_type != "Vehicle")}
         # If Gunship Cavalry (Original), Pod Race (Original) and Anakin's Flight get updated to require Vehicles again,
         # then Republic Gunship, Anakin's Pod and Naboo Starfighter would be required items to included in the pool.
         # if not vehicle_chapters_enabled:
@@ -596,11 +599,11 @@ class LegoStarWarsTCSWorld(World):
             detectors = {"Minikit Detector", "Power Brick Detector"}
             assert detectors <= set(EXTRAS_BY_NAME.keys())
             non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items()
-                                   if extra.code > 0 and name not in detectors]
+                                   if extra.is_sendable and name not in detectors]
             for detector in sorted(detectors):
                 self.push_precollected(self.create_item(detector))
         else:
-            non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.code > 0]
+            non_required_extras = [name for name, extra in EXTRAS_BY_NAME.items() if extra.is_sendable]
 
         required_score_multipliers = self.required_score_multiplier_count
         non_required_score_multipliers = 5 - required_score_multipliers
