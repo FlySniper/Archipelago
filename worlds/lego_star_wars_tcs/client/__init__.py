@@ -449,14 +449,14 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         checked_location_messages = slot_data["checked_location_messages"]
         self.checked_location_messages = checked_location_messages == options.CheckedLocationMessages.option_all
 
-        self.acquired_characters.init_from_slot_data(slot_data)
-        self.acquired_extras.init_from_slot_data(slot_data)
-        self.acquired_generic.init_from_slot_data(slot_data)
-        self.unlocked_chapter_manager.init_from_slot_data(slot_data)
-        self.acquired_minikits.init_from_slot_data(slot_data)
-        self.text_display.init_from_slot_data(slot_data)
+        self.acquired_characters.init_from_slot_data(self, slot_data)
+        self.acquired_extras.init_from_slot_data(self, slot_data)
+        self.acquired_generic.init_from_slot_data(self, slot_data)
+        self.unlocked_chapter_manager.init_from_slot_data(self, slot_data)
+        self.acquired_minikits.init_from_slot_data(self, slot_data)
+        self.text_display.init_from_slot_data(self, slot_data)
 
-        self.free_play_completion_checker.init_from_slot_data(slot_data)
+        self.free_play_completion_checker.init_from_slot_data(self, slot_data)
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)

@@ -68,7 +68,7 @@ class InGameTextDisplay(GameStateUpdater):
     def __init__(self):
         self.message_queue = deque()
 
-    def init_from_slot_data(self, slot_data: dict[str, Any]) -> None:
+    def init_from_slot_data(self, ctx: TCSContext, slot_data: dict[str, Any]) -> None:
         pass
 
     def _initialize(self, ctx: TCSContext):
