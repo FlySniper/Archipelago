@@ -126,7 +126,9 @@ class BonusArea:
     """
     status_level_id: int
     area_id: int
-    item_requirements: Counter[str]
+    item_requirements: tuple[str, ...] = ()
+    ability_requirements: CharacterAbility = CharacterAbility.NONE
+    gold_bricks_required: int = 0
     gold_brick: bool = True
 
 
@@ -491,10 +493,8 @@ CHAPTER_AREAS = [
 # todo: Need to consider the Gold Brick shop eventually. Also Bounty Hunter missions. Also Challenges. Also
 #  Character/Minikit bonuses.
 BONUS_AREAS = [
-    BonusArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, 4, Counter({
-        # "Anakin's Pod": 1,
-        "Gold Brick": 10,
-    })),
+    # Could require: "Anakin's Pod"
+    BonusArea("Mos Espa Pod Race (Original)", 0x86E124, 0x1, 35, 4, gold_bricks_required=10),
     # There are a number of test levels in LEVELS.TXT that seem to not be counted, so the level IDs for Anakin's Flight
     # do not match what is expected:
     # Intro = 327
@@ -504,46 +504,29 @@ BONUS_AREAS = [
     # Outro1 = 331
     # Outro2 = 332
     # Status = 333
-    BonusArea("Anakin's Flight", 0x86E3AC, 0x1, 333, 58, Counter({
-        # "Naboo Starfighter": 1,
-        "Gold Brick": 30,
-    })),
-    BonusArea("Gunship Cavalry (Original)", 0x86E1A8, 0x1, 98, 15, Counter({
-        # "Republic Gunship": 1,
-        "Gold Brick": 10,
-    })),
+    # Could require: "Naboo Starfighter"
+    BonusArea("Anakin's Flight", 0x86E3AC, 0x1, 333, 58, gold_bricks_required=30),
+    # Could require: "Republic Gunship"
+    BonusArea("Gunship Cavalry (Original)", 0x86E1A8, 0x1, 98, 15, gold_bricks_required=10),
     # Note: The base address may be incorrect/I do not know what the base address is supposed to be.
-    BonusArea("A New Hope (Bonus Level)", 0x86E249, 0x8, 150, 29, Counter({
-        # "Darth Vader": 1,
-        # "Stormtrooper": 1,
-        # "C-3PO": 1,
-        "Gold Brick": 20,
-    })),
-    BonusArea("LEGO City", 0x86E3B8, 0x1, 311, 59, Counter({
-        SITH.name: 1,
-        HIGH_JUMP.name: 1,
-        BLASTER.name: 1,
-        BOUNTY_HUNTER.name: 1,
-        "Gold Brick": 10,
-    })),
-    BonusArea("New Town", 0x86E3A0, 0x1, 309, 57, Counter({
-        SITH.name: 1,
-        HIGH_JUMP.name: 1,
-        BLASTER.name: 1,
-        BOUNTY_HUNTER.name: 1,
-        "Gold Brick": 50,
-    })),
+    # Could require: "Darth Vader" + "Stormtrooper" + "C-3PO"
+    BonusArea("A New Hope (Bonus Level)", 0x86E249, 0x8, 150, 29, gold_bricks_required=20),
+    BonusArea("LEGO City", 0x86E3B8, 0x1, 311, 59,
+              gold_bricks_required=10, ability_requirements=SITH | HIGH_JUMP | BLASTER | BOUNTY_HUNTER),
+    BonusArea("New Town", 0x86E3A0, 0x1, 309, 57,
+              gold_bricks_required=50, ability_requirements=SITH | HIGH_JUMP | BLASTER | BOUNTY_HUNTER),
     # The bonus level was never completed, so there is just the trailer to watch (which can be skipped immediately).
     # No gold brick for watching the trailer, but it does unlock the shop slot for purchasing Indiana Jones in vanilla
     # todo: Add the Purchase Indiana Jones location.
     # It looks like the unfinished Indiana Jones level would have been Area 67, though this is inaccessible.
-    BonusArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, 67, Counter(), gold_brick=False)
+    BonusArea("Indiana Jones: Trailer", 0x86E4E5, 0x0, -1, 67, gold_brick=False)
 ]
+BONUS_NAME_TO_BONUS_AREA = {bonus.name: bonus for bonus in BONUS_AREAS}
 
 # todo: Rewrite this to be cleaner, probably by splitting the BonusGameLevelArea requirements into characters and other
 #  items.
 BONUS_AREA_REQUIREMENT_CHARACTERS = [
-    [item for item in area.item_requirements.keys() if item not in ("Progressive Bonus Level", "Gold Brick")]
+    [item for item in area.item_requirements if item not in ("Progressive Bonus Level", "Gold Brick")]
     for area in BONUS_AREAS
 ]
 

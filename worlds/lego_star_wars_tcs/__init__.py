@@ -47,6 +47,7 @@ from .levels import (
     SHORT_NAME_TO_CHAPTER_AREA,
     POWER_BRICK_REQUIREMENTS,
     ALL_MINIKITS_REQUIREMENTS,
+    BONUS_NAME_TO_BONUS_AREA,
 )
 from .locations import LOCATION_NAME_TO_ID, LegoStarWarsTCSLocation, LEVEL_SHORT_NAMES_SET
 from .options import (
@@ -552,6 +553,9 @@ class LegoStarWarsTCSWorld(World):
                 else:
                     required_character_abilities_in_pool |= power_brick_abilities
             required_character_abilities_in_pool |= ALL_MINIKITS_REQUIREMENTS[shortname]
+        for bonus_name in self.enabled_bonuses:
+            area = BONUS_NAME_TO_BONUS_AREA[bonus_name]
+            required_character_abilities_in_pool |= area.ability_requirements
         # Remove counts <= 0.
         level_access_character_counts = +self.character_chapter_access_counts
         for name in level_access_character_counts.keys():
@@ -1041,7 +1045,7 @@ class LegoStarWarsTCSWorld(World):
             cantina.connect(bonuses, "Bonuses Door")
             gold_brick_costs: dict[int, list[BonusArea]] = {}
             for area in BONUS_AREAS:
-                gold_brick_costs.setdefault(area.item_requirements["Gold Brick"], []).append(area)
+                gold_brick_costs.setdefault(area.gold_bricks_required, []).append(area)
 
             previous_gold_brick_region = bonuses
             for gold_brick_cost, areas in sorted(gold_brick_costs.items(), key=lambda t: t[0]):
@@ -1064,6 +1068,8 @@ class LegoStarWarsTCSWorld(World):
                         self.player, area.name, self.location_name_to_id[area.name], region)
                     region.locations.append(location)
                     self.enabled_bonuses.add(area.name)
+                    # todo: Item requirements have been removed for now because it is not currently possible to lock
+                    #  access to the bonus levels.
                     for item in area.item_requirements:
                         if item in CHARACTERS_AND_VEHICLES_BY_NAME:
                             self.character_chapter_access_counts[item] += 1
@@ -1241,20 +1247,16 @@ class LegoStarWarsTCSWorld(World):
         for area in BONUS_AREAS:
             if area.name not in self.enabled_bonuses:
                 continue
-            requirements = area.item_requirements
-            gold_brick_requirements.add(requirements[GOLD_BRICK_EVENT_NAME])
-            # Gold Brick requirements are set on the entrances, so remove them from the location requirements.
-            requirements = requirements.copy()
-            requirements[GOLD_BRICK_EVENT_NAME] = 0
-            if requirements.total():
-                completion = self.get_location(area.name)
-                item_counts: Mapping[str, int] = dict(+requirements)
-                assert all(v == 1 for v in item_counts.values()), ("Aside from Gold Bricks, all bonus requirements"
-                                                                   " should be singular items")
-                set_rule(completion, lambda state, items_=tuple(item_counts.keys()): state.has_all(items_, player))
-                if area.gold_brick:
-                    gold_brick = self.get_location(f"{area.name} - Gold Brick")
-                    set_rule(gold_brick, completion.access_rule)
+            # Gold brick requirements are set on entrances, so do not need to be set on the locations themselves.
+            gold_brick_requirements.add(area.gold_bricks_required)
+            completion = self.get_location(area.name)
+            if area.ability_requirements:
+                self.set_abilities_rule(completion, area.ability_requirements)
+            if area.item_requirements:
+                add_rule(completion, lambda state, items_=area.item_requirements: state.has_all(items_, player))
+            if area.gold_brick:
+                gold_brick = self.get_location(f"{area.name} - Gold Brick")
+                set_rule(gold_brick, completion.access_rule)
         # Locations with 0 Gold Bricks required are added to the base Bonuses region.
         gold_brick_requirements.discard(0)
 
