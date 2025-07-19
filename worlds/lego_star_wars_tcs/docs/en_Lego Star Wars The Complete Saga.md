@@ -131,3 +131,8 @@ progress.
 
 Receiving a Purple Stud while under the effect of a Power Up, or while in a Double Score Zone will not double the
 received studs.
+
+## Credits
+
+- maybejess: manual apworld reference
+- Roushmore: manual apworld reference
