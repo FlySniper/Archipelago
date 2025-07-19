@@ -310,6 +310,8 @@ class ChapterUnlockRequirement(Choice):
 class EpisodeUnlockRequirement(Choice):
     """Choose how Episodes are unlocked.
 
+    Note: An Episode door in the Cantina will only unlock when a Chapter within that Episode has been unlocked.
+
     The Episode of your starting Chapter will always be unlocked from the start.
 
     - Open: All Episodes will be unlocked from the start.
@@ -347,20 +349,20 @@ class AllEpisodesCharacterPurchaseRequirements(Choice):
 
 
 class StartingChapter(Choice):
-    """Choose the starting chapter. The Episode the starting level belongs to will be accessible from the start.
+    """Choose the starting chapter. The Episode the starting Chapter belongs to will be accessible from the start.
 
     Known issues:
-    - If the starting chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
+    - If the starting Chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
     to the Archipelago server, the starting Episode door will appear locked (red light), but this is only visual.
-    - If the starting chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
+    - If the starting Chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
     to the Archipelago server, the Episode 1 door will be open, but it will correctly lock itself upon re-entering the
     main room of the Cantina.
     - Due to the way the logic currently assumes the player has access to a Jedi and a Protocol Droid, if access to the
-    chosen starting chapter does not include a Jedi and Protocol Droid in its requirements, a Jedi character and/or
+    chosen starting Chapter does not include a Jedi and Protocol Droid in its requirements, a Jedi character and/or
     TC-14 will be added to the starting inventory.
 
-    Due to the character requirements being shared between some levels, some starting levels will result in additional
-    levels being open from the start:
+    Due to the character requirements being shared between some Chapters, some starting Chapters will result in
+    additional Chapters being open from the start:
 
     Starting with 1-1 will also open 1-6.
     Starting with 1-2 will also open 1-6.
@@ -602,16 +604,6 @@ class FillerWeightJunk(Range):
     range_start = 0
     range_end = 100
     default = 30
-
-
-class FillerMode(Choice):
-    """
-    The generator tries to fill the item pool with as many Characters and Extras as would be unlocked, in vanilla, by
-    all the enabled locations.
-
-    Archipelago locations that don't have a corresponding vanilla item, and Minikits being bundled, results in some free
-    space in the item pool for any kind of item.
-    """
 
 
 class MostExpensivePurchaseWithNoScoreMultiplier(NamedRange):
