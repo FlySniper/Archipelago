@@ -632,22 +632,22 @@ class MostExpensivePurchaseWithNoScoreMultiplier(NamedRange):
     range_start = 6
     range_end = 20000
     special_range_names = {
-        "Minimum (6000 Studs)": 6,
-        "10000 Studs": 10,
-        "25000 Studs": 25,
-        "50000 Studs": 50,
-        "75000 Studs": 75,
-        "Default (100000 Studs)": 100,
-        "250000 Studs": 250,
-        "500000 Studs": 500,
-        "750000 Studs": 750,
-        "1 million Studs": 1000,
-        "Vanilla (1.25 million Studs)": 1250,
-        "2.5 million Studs": 2500,
-        "5 million Studs": 5000,
-        "7.5 million Studs": 7500,
-        "10 million Studs": 10000,
-        "No Score Multipliers Expected": 20000,
+        "minimum_(6000_studs)": 6,
+        "10000_studs": 10,
+        "25000_studs": 25,
+        "50000_studs": 50,
+        "75000_studs": 75,
+        "default_(100000_studs)": 100,
+        "250000_studs": 250,
+        "500000_studs": 500,
+        "750000_studs": 750,
+        "1_million_studs": 1000,
+        "vanilla_(1.25_million_studs)": 1250,
+        "2.5_million_studs": 2500,
+        "5_million_studs": 5000,
+        "7.5_million_studs": 7500,
+        "10_million_studs": 10000,
+        "no_score_multipliers_expected": 20000,
     }
 
 
