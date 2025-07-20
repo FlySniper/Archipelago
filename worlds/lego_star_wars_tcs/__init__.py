@@ -35,7 +35,6 @@ from .items import (
     MINIKITS_BY_NAME,
     EXTRAS_BY_NAME,
     SHOP_SLOT_REQUIREMENT_TO_UNLOCKS,
-    ITEM_GROUPS,
 )
 from .levels import (
     BonusArea,
@@ -58,6 +57,7 @@ from .options import (
     MinikitGoalAmount,
     OPTION_GROUPS,
 )
+from .item_groups import ITEM_GROUPS
 from .location_groups import LOCATION_GROUPS
 
 
