@@ -34,6 +34,7 @@ from .game_state_modifiers.levels import UnlockedChapterManager
 from .game_state_modifiers.minikits import AcquiredMinikits
 from .game_state_modifiers.studs import STUDS_AP_ID_TO_VALUE, give_studs
 from .game_state_modifiers.text_display import InGameTextDisplay
+from .game_state_modifiers.text_replacer import TextReplacer
 
 
 logger = logging.getLogger("Client")
@@ -291,6 +292,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     _gog_memory_offset: int = 0
     # In the case of an unrecognised version, an overall memory offset may be set.
     _overall_memory_offset: int = 0
+
+    # Client state.
     acquired_characters: AcquiredCharacters
     acquired_extras: AcquiredExtras
     acquired_generic: AcquiredGeneric
@@ -305,6 +308,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     purchased_extras_checker: PurchasedExtrasChecker
     purchased_characters_checker: PurchasedCharactersChecker
     bonus_area_completion_checker: BonusAreaCompletionChecker
+
+    # Game-state only.
+    text_replacer: TextReplacer
 
     # Customizable client behaviour
     received_item_messages: bool = True
@@ -330,6 +336,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_minikits = AcquiredMinikits()
 
         self.text_display = InGameTextDisplay()
+
+        # It is not ideal to leak `self` in __init__. The TextReplacer methods could be updated to include a TCSContext
+        # parameter if needed, instead of leaking `self`. Alternatively, the TextReplacer could be created only when
+        # successfully connecting to the game.
+        self.text_replacer = TextReplacer(self)
 
         self.unlocked_chapter_manager = UnlockedChapterManager()
         self.free_play_completion_checker = FreePlayChapterCompletionChecker()
@@ -659,12 +670,13 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self._overall_memory_offset = memory_offset
 
         self.game_process = process
+        self.text_replacer = TextReplacer(self)
         return True
 
     async def unhook_game_process(self):
         if self.game_process is not None:
             try:
-                self.text_display.on_unhook_game_process(self)
+                self.text_replacer.on_unhook_game_process()
             except (PymemError, WinAPIError):
                 pass
             finally:
@@ -672,6 +684,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 self.game_process.close_process()
                 self.game_process = None
                 logger.info("Unhooked game process")
+        # Create a new TextReplacer so that if the game is restarted without the client being restarted, then the client
+        # won't try to read/write to memory that was only applicable to the previous game instance.
+        self.text_replacer = TextReplacer(self)
 
     @property
     def _game_process(self) -> pymem.Pymem:
@@ -714,6 +729,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def write_float(self, address: int, value: float, raw=False) -> None:
         self._game_process.write_float(address if raw else self._adjust_address(address), value)
+
+    def allocate(self, num_bytes: int) -> MemoryAddress:
+        return self._game_process.allocate(num_bytes)
+
+    def free(self, address: MemoryAddress) -> None:
+        self._game_process.free(address)
 
     @staticmethod
     def hash_seed_name(seed_name: str) -> bytes:
@@ -1215,6 +1236,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                 # coroutines to allow the player to play while disconnected.
                 # todo: Is the `is_in_game()` check here still necessary now that there is an earlier check?
                 if ctx.is_in_game():
+                    await ctx.text_replacer.update_game_state(ctx)
                     await ctx.free_play_completion_checker.initialize(ctx)
                     await give_items(ctx)
 
@@ -1226,8 +1248,7 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                     await ctx.unlocked_chapter_manager.update_game_state(ctx)
                     await ctx.text_display.update_game_state(ctx)
 
-                    # Queuing the message for the text display must be after the text_display has updated, so that it
-                    # can initialize itself.
+                    # Only queue the message if everything else worked so far.
                     msg = "The client is now fully connected to the game, receiving items and checking locations."
                     if last_message != msg:
                         log_message(msg)
