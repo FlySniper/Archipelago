@@ -58,6 +58,7 @@ from .options import (
     MinikitGoalAmount,
     OPTION_GROUPS,
 )
+from .location_groups import LOCATION_GROUPS
 
 
 def launch_client():
@@ -97,6 +98,7 @@ class LegoStarWarsTCSWorld(World):
     item_name_to_id = ITEM_NAME_TO_ID
     location_name_to_id = LOCATION_NAME_TO_ID
     item_name_groups = ITEM_GROUPS
+    location_name_groups = LOCATION_GROUPS
 
     origin_region_name = "Cantina"
 
