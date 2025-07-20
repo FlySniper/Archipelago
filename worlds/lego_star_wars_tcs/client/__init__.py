@@ -869,6 +869,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.current_level_id = new_level_id
             # Update the datastorage value in the background.
             Utils.async_start(self.send_msgs([{
+                "cmd": "Set",
                 "key": LEVEL_ID_KEY_FORMAT.format(slot=self.slot, team=self.team),
                 "want_reply": False,
                 "operations": [{"operation": "replace", "value": new_level_id}]
@@ -894,6 +895,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.current_cantina_room = new_cantina_room
             # Update the datastorage value in the background.
             Utils.async_start(self.send_msgs([{
+                "cmd": "Set",
                 "key": CANTINA_ROOM_KEY_FORMAT.format(slot=self.slot, team=self.team),
                 "want_reply": False,
                 "operations": [{"operation": "replace", "value": new_cantina_room.value}]
