@@ -22,7 +22,7 @@ LOCATION_GROUPS: dict[str, set[str]] = {
             area.power_brick_location_name,
             f"{shortname} Completion",
             *[f"{shortname} Minikit {i}" for i in range(1, 11)],
-            *area.shop_unlocks.keys(),
+            *area.character_shop_unlocks.keys(),
         } for shortname, area in SHORT_NAME_TO_CHAPTER_AREA.items()
     },
     # Chapter Completion Character Unlocks can often be accessed from multiple Chapters, so are put in separate location
@@ -38,7 +38,7 @@ LOCATION_GROUPS: dict[str, set[str]] = {
         } for shortname, area in SHORT_NAME_TO_CHAPTER_AREA.items()
     },
     **{
-        f"Purchases - {shortname}": set(area.shop_unlocks.keys())
+        f"Purchases - {shortname}": set(area.character_shop_unlocks.keys())
         for shortname, area in SHORT_NAME_TO_CHAPTER_AREA.items()
     },
 }

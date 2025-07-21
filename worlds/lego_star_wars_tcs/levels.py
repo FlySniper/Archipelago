@@ -84,7 +84,7 @@ class ChapterArea:
     # TODO: Convert this file mostly into a script that writes `print(repr(GAME_LEVEL_AREAS))`
     short_name: str = field(init=False)
     character_requirements: frozenset[str] = field(init=False)
-    shop_unlocks: dict[str, int] = field(init=False)
+    character_shop_unlocks: dict[str, int] = field(init=False)
     power_brick_ability_requirements: tuple[CharacterAbility, ...] = field(init=False)
     power_brick_location_name: str = field(init=False)
     power_brick_studs_cost: int = field(init=False)
@@ -96,9 +96,9 @@ class ChapterArea:
         character_requirements = CHAPTER_AREA_STORY_CHARACTERS[self.short_name]
         object.__setattr__(self, "character_requirements", character_requirements)
 
-        shop_unlocks = {f"Purchase {character}": price for character, price
-                        in SHOP_SLOT_REQUIREMENT_TO_UNLOCKS.get(self.short_name, {}).items()}
-        object.__setattr__(self, "shop_unlocks", shop_unlocks)
+        character_shop_unlocks = {f"Purchase {character}": price for character, price
+                                  in SHOP_SLOT_REQUIREMENT_TO_UNLOCKS.get(self.short_name, {}).items()}
+        object.__setattr__(self, "character_shop_unlocks", character_shop_unlocks)
 
         power_brick = POWER_BRICK_REQUIREMENTS[self.short_name]
         power_brick_location_name = f"Purchase {power_brick.name} ({self.short_name})"

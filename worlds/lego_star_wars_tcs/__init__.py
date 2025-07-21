@@ -998,14 +998,14 @@ class LegoStarWarsTCSWorld(World):
 
                 # Character Purchases in the shop.
                 # Character purchases unlocked upon completing the chapter (normally in Story mode).
-                for shop_unlock, studs_cost in chapter.shop_unlocks.items():
+                for shop_unlock, studs_cost in chapter.character_shop_unlocks.items():
                     shop_location = LegoStarWarsTCSLocation(self.player, shop_unlock,
                                                             self.location_name_to_id[shop_unlock], chapter_region)
                     chapter_region.locations.append(shop_location)
                     self.required_score_multiplier_count = max(
                         self.required_score_multiplier_count,
                         self._get_score_multiplier_requirement(studs_cost))
-                self.character_unlock_location_count += len(chapter.shop_unlocks)
+                self.character_unlock_location_count += len(chapter.character_shop_unlocks)
 
                 # Minikits.
                 chapter_minikits = self.create_region(f"{chapter.name} Minikits")
@@ -1248,7 +1248,7 @@ class LegoStarWarsTCSWorld(World):
                 set_chapter_spot_abilities_rule(all_minikits_entrance, chapter.all_minikits_ability_requirements)
 
                 # Set Character Purchase logic
-                for shop_unlock, studs_cost in chapter.shop_unlocks.items():
+                for shop_unlock, studs_cost in chapter.character_shop_unlocks.items():
                     purchase_location = self.get_location(shop_unlock)
                     self._add_score_multiplier_rule(purchase_location, studs_cost)
 
