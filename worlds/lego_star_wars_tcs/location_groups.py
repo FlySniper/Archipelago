@@ -41,4 +41,8 @@ LOCATION_GROUPS: dict[str, set[str]] = {
         f"Purchases - {shortname}": {*area.character_shop_unlocks.keys(), area.power_brick_location_name}
         for shortname, area in SHORT_NAME_TO_CHAPTER_AREA.items()
     },
+    **{
+        f"Character Purchases - {shortname}": set(area.character_shop_unlocks.keys())
+        for shortname, area in SHORT_NAME_TO_CHAPTER_AREA.items() if area.character_shop_unlocks
+    },
 }
