@@ -349,7 +349,8 @@ class AllEpisodesCharacterPurchaseRequirements(Choice):
 
 
 class StartingChapter(Choice):
-    """Choose the starting chapter. The Episode the starting Chapter belongs to will be accessible from the start.
+    """
+    Choose the starting chapter. The Episode the starting Chapter belongs to will be accessible from the start.
 
     Known issues:
     - If the starting Chapter belongs to an Episode other than Episode 1, when starting a new save file and connecting
@@ -369,7 +370,10 @@ class StartingChapter(Choice):
     Starting with 1-3 will also open 1-6.
     Starting with 1-5 will also open 1-6.
     Starting with 3-2 will also open 3-6.
-    Starting with 4-3 will also open 4-2."""
+    Starting with 4-3 will also open 4-2.
+    Starting with 5-3 will also open 6-6 if the Episode Unlock Requirement is set to Open.
+    Starting with 6-6 will also open 5-3 if the Episode Unlock Requirement is set to Open.
+    """
     display_name = "Starting Chapter"
     # todo: Try setting the attributes for specific levels such that they use 1-1 format rather than 1_1.
     # Variable names cannot use hyphens, so the options for specific levels are set programmatically.
