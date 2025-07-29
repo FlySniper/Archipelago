@@ -468,6 +468,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.text_display.init_from_slot_data(self, slot_data)
 
         self.free_play_completion_checker.init_from_slot_data(self, slot_data)
+        self.client_expected_idx = 0
 
     def on_package(self, cmd: str, args: dict):
         super().on_package(cmd, args)
