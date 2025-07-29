@@ -487,6 +487,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 self.last_connected_slot = None
             self.last_connected_seed_name = new_seed_name
             self.seed_name = new_seed_name
+            if self.server_version < (0, 6, 2):
+                logger.warning("Lego Star Wars: The Complete Saga works best with servers running AP version 0.6.2 or"
+                               " newer. The connected server is running version %s, so some same-slot co-op and tracker"
+                               " features will not be available.", self.server_version.as_simple_string())
         elif cmd == "Connected":
             if self.last_connected_seed_name is None:
                 # The client should be just about to disconnect from failing to match the server's seed.
@@ -548,6 +552,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                     self.free_play_completion_checker.update_from_datastorage(value)
 
     def update_datastorage_free_play_completion(self, area_ids: list[int]):
+        if self.server_version < (0, 6, 2):
+            # Using the "update" operation on list values was only added in AP 0.6.2, so an older server version will
+            # disconnect the client.
+            return
         if not area_ids:
             return
         debug_logger.info("Sending Free Play Completion area_ids to datastorage: %s", area_ids)
