@@ -22,7 +22,8 @@ folder. After importing, right click and `Modify`, then adjust the `Path` to you
 window size to your liking (`W` and `H` in `Main`>`Position`>`Window initial position & size`)
   - Additional steps for Steam version:
     - The Steam version can sometimes crash when starting when run through Dxwnd, but it is stable once it has managed
-to start
+to start. You should at least sometimes get to the TTGames logo screen before crashing if everything is set up
+correctly. Crashes can occur as late as the title screen.
     - If Lego Star Wars: The Complete Saga is installed on a separate drive to Steam, and you get
 `Application load error 5:0000065434` when starting the game through DxWnd, copy your `Steam.exe` file into the same
 directory as your `LEGOStarWarsSaga.exe`.
