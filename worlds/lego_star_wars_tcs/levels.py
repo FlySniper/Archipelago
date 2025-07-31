@@ -89,6 +89,7 @@ class ChapterArea:
     power_brick_location_name: str = field(init=False)
     power_brick_studs_cost: int = field(init=False)
     all_minikits_ability_requirements: CharacterAbility = field(init=False)
+    boss: str | None = field(init=False)
 
     def __post_init__(self):
         object.__setattr__(self, "short_name", f"{self.episode}-{self.number_in_episode}")
@@ -113,6 +114,9 @@ class ChapterArea:
 
         all_minikits_ability_requirements = ALL_MINIKITS_REQUIREMENTS[self.short_name]
         object.__setattr__(self, "all_minikits_ability_requirements", all_minikits_ability_requirements)
+
+        boss = BOSS_CHARACTERS_BY_SHORTNAME.get(self.short_name)
+        object.__setattr__(self, "boss", boss)
 
 
 @dataclass(frozen=True)
@@ -423,6 +427,25 @@ ALL_MINIKITS_REQUIREMENTS: dict[str, CharacterAbility] = {
     "6-6": VEHICLE_TIE,
 }
 
+BOSS_CHARACTERS_BY_SHORTNAME: dict[str, str] = {
+    "1-6": "Darth Maul",
+    "2-1": "Zam Wesell",
+    "2-2": "Jango Fett",
+    "2-4": "Jango Fett",
+    "2-6": "Count Dooku",
+    "3-2": "Count Dooku",
+    "3-3": "General Grievous",
+    "3-6": "Anakin Skywalker",
+    "4-6": "Death Star",
+    "5-4": "Darth Vader",
+    "5-5": "Darth Vader",
+    "5-6": "Boba Fett",
+    "6-1": "Rancor",
+    "6-2": "Boba Fett",
+    "6-5": "Darth Sidious",
+    "6-6": "Death Star II",
+}
+
 # TODO: Record Level IDs, these would mostly be there to help make map switching in the tracker easier, and would
 #  serve as a record of data that might be useful for others.
 CHAPTER_AREAS = [
@@ -553,3 +576,7 @@ VEHICLE_CHAPTER_SHORTNAMES: frozenset[str] = frozenset({
     "5-3",
     "6-6",
 })
+
+BOSS_UNIQUE_NAME_TO_CHAPTER: dict[str, ChapterArea] = {
+    f"{chapter.boss} ({chapter.short_name})": chapter for chapter in CHAPTER_AREAS if chapter.boss
+}

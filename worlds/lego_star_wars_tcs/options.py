@@ -14,6 +14,7 @@ from Options import (
     OptionGroup,
 )
 
+from .levels import BOSS_UNIQUE_NAME_TO_CHAPTER
 from .locations import LEVEL_SHORT_NAMES_SET
 from .items import CHARACTERS_AND_VEHICLES_BY_NAME, EXTRAS_BY_NAME
 
@@ -40,6 +41,8 @@ class MinikitGoalAmount(NamedRange):
     """
     The number of Minikits required to goal.
 
+    If set to zero, Minikits will not be part of the goal, but will still be in the item pool as filler items.
+
     Each enabled episode chapter shuffles 10 Minikits into the item pool, which may be bundled to reduce the number
     Minikit items in the item pool.
 
@@ -47,7 +50,7 @@ class MinikitGoalAmount(NamedRange):
     determine how many Minikit's are required to goal.
     """
     display_name = "Goal Minikit Count"
-    range_start = 10
+    range_start = 0
     range_end = 360
     special_range_names = {
         "use_percentage_option": -1,
@@ -70,6 +73,52 @@ class MinikitGoalAmountPercentage(Range):
     range_start = 1
     range_end = 100
     default = 75
+
+
+class DefeatBossesGoalAmount(Range):
+    """
+    Choose how many bosses must be defeated to goal.
+
+    If set to zero, bosses will not be part of the goal.
+
+    The Chapter a boss is in must be completed for defeating the boss to count.
+    """
+    range_start = 0
+    range_end = len(BOSS_UNIQUE_NAME_TO_CHAPTER)
+
+
+class EnabledBossesCount(Range):
+    """
+    Choose the number of bosses that will be present in the world.
+
+    This will automatically be set at least as high as the number of bosses required to goal.
+    This will automatically be set no higher than the maximum of the number of allowed bosses in allowed Chapters.
+
+    If there are not enough bosses in the picked Enabled Chapters, boss Chapters will replace the last picked Chapters
+    until there are enough Boss Chapters in the world.
+    """
+    range_start = 0
+    range_end = len(BOSS_UNIQUE_NAME_TO_CHAPTER)
+
+
+class AllowedBosses(OptionSet):
+    """
+    Choose bosses that count towards the Defeat Bosses Goal.
+
+    Bosses that are not also in Allowed Chapters will be ignored.
+    """
+    valid_keys = list(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
+    default = frozenset(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
+
+
+class OnlyUniqueBossesCountTowardsGoal(Choice):
+    """
+    When enabled, only unique bosses will count towards your goal. Defeating the same boss in two separate Chapters will
+    only count as one boss kill.
+    """
+    option_disabled = 0
+    option_enabled = 1
+    option_enabled_and_count_anakin_as_darth_vader = 2
 
 
 class MinikitBundleSize(Choice):
@@ -744,6 +793,11 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     minikit_goal_amount_percentage: MinikitGoalAmountPercentage
     minikit_bundle_size: MinikitBundleSize
 
+    defeat_bosses_goal_amount: DefeatBossesGoalAmount
+    enabled_bosses_count: EnabledBossesCount
+    allowed_bosses: AllowedBosses
+    only_unique_bosses_count: OnlyUniqueBossesCountTowardsGoal
+
     # Enabled/Available locations.
     # Chapters.
     enabled_chapters_count: EnabledChaptersCount
@@ -780,9 +834,15 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
 
 
 OPTION_GROUPS: list[OptionGroup] = [
-    OptionGroup("Goal Options", [
+    OptionGroup("Minikit Goal Options", [
         MinikitGoalAmount,
         MinikitGoalAmountPercentage,
+    ]),
+    OptionGroup("Bosses Goal Options", [
+        DefeatBossesGoalAmount,
+        EnabledBossesCount,
+        AllowedBosses,
+        OnlyUniqueBossesCountTowardsGoal,
     ]),
     OptionGroup("Chapter Options", [
         EnabledChaptersCount,
