@@ -697,7 +697,10 @@ class LegoStarWarsTCSWorld(World):
         else:
             if name in MINIKITS_BY_NAME:
                 # A goal macguffin.
-                classification = ItemClassification.progression_skip_balancing
+                if self.goal_minikit_count > 0:
+                    classification = ItemClassification.progression_skip_balancing
+                else:
+                    classification = ItemClassification.filler
             elif name == "Progressive Score Multiplier":
                 # todo: Vary between progression and progression_skip_balancing depending on what percentage of
                 #  locations need them. Make them Useful if none are needed.
