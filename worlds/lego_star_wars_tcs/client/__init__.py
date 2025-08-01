@@ -30,6 +30,7 @@ from .location_checkers.shop_purchases import PurchasedExtrasChecker, PurchasedC
 from .game_state_modifiers.extras import AcquiredExtras
 from .game_state_modifiers.characters import AcquiredCharacters
 from .game_state_modifiers.generic import AcquiredGeneric
+from .game_state_modifiers.goal_manager import GoalManager
 from .game_state_modifiers.levels import UnlockedChapterManager
 from .game_state_modifiers.minikits import AcquiredMinikits
 from .game_state_modifiers.studs import STUDS_AP_ID_TO_VALUE, give_studs
@@ -300,6 +301,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     acquired_minikits: AcquiredMinikits
     unlocked_chapter_manager: UnlockedChapterManager
     text_display: InGameTextDisplay
+    goal_manager: GoalManager
     client_expected_idx: int
 
     # Location checkers.
@@ -334,6 +336,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
         self.acquired_minikits = AcquiredMinikits()
+        self.goal_manager = GoalManager()
 
         self.text_display = InGameTextDisplay()
 
@@ -468,6 +471,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.text_display.init_from_slot_data(self, slot_data)
 
         self.free_play_completion_checker.init_from_slot_data(self, slot_data)
+        self.goal_manager.init_from_slot_data(self, slot_data)
         self.client_expected_idx = 0
 
     def on_package(self, cmd: str, args: dict):
@@ -1013,6 +1017,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.purchased_characters_checker = PurchasedCharactersChecker()
         self.bonus_area_completion_checker = BonusAreaCompletionChecker()
 
+        self.goal_manager = GoalManager()
+
         if clear_text_display_queue:
             self.text_display.message_queue.clear()
 
@@ -1294,10 +1300,11 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                         # Send newly cleared locations to the server, if there are any.
                         await ctx.check_locations(new_location_checks)
 
+                        await ctx.goal_manager.update_game_state(ctx)
+
                         # Check for goal completion.
                         if not ctx.finished_game:
-                            victory = ctx.acquired_minikits.minikit_count >= ctx.acquired_minikits.goal_minikit_count
-                            if victory:
+                            if ctx.goal_manager.is_goal_complete(ctx):
                                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                                 ctx.finished_game = True
                 sleep_time = 0.1
