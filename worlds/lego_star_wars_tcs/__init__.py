@@ -175,6 +175,7 @@ class LegoStarWarsTCSWorld(World):
             self.options.enable_all_episodes_purchases.value = passthrough["enable_all_episodes_purchases"]
             self.options.defeat_bosses_goal_amount.value = passthrough["defeat_bosses_goal_amount"]
             self.options.only_unique_bosses_count.value = passthrough["only_unique_bosses_count"]
+            self.options.defeat_bosses_goal_amount.value = passthrough["defeat_bosses_goal_amount"]
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -191,7 +192,6 @@ class LegoStarWarsTCSWorld(World):
             self.minikit_bundle_count = (self.available_minikits // bundle_size
                                          + (self.available_minikits % bundle_size != 0))
             self.enabled_bosses = set(passthrough["enabled_bosses"])
-            self.goal_boss_count = passthrough["goal_boss_count"]
 
             # Override options with their derived/rolled values.
             # Override the enable_chapter count to match the number that are enabled.
@@ -350,6 +350,9 @@ class LegoStarWarsTCSWorld(World):
                                       maximum_bosses_for_goal)
                     options.defeat_bosses_goal_amount.value = maximum_bosses_for_goal
 
+            # The bosses goal amount should not change beyond this point.
+            goal_boss_count = options.defeat_bosses_goal_amount.value
+
             # Warn and increase the enabled bosses count if it is lower than the goal amount.
             if options.enabled_bosses_count < options.defeat_bosses_goal_amount:
                 self._log_warning("The number of enabled bosses was %i, but the number of bosses to defeat as part of"
@@ -372,8 +375,6 @@ class LegoStarWarsTCSWorld(World):
             if options.enabled_bosses_count == options.enabled_chapters_count:
                 assert not starting_chapter_cannot_be_a_boss
                 allowed_starting_chapters.intersection_update(allowed_boss_chapters)
-
-            self.goal_boss_count = options.defeat_bosses_goal_amount.value
 
             # Pick the starting chapter.
             self.starting_chapter = self.random.choice(sorted(allowed_starting_chapters))
@@ -421,7 +422,7 @@ class LegoStarWarsTCSWorld(World):
                             boss_character = "Darth Vader"
                         found_boss_indices_by_boss_character.setdefault(boss_character, []).append(i)
                         index_to_boss_character[i] = boss_character
-                    missing_boss_count = self.goal_boss_count - len(found_boss_indices_by_boss_character)
+                    missing_boss_count = goal_boss_count - len(found_boss_indices_by_boss_character)
                     if missing_boss_count == 0:
                         # The exact required number of bosses are present, so no changes are needed.
                         enabled_bosses = {
@@ -441,7 +442,7 @@ class LegoStarWarsTCSWorld(World):
                                 found_boss_indices.remove(i)
                             del found_boss_indices_by_boss_character[starting_boss]
                         chosen_boss_characters = self.random.sample(tuple(found_boss_indices_by_boss_character.keys()),
-                                                                    k=self.goal_boss_count)
+                                                                    k=goal_boss_count)
                         enabled_bosses = {
                             tentative_enabled_chapters[i] for boss_names in chosen_boss_characters
                             for i in found_boss_indices_by_boss_character[boss_names]
@@ -536,7 +537,7 @@ class LegoStarWarsTCSWorld(World):
                                                                               " match the missing boss count")
                 else:
                     # Each boss counts separately, even if some bosses use the same boss character.
-                    missing_boss_count = self.goal_boss_count - len(found_boss_indices)
+                    missing_boss_count = goal_boss_count - len(found_boss_indices)
                     if missing_boss_count == 0:
                         # The exact required number of bosses are present, so no changes are needed.
                         enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
@@ -546,7 +547,7 @@ class LegoStarWarsTCSWorld(World):
                         # is less interesting, especially if there is only one required boss.
                         if found_boss_indices[0] == 0:
                             found_boss_indices = found_boss_indices[1:]
-                        chosen_boss_indices = self.random.sample(found_boss_indices, k=self.goal_boss_count)
+                        chosen_boss_indices = self.random.sample(found_boss_indices, k=goal_boss_count)
                         enabled_bosses = {tentative_enabled_chapters[i] for i in chosen_boss_indices}
                     else:
                         # There are too few bosses, so replace the latest picked chapters, that are not bosses, with
@@ -1611,18 +1612,20 @@ class LegoStarWarsTCSWorld(World):
         victory = self.get_location("Goal")
         if self.goal_minikit_count > 0:
             add_rule(victory, lambda state: state.has(self.minikit_bundle_name, player, self.goal_minikit_bundle_count))
-        if self.goal_boss_count > 0:
+        goal_boss_count = self.options.defeat_bosses_goal_amount.value
+        if goal_boss_count > 0:
             if self.options.only_unique_bosses_count:
-                boss_items = {f"{SHORT_NAME_TO_CHAPTER_AREA[chapter].boss} Defeated" for chapter in self.enabled_bosses}
-                assert self.goal_boss_count <= len(boss_items)
+                boss_items = sorted({SHORT_NAME_TO_CHAPTER_AREA[chapter].boss_character_defeated_event_item_name
+                                     for chapter in self.enabled_bosses})
+                assert goal_boss_count <= len(boss_items)
                 add_rule(
                     victory, (
-                        lambda state, i_=tuple(boss_items), p_=player, c_=self.goal_boss_count:
+                        lambda state, i_=tuple(boss_items), p_=player, c_=goal_boss_count:
                         state.has_from_list_unique(i_, p_, c_)
                     )
                 )
             else:
-                add_rule(victory, lambda state, p_=player, c_=self.goal_boss_count: state.has("Boss Defeated", p_, c_))
+                add_rule(victory, lambda state, p_=player, c_=goal_boss_count: state.has("Boss Defeated", p_, c_))
 
         self.multiworld.completion_condition[self.player] = lambda state: state.has("Victory", player)
 
@@ -1692,7 +1695,6 @@ class LegoStarWarsTCSWorld(World):
             "starting_episode": self.starting_episode,
             "minikit_goal_amount": self.goal_minikit_count,
             "enabled_bosses": self.enabled_bosses,
-            "goal_boss_count": self.goal_boss_count,
             **self.options.as_dict(
                 "received_item_messages",
                 "checked_location_messages",
@@ -1705,6 +1707,7 @@ class LegoStarWarsTCSWorld(World):
                 "enable_all_episodes_purchases",
                 "defeat_bosses_goal_amount",
                 "only_unique_bosses_count",
+                "defeat_bosses_goal_amount",
             )
         }
 
