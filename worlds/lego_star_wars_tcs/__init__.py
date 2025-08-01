@@ -173,6 +173,8 @@ class LegoStarWarsTCSWorld(World):
             self.options.enable_story_character_unlock_locations.value = (
                 passthrough["enable_story_character_unlock_locations"])
             self.options.enable_all_episodes_purchases.value = passthrough["enable_all_episodes_purchases"]
+            self.options.defeat_bosses_goal_amount.value = passthrough["defeat_bosses_goal_amount"]
+            self.options.only_unique_bosses_count.value = passthrough["only_unique_bosses_count"]
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -188,6 +190,8 @@ class LegoStarWarsTCSWorld(World):
             self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
             self.minikit_bundle_count = (self.available_minikits // bundle_size
                                          + (self.available_minikits % bundle_size != 0))
+            self.enabled_bosses = set(passthrough["enabled_bosses"])
+            self.goal_boss_count = passthrough["goal_boss_count"]
 
             # Override options with their derived/rolled values.
             # Override the enable_chapter count to match the number that are enabled.
@@ -1688,6 +1692,7 @@ class LegoStarWarsTCSWorld(World):
             "starting_episode": self.starting_episode,
             "minikit_goal_amount": self.goal_minikit_count,
             "enabled_bosses": self.enabled_bosses,
+            "goal_boss_count": self.goal_boss_count,
             **self.options.as_dict(
                 "received_item_messages",
                 "checked_location_messages",
@@ -1699,6 +1704,7 @@ class LegoStarWarsTCSWorld(World):
                 "enable_story_character_unlock_locations",
                 "enable_all_episodes_purchases",
                 "defeat_bosses_goal_amount",
+                "only_unique_bosses_count",
             )
         }
 
