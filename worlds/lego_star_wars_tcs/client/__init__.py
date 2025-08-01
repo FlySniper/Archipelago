@@ -553,7 +553,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if key.startswith(COMPLETED_FREE_PLAY_KEY_PREFIX) and key == self.datastorage_free_play_completion_key:
                 value = args["value"]
                 if value is not None:
-                    self.free_play_completion_checker.update_from_datastorage(value)
+                    self.free_play_completion_checker.update_from_datastorage(self, value)
 
     def update_datastorage_free_play_completion(self, area_ids: list[int]):
         if self.server_version < (0, 6, 2):
