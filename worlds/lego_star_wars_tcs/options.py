@@ -37,6 +37,19 @@ class ChapterOptionSet(OptionSet):
         return set().union(*(CHAPTER_OPTION_KEYS[key] for key in self.value))
 
 
+class ChoiceFromStringExtension(Choice):
+    """
+    Extends Choice to add a method to set the value from a string option name, similar to constructing a new Choice
+    instance with Choice.from_text().
+    """
+    def set_from_string(self, s: str):
+        for k, v in self.name_lookup.items():
+            if s == v:
+                self.value = k
+                return
+        raise ValueError(f"{s} is not a valid string for {type(self)}. Expected: {sorted(self.name_lookup.values())}")
+
+
 class MinikitGoalAmount(NamedRange):
     """
     The number of Minikits required to goal.
@@ -111,7 +124,7 @@ class AllowedBosses(OptionSet):
     default = frozenset(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
 
 
-class OnlyUniqueBossesCountTowardsGoal(Choice):
+class OnlyUniqueBossesCountTowardsGoal(ChoiceFromStringExtension):
     """
     When enabled, only unique bosses will count towards your goal. Defeating the same boss in two separate Chapters will
     only count as one boss kill.
@@ -121,7 +134,7 @@ class OnlyUniqueBossesCountTowardsGoal(Choice):
     option_enabled_and_count_anakin_as_darth_vader = 2
 
 
-class MinikitBundleSize(Choice):
+class MinikitBundleSize(ChoiceFromStringExtension):
     """
     Minikit items in the item pool are bundled into items individually worth this number of Minikits.
 
@@ -151,7 +164,7 @@ class EnabledChaptersCount(Range):
     default = 18
 
 
-class AllowedChapterTypes(Choice):
+class AllowedChapterTypes(ChoiceFromStringExtension):
     """Specify additional filtering of the allowed chapters that can be enabled.
 
     - All: No additional filtering, all chapters specified in the Allowed Chapters option are allowed.
@@ -339,7 +352,7 @@ class EnableAllEpisodesCharacterPurchaseLocations(Toggle):
     display_name = "'All Episodes' Character Purchases"
 
 
-class ChapterUnlockRequirement(Choice):
+class ChapterUnlockRequirement(ChoiceFromStringExtension):
     """Choose how Chapters within an Episode are unlocked.
 
     The requirements to access your starting Chapter will be given to you at the start.
@@ -356,7 +369,7 @@ class ChapterUnlockRequirement(Choice):
     default = 0
 
 
-class EpisodeUnlockRequirement(Choice):
+class EpisodeUnlockRequirement(ChoiceFromStringExtension):
     """Choose how Episodes are unlocked.
 
     Note: An Episode door in the Cantina will only unlock when a Chapter within that Episode has been unlocked.
@@ -372,7 +385,7 @@ class EpisodeUnlockRequirement(Choice):
     default = 0
 
 
-class AllEpisodesCharacterPurchaseRequirements(Choice):
+class AllEpisodesCharacterPurchaseRequirements(ChoiceFromStringExtension):
     """The vanilla unlock requirements for purchasing IG-88, Dengar, 4-LOM, Ben Kenobi (Ghost), Anakin Skywalker
     (Ghost), Yoda (Ghost) and R2-Q5 from the shop, are completing every Story mode chapter. The randomizer changes this
     unlock condition because completing every Story mode chapter is unreasonable in most multiworlds and is impossible
@@ -397,7 +410,7 @@ class AllEpisodesCharacterPurchaseRequirements(Choice):
 #     """Extra Toggle characters are included in logic"""
 
 
-class StartingChapter(Choice):
+class StartingChapter(ChoiceFromStringExtension):
     """
     Choose the starting chapter. The Episode the starting Chapter belongs to will be accessible from the start.
 
@@ -704,7 +717,7 @@ class MostExpensivePurchaseWithNoScoreMultiplier(NamedRange):
     }
 
 
-class ReceivedItemMessages(Choice):
+class ReceivedItemMessages(ChoiceFromStringExtension):
     """
     Determines whether an in-game notification is displayed when receiving an item.
 
@@ -723,7 +736,7 @@ class ReceivedItemMessages(Choice):
     # option_progression = 2  # Not Yet Implemented
 
 
-class CheckedLocationMessages(Choice):
+class CheckedLocationMessages(ChoiceFromStringExtension):
     """
     Determines whether an in-game notification is displayed when checking a location.
 
@@ -741,7 +754,7 @@ class CheckedLocationMessages(Choice):
     option_none = 1
 
 
-class LogicDifficulty(Choice):
+class LogicDifficulty(ChoiceFromStringExtension):
     # todo: Maybe just remove Extras (other than score multipliers) logic from None difficulty?
     """
     - None:

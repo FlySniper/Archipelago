@@ -58,7 +58,6 @@ from .options import (
     MinikitGoalAmount,
     OnlyUniqueBossesCountTowardsGoal,
     OPTION_GROUPS,
-    AllowedChapterTypes,
 )
 from .item_groups import ITEM_GROUPS
 from .location_groups import LOCATION_GROUPS
@@ -194,11 +193,11 @@ class LegoStarWarsTCSWorld(World):
             # Override the enable_chapter count to match the number that are enabled.
             self.options.enabled_chapters_count.value = len(self.enabled_chapters)
             # Unrandomize the starting chapter choice with the starting chapter that was actually picked.
-            self.options.starting_chapter.value = self.starting_chapter
+            self.options.starting_chapter.set_from_string(self.starting_chapter)
             # Override the allowed chapters with all the chapters that rolled as enabled.
             self.options.allowed_chapters.value = set(self.enabled_chapters)
             # Act as if there was no filtering of allowed chapter types.
-            self.options.allowed_chapter_types.value = AllowedChapterTypes.option_all
+            self.options.allowed_chapter_types.set_from_string("all")
 
         # Normal options parsing.
         else:
