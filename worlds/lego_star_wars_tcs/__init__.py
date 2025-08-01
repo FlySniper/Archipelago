@@ -615,6 +615,8 @@ class LegoStarWarsTCSWorld(World):
             # Minikit options.
             bundle_size = self.options.minikit_bundle_size.value
             self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
+            # todo?: Set self.available_minikits = 0 when self.options.minikit_goal_amount.value == 0 to remove minikits
+            #  from the item pool?
             self.available_minikits = self.enabled_chapter_count * 10  # 10 Minikits per chapter.
             self.minikit_bundle_count = (self.available_minikits // bundle_size
                                          + (self.available_minikits % bundle_size != 0))
@@ -653,6 +655,18 @@ class LegoStarWarsTCSWorld(World):
             # There are often multiple Chapters that can send each Story character unlock location, so enable path
             # display in spoilers with paths enabled.
             self.topology_present = True
+
+        # Debug check to help with comparing passthrough values
+        # for k, v in vars(self).items():
+        #     print(f"{k}: {v}")
+        #
+        # if not passthrough:
+        #     self.multiworld.re_gen_passthrough = {self.game: self.fill_slot_data()}
+        #     # Recursive call, but with passthrough this time.
+        #     self.generate_early()
+        # else:
+        #     # No recursive call the second time around.
+        #     return
 
     def evaluate_effective_item(self,
                                 name: str,
@@ -693,6 +707,9 @@ class LegoStarWarsTCSWorld(World):
                 classification = ItemClassification.useful
 
             if name == "Admiral Ackbar":
+                # There is no trap functionality, this trap classification is a joke.
+                # Maybe once/if the world switches to modding, receiving this item could play the iconic "It's a trap!"
+                # line.
                 classification |= ItemClassification.trap
         else:
             if name in MINIKITS_BY_NAME:
