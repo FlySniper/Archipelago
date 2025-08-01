@@ -131,7 +131,7 @@ class OnlyUniqueBossesCountTowardsGoal(ChoiceFromStringExtension):
     """
     option_disabled = 0
     option_enabled = 1
-    option_enabled_and_count_anakin_as_darth_vader = 2
+    option_enabled_and_count_anakin_as_vader = 2
 
 
 class MinikitBundleSize(ChoiceFromStringExtension):
