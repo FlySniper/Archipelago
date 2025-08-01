@@ -432,6 +432,8 @@ class LegoStarWarsTCSWorld(World):
                         if found_boss_indices[0] == 0:
                             starting_boss = index_to_boss_character[0]
                             for i in found_boss_indices_by_boss_character[starting_boss]:
+                                # If the boss was duplicated by other chapters, also remove those other chapters from
+                                # the bosses that will be picked from.
                                 found_boss_indices.remove(i)
                             del found_boss_indices_by_boss_character[starting_boss]
                         chosen_boss_characters = self.random.sample(tuple(found_boss_indices_by_boss_character.keys()),
@@ -471,18 +473,19 @@ class LegoStarWarsTCSWorld(World):
                             chapter_at_index_is_not_a_boss = i not in found_boss_indices_set
                             chapter_at_index_is_a_duplicated_boss = i in found_boss_indices_to_duplicates_list
                             if chapter_at_index_is_not_a_boss or chapter_at_index_is_a_duplicated_boss:
-                                # The chapter is not a boss, so replace it.
+                                # The chapter is not a boss or is a duplicate boss, so replace it.
                                 chapter_to_replace = tentative_enabled_chapters[i]
-                                # Replace the removed chapter with a boss in the same episode if possible.
+                                # Replace the removed chapter with a unique boss in the same episode if possible.
                                 removed_chapter_episode_number_str = chapter_to_replace[0]
-                                # Iterate through all remaining enabled bosses to try to find one in the same episode.
-                                for boss_character, boss_chapters in extra_boss_characters_to_pick_from.items():
-                                    for j, boss_chapter in enumerate(reversed(boss_chapters), start=1):
-                                        if boss_chapter[0] == removed_chapter_episode_number_str:
-                                            del boss_chapters[-j]
-                                            enabled_bosses.add(boss_chapter)
-                                            del extra_boss_characters_to_pick_from[boss_character]
-                                            tentative_enabled_chapters[i] = boss_chapter
+                                # Iterate through all remaining enabled unique bosses to try to find one in the same
+                                # episode.
+                                replacement_boss_character: str
+                                replacement_boss_chapter: str
+                                for replacement_boss_character, boss_chapters in (
+                                        extra_boss_characters_to_pick_from.items()
+                                ):
+                                    for replacement_boss_chapter in reversed(boss_chapters):
+                                        if replacement_boss_chapter[0] == removed_chapter_episode_number_str:
                                             break
                                     else:
                                         # No break, so no replacement found.
@@ -493,13 +496,20 @@ class LegoStarWarsTCSWorld(World):
                                     # No boss in the same episode was found, so pick the first boss in the dict to
                                     # replace it.
                                     it = iter(extra_boss_characters_to_pick_from.items())
-                                    boss_character, boss_chapters = next(it)
-                                    boss_chapter = boss_chapters[0]
-                                    boss_chapters.clear()
-                                    enabled_bosses.add(boss_chapter)
-                                    del extra_boss_characters_to_pick_from[boss_character]
-                                    tentative_enabled_chapters[i] = boss_chapter
+                                    replacement_boss_character, boss_chapters = next(it)
+                                    replacement_boss_chapter = boss_chapters[0]
+                                # Add the replacement boss chapter to the set of enabled boss chapters.
+                                enabled_bosses.add(replacement_boss_chapter)
+                                # Remove the replacement boss character from the dict of extra, unique boss characters
+                                # to pick from. There could be additional chapters that feature this boss, but now that
+                                # the boss has been picked, those additional chapters would no longer feature a unique
+                                # boss.
+                                del extra_boss_characters_to_pick_from[replacement_boss_character]
+
+                                # Replace the chapter at the current index `i`.
+                                tentative_enabled_chapters[i] = replacement_boss_chapter
                                 replaced_chapters.append(chapter_to_replace)
+
                                 if chapter_at_index_is_a_duplicated_boss:
                                     # The replaced chapter was a duplicate boss.
                                     # Remove the replaced index from the list of duplicates.
