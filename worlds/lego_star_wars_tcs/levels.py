@@ -118,6 +118,20 @@ class ChapterArea:
         boss = BOSS_CHARACTERS_BY_SHORTNAME.get(self.short_name)
         object.__setattr__(self, "boss", boss)
 
+    @property
+    def unique_boss_name(self) -> str | None:
+        boss = self.boss
+        if boss is None:
+            return None
+        return f"{boss} ({self.short_name})"
+
+    @property
+    def boss_character_defeated_event_item_name(self) -> str:
+        boss = self.boss
+        if boss is None:
+            raise ValueError(f"{self} does not have a boss")
+        return f"{boss} Defeated"
+
 
 @dataclass(frozen=True)
 class BonusArea:
@@ -578,5 +592,5 @@ VEHICLE_CHAPTER_SHORTNAMES: frozenset[str] = frozenset({
 })
 
 BOSS_UNIQUE_NAME_TO_CHAPTER: dict[str, ChapterArea] = {
-    f"{chapter.boss} ({chapter.short_name})": chapter for chapter in CHAPTER_AREAS if chapter.boss
+    chapter.unique_boss_name: chapter for chapter in CHAPTER_AREAS if chapter.boss
 }

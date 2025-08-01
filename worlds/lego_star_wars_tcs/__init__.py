@@ -1342,7 +1342,7 @@ class LegoStarWarsTCSWorld(World):
                     loc_name = f"{chapter.short_name} Defeat {chapter.boss}"
                     boss_event_location = LegoStarWarsTCSLocation(self.player, loc_name, None, chapter_region)
                     if self.options.only_unique_bosses_count:
-                        boss_event_item = self.create_event(f"{chapter.boss} Defeated")
+                        boss_event_item = self.create_event(chapter.boss_character_defeated_event_item_name)
                     else:
                         boss_event_item = self.create_event("Boss Defeated")
                     boss_event_location.place_locked_item(boss_event_item)
