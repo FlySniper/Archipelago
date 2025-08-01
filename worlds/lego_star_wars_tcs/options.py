@@ -121,7 +121,7 @@ class AllowedBosses(OptionSet):
     Bosses that are not also in Allowed Chapters will be ignored.
     """
     valid_keys = list(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
-    default = frozenset(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
+    default = list(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
 
 
 class OnlyUniqueBossesCountTowardsGoal(ChoiceFromStringExtension):
