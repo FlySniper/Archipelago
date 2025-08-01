@@ -1001,6 +1001,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         Used when deliberately disconnecting from a server.
         """
+        self.locations_checked.clear()
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
         self.acquired_generic = AcquiredGeneric()
@@ -1298,7 +1299,8 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                         await ctx.bonus_area_completion_checker.check_completion(ctx, new_location_checks)
 
                         # Send newly cleared locations to the server, if there are any.
-                        await ctx.check_locations(new_location_checks)
+                        actually_new_location_checks = await ctx.check_locations(new_location_checks)
+                        ctx.locations_checked.update(actually_new_location_checks)
 
                         await ctx.goal_manager.update_game_state(ctx)
 
