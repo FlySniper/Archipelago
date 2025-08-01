@@ -202,42 +202,32 @@ class LegoStarWarsTCSWorld(World):
         # Normal options parsing.
         else:
             options = self.options
-            # Determine all available chapters to pick from.
-            allowed_chapters: set[str] = self.options.allowed_chapters.value_ungrouped
-            if self.options.allowed_chapter_types == "no_vehicles":
-                # Remove vehicle chapters
-                allowed_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
-            if not allowed_chapters:
-                self._option_error("At least 1 chapter must be enabled.")
 
-            self.goal_boss_count = options.defeat_bosses_goal_amount.value
+            bosses_required_for_goal = options.defeat_bosses_goal_amount > 0
+            # -1 uses the percentage option, which is always greater than zero.
+            minikits_required_for_goal = options.minikit_goal_amount != 0
 
             # Check that at least one goal is enabled.
             # -1 for minikit goal uses a percentage option that is never 0.
-            if self.goal_boss_count < 1 and options.minikit_goal_amount == 0:
+            if not bosses_required_for_goal and not minikits_required_for_goal:
                 self._option_error("At least one goal must be enabled.")
 
-            # Error if the number of bosses to defeat is higher than the number of enabled chapters.
-            if self.goal_boss_count > options.enabled_chapters_count:
-                self._option_error("The number of bosses that must be defeated to goal (%i) cannot be higher than the"
-                                   " number of enabled chapters (%i).",
-                                   self.goal_boss_count,
-                                   options.enabled_chapters_count.value)
+            # Determine all available chapters to pick from.
+            allowed_chapters: set[str] = options.allowed_chapters.value_ungrouped
 
-            # Error if the number of bosses to defeat is higher than the number of allowed chapters.
-            if self.goal_boss_count > len(allowed_chapters):
-                self._option_error("The number of bosses that must be defeated to goal (%i) cannot be higher than"
-                                   " the number of allowed chapters (%i).",
-                                   self.goal_boss_count,
-                                   len(allowed_chapters))
+            allowed_boss_chapters: set[str]
+            if bosses_required_for_goal:
+                # Update allowed chapters with allowed bosses.
+                allowed_boss_chapters = {BOSS_UNIQUE_NAME_TO_CHAPTER[unique_boss].short_name
+                                         for unique_boss in options.allowed_bosses.value}
+                allowed_chapters.update(allowed_boss_chapters)
+            else:
+                allowed_boss_chapters = set()
 
-            # Adjust the count of enabled chapters and warn if it was higher than the number of allowed chapters.
-            if options.enabled_chapters_count > len(allowed_chapters):
-                self._log_warning("Enabled chapter count (%i) was set higher than the number of allowed chapters (%i),"
-                                  " it has been reduced to the number of allowed chapters.",
-                                  options.enabled_chapters_count.value,
-                                  len(allowed_chapters))
-                options.enabled_chapters_count.value = len(allowed_chapters)
+            # Remove vehicle chapters if vehicle chapters are not allowed.
+            if options.allowed_chapter_types == "no_vehicles":
+                allowed_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
+                allowed_boss_chapters.difference_update(VEHICLE_CHAPTER_SHORTNAMES)
 
             # Determine starting chapters to pick from.
             starting_chapters: set[str]
@@ -247,7 +237,7 @@ class LegoStarWarsTCSWorld(World):
             elif starting_chapter_option == StartingChapter.option_random_non_vehicle:
                 starting_chapters = set(LEVEL_SHORT_NAMES_SET).difference(VEHICLE_CHAPTER_SHORTNAMES)
             elif starting_chapter_option == StartingChapter.option_random_vehicle:
-                if self.options.allowed_chapter_types == "no_vehicles":
+                if options.allowed_chapter_types == "no_vehicles":
                     self._option_error("'random_vehicle' starting Chapter cannot be used when Allowed Chapter Types is"
                                        " set to 'no_vehicles'.")
                 starting_chapters = set(VEHICLE_CHAPTER_SHORTNAMES)
@@ -267,6 +257,11 @@ class LegoStarWarsTCSWorld(World):
                                       sorted(allowed_chapters),
                                       starting_chapter)
                     allowed_chapters.add(starting_chapter)
+                    # Add the forced starting chapter to allowed_bosses if it was an allowed boss originally.
+                    if bosses_required_for_goal:
+                        unique_boss_name = SHORT_NAME_TO_CHAPTER_AREA[starting_chapter].unique_boss_name
+                        if unique_boss_name in options.allowed_bosses.value:
+                            allowed_boss_chapters.add(starting_chapter)
             # Filter to only the chapters that are allowed to be enabled.
             allowed_starting_chapters = allowed_chapters.intersection(starting_chapters)
             if not allowed_starting_chapters:
@@ -276,93 +271,105 @@ class LegoStarWarsTCSWorld(World):
                                    "\nPossible starting chapters:"
                                    "\n\t%s (%s)"
                                    "\nAllowed chapters:"
-                                   "\n\t%s (%s)",
-                                   starting_chapter_option.current_key, sorted(starting_chapters),
-                                   sorted(self.options.allowed_chapters.value), sorted(allowed_chapters))
+                                   "\n\t%s (allowed chapters) + %s (allowed boss chapters) (%s)",
+                                   starting_chapter_option.current_key,
+                                   sorted(starting_chapters),
+                                   sorted(options.allowed_chapters.value),
+                                   sorted(allowed_boss_chapters),
+                                   sorted(allowed_chapters))
 
-            # Remove non-allowed chapters from allowed bosses
-            allowed_bosses = {}
-            unique_bosses_only = False
-            unique_bosses_anakin_as_darth_vader = False
-            if self.goal_boss_count > 0:
-                unique_allowed_bosses = set()
-                anakin_as_darth_vader_option = (
-                    OnlyUniqueBossesCountTowardsGoal.option_enabled_and_count_anakin_as_darth_vader)
-                unique_bosses_only = options.only_unique_bosses_count.value in (
-                    OnlyUniqueBossesCountTowardsGoal.option_enabled,
-                    OnlyUniqueBossesCountTowardsGoal.option_enabled_and_count_anakin_as_darth_vader,
-                )
-                unique_bosses_anakin_as_darth_vader = (
-                        options.only_unique_bosses_count == anakin_as_darth_vader_option)
-                for boss in options.allowed_bosses.value:
-                    chapter = BOSS_UNIQUE_NAME_TO_CHAPTER[boss]
-                    if chapter.short_name in allowed_chapters:
-                        allowed_bosses[chapter.short_name] = boss
-                        boss_character = chapter.boss
-                        if unique_bosses_anakin_as_darth_vader and boss_character == "Anakin Skywalker":
-                            boss_character = "Darth Vader"
-                        unique_allowed_bosses.add(boss_character)
-                # Validate that there are enough allowed bosses/chapters.
-                if unique_bosses_only:
-                    if self.goal_boss_count > len(unique_allowed_bosses):
-                        self._option_error("The goal was set to require %i bosses, but there are only %i unique bosses"
-                                           " allowed to be enabled. Either decrease the amount required for the goal,"
-                                           " or increase the number of bosses and chapters with bosses that are allowed"
-                                           " to be enabled. Allowed unique bosses: %s",
-                                           self.goal_boss_count,
-                                           len(unique_allowed_bosses),
-                                           unique_allowed_bosses)
+            assert len(allowed_chapters) >= 1
+
+            if bosses_required_for_goal and not allowed_boss_chapters:
+                self._option_error("Defeating bosses is required for the goal, but no boss chapters were allowed to be"
+                                   " enabled.")
+
+            # Adjust the count of enabled chapters and warn if it was higher than the number of allowed chapters.
+            if options.enabled_chapters_count > len(allowed_chapters):
+                self._log_warning("Enabled chapter count (%i) was set higher than the number of allowed chapters (%i),"
+                                  " it has been reduced to the number of allowed chapters (%i).",
+                                  options.enabled_chapters_count.value,
+                                  len(allowed_chapters),
+                                  len(allowed_chapters))
+                options.enabled_chapters_count.value = len(allowed_chapters)
+
+            # Determine unique allowed boss characters.
+            maximum_boss_chapters = len(allowed_boss_chapters)
+            unique_allowed_boss_characters: set[str] = set()
+            unique_bosses_only = options.only_unique_bosses_count != OnlyUniqueBossesCountTowardsGoal.option_disabled
+            unique_bosses_anakin_as_darth_vader = (
+                    options.only_unique_bosses_count
+                    == OnlyUniqueBossesCountTowardsGoal.option_enabled_and_count_anakin_as_vader
+            )
+            if unique_bosses_only:
+                for chapter in allowed_boss_chapters:
+                    boss_character = SHORT_NAME_TO_CHAPTER_AREA[chapter].boss
+                    if unique_bosses_anakin_as_darth_vader and boss_character == "Anakin Skywalker":
+                        boss_character = "Darth Vader"
+                    assert boss_character is not None
+                    unique_allowed_boss_characters.add(boss_character)
+                maximum_unique_bosses = len(unique_allowed_boss_characters)
+                # The number of unique allowed boss characters is always less than or equal to the number of allowed
+                # boss.
+                assert maximum_unique_bosses <= maximum_boss_chapters
+            else:
+                maximum_unique_bosses = -1
+
+            # If the starting chapter cannot be a boss chapter, then the maximum possible number of bosses is 1 fewer.
+            starting_chapter_cannot_be_a_boss = allowed_starting_chapters.isdisjoint(allowed_boss_chapters)
+            if starting_chapter_cannot_be_a_boss:
+                maximum_boss_chapters = min(options.enabled_chapters_count.value - 1, maximum_boss_chapters)
+            else:
+                maximum_boss_chapters = min(options.enabled_chapters_count.value, maximum_boss_chapters)
+
+            # Update the maximum unique bosses count.
+            maximum_unique_bosses = min(maximum_unique_bosses, maximum_boss_chapters)
+
+            if unique_bosses_only:
+                maximum_bosses_for_goal = maximum_unique_bosses
+            else:
+                maximum_bosses_for_goal = maximum_boss_chapters
+
+            # Reduce boss goal count if it is too high. Error in the case of the boss goal not being possible to keep
+            # enabled.
+            if options.defeat_bosses_goal_amount > maximum_bosses_for_goal:
+                if maximum_boss_chapters == 0:
+                    assert options.enabled_chapters_count.value == 1
+                    self._option_error("Only one Chapter is enabled, but none of the allowed starting chapters were"
+                                       " also an allowed boss, and the goal required defeating bosses.")
                 else:
-                    if self.goal_boss_count > len(allowed_bosses):
-                        self._option_error("The goal was set to require %i bosses, but there are only %i bosses"
-                                           " allowed to be enabled. Either decrease the amount required for the goal,"
-                                           " or increase the number of bosses and chapters with bosses that are allowed"
-                                           " to be enabled. Allowed boss chapters: %s",
-                                           self.goal_boss_count,
-                                           len(allowed_bosses),
-                                           allowed_bosses)
-                # Check there are enough enabled chapters for the required number of bosses.
-                if self.goal_boss_count > options.enabled_chapters_count:
-                    self._option_error("The goal was set to require %i bosses, but there are only %i chapters enabled."
-                                       "Either decrease the amount required for the goal, or increase"
-                                       " the number of enabled chapters",
-                                       self.goal_boss_count,
-                                       options.enabled_chapters_count)
-                elif self.goal_boss_count == options.enabled_chapters_count:
-                    # If every chapter needs to be a boss, the starting chapter needs to be a boss, but the starting
-                    # chapter has different restrictions, so check if the starting chapter can be a boss.
-                    allowed_starting_chapters.intersection_update(allowed_bosses)
-                    if not allowed_starting_chapters:
-                        self._option_error("The goal was set to require %i bosses, but there are only %i enabled"
-                                           " chapters and the starting chapter was not allowed to be one of the"
-                                           " allowed boss chapters: %s.",
-                                           self.goal_boss_count,
-                                           options.enabled_chapters_count.value,
-                                           allowed_bosses)
-                # Warn and update if the number of enabled bosses is higher than the number of allowed bosses.
-                if options.enabled_bosses_count > len(allowed_bosses):
-                    self._log_warning("The number of enabled bosses was %i, which is higher than the number of bosses"
-                                      " that were allowed to be enabled. The number of enabled bosses has been reduced"
-                                      " to %i",
-                                      options.enabled_bosses_count.value,
-                                      len(allowed_bosses))
-                    options.enabled_bosses_count.value = len(allowed_bosses)
-                # Warn and update if the number of enabled bosses is higher than the number of enabled chapters.
-                if options.enabled_bosses_count > options.enabled_chapters_count:
-                    self._log_warning("The number of enabled bosses was %i, which is higher than the number of chapters"
-                                      " that were allowed to be enabled. The number of enabled bosses has been reduced"
-                                      " to %i",
-                                      options.enabled_bosses_count.value,
-                                      options.enabled_chapters_count.value)
-                    options.enabled_bosses_count.value = options.enabled_chapters_count.value
-                # Warn and update if the number of enabled bosses is lower than the number of required bosses.
-                if options.enabled_bosses_count < self.goal_boss_count:
-                    self._log_warning("The number of enabled bosses was %i, which is lower than the number of bosses"
-                                      " that must be defeated to goal. The number of enabled bosses has been increased"
-                                      " to %i",
-                                      options.enabled_bosses_count.value,
-                                      self.goal_boss_count)
-                    options.enabled_bosses_count.value = self.goal_boss_count
+                    self._log_warning("The number of bosses to defeat as part of the goal was %i, but the maximum"
+                                      " number of bosses that were allowed to be enabled was %i. The number of bosses"
+                                      " to defeat as part of the goal has been reduced to %i.",
+                                      options.defeat_bosses_goal_amount.value,
+                                      maximum_bosses_for_goal,
+                                      maximum_bosses_for_goal)
+                    options.defeat_bosses_goal_amount.value = maximum_bosses_for_goal
+
+            # Warn and increase the enabled bosses count if it is lower than the goal amount.
+            if options.enabled_bosses_count < options.defeat_bosses_goal_amount:
+                self._log_warning("The number of enabled bosses was %i, but the number of bosses to defeat as part of"
+                                  " the goal was %i. The number of enabled bosses has been increased to %i.",
+                                  options.enabled_bosses_count.value,
+                                  options.defeat_bosses_goal_amount.value,
+                                  options.defeat_bosses_goal_amount.value)
+                options.enabled_bosses_count.value = options.defeat_bosses_goal_amount.value
+
+            # Warn and decrease the enabled bosses count if it is higher than the maximum bosses count.
+            if options.enabled_bosses_count > maximum_boss_chapters:
+                self._log_warning("The number of enabled bosses was %i, but the maximum number of bosses that were"
+                                  " allowed to be enabled was %i. The number of enabled bosses has been reduced to %i.",
+                                  options.enabled_bosses_count.value,
+                                  maximum_boss_chapters,
+                                  maximum_boss_chapters)
+                options.enabled_bosses_count.value = maximum_boss_chapters
+
+            # If every chapter is a boss chapter, then the starting chapter must also be a boss chapter.
+            if options.enabled_bosses_count == options.enabled_chapters_count:
+                assert not starting_chapter_cannot_be_a_boss
+                allowed_starting_chapters.intersection_update(allowed_boss_chapters)
+
+            self.goal_boss_count = options.defeat_bosses_goal_amount.value
 
             # Pick the starting chapter.
             self.starting_chapter = self.random.choice(sorted(allowed_starting_chapters))
@@ -394,9 +401,10 @@ class LegoStarWarsTCSWorld(World):
                 self.starting_chapter,
                 *non_starting_allowed_chapters[:options.enabled_chapters_count.value - 1],
             ]
-            if allowed_bosses:
+            if bosses_required_for_goal:
                 found_boss_indices: list[int] = [i for i, chapter in enumerate(tentative_enabled_chapters)
-                                                 if chapter in allowed_bosses]
+                                                 if chapter in allowed_boss_chapters]
+                enabled_bosses: set[str]
                 if unique_bosses_only:
                     # The number of bosses is counted by the number of unique boss characters.
                     found_boss_indices_by_boss_character: dict[str, list[int]] = {}
@@ -412,7 +420,11 @@ class LegoStarWarsTCSWorld(World):
                     missing_boss_count = self.goal_boss_count - len(found_boss_indices_by_boss_character)
                     if missing_boss_count == 0:
                         # The exact required number of bosses are present, so no changes are needed.
-                        enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
+                        enabled_bosses = {
+                            tentative_enabled_chapters[i] for boss_indices
+                            in found_boss_indices_by_boss_character.values()
+                            for i in boss_indices
+                        }
                     elif missing_boss_count < 0:
                         # Too many bosses are present, so pick only as many to enable as needed.
                         # If the starting chapter is a boss, always un-pick it first because starting with a boss level
@@ -432,7 +444,7 @@ class LegoStarWarsTCSWorld(World):
                         # There are too few bosses, so replace the latest picked chapters, that are not bosses, with
                         # chapters that have new unique bosses.
                         extra_boss_characters_to_pick_from: dict[str, list[str]] = {}
-                        extra_bosses_to_pick_from = sorted(set(allowed_bosses).difference(tentative_enabled_chapters))
+                        extra_bosses_to_pick_from = sorted(allowed_boss_chapters.difference(tentative_enabled_chapters))
                         self.random.shuffle(extra_bosses_to_pick_from)
                         enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
                         for boss_chapter in extra_bosses_to_pick_from:
@@ -442,12 +454,23 @@ class LegoStarWarsTCSWorld(World):
                             if boss_character not in found_boss_indices_by_boss_character:
                                 extra_boss_characters_to_pick_from.setdefault(boss_character, []).append(boss_chapter)
                         assert len(extra_bosses_to_pick_from) >= missing_boss_count
-                        # Remove the latest picked chapters that are not bosses.
+                        # Replace the latest picked chapters that are not unique bosses.
+                        # Find all bosses that are duplicated.
+                        found_boss_indices_to_duplicates_list: dict[int, list[int]] = {
+                            # The indices list is deliberately shared by each index within the list, so that it is easy
+                            # to update the indices list whenever a duplicated boss is removed.
+                            index: indices for
+                            indices in found_boss_indices_by_boss_character.values()
+                            for index in indices
+                            if len(indices) > 1
+                        }
                         found_boss_indices_set = set(found_boss_indices)
                         reversed_indices = reversed(range(len(tentative_enabled_chapters)))
                         replaced_chapters = []
                         for i in reversed_indices:
-                            if i not in found_boss_indices_set:
+                            chapter_at_index_is_not_a_boss = i not in found_boss_indices_set
+                            chapter_at_index_is_a_duplicated_boss = i in found_boss_indices_to_duplicates_list
+                            if chapter_at_index_is_not_a_boss or chapter_at_index_is_a_duplicated_boss:
                                 # The chapter is not a boss, so replace it.
                                 chapter_to_replace = tentative_enabled_chapters[i]
                                 # Replace the removed chapter with a boss in the same episode if possible.
@@ -477,6 +500,21 @@ class LegoStarWarsTCSWorld(World):
                                     del extra_boss_characters_to_pick_from[boss_character]
                                     tentative_enabled_chapters[i] = boss_chapter
                                 replaced_chapters.append(chapter_to_replace)
+                                if chapter_at_index_is_a_duplicated_boss:
+                                    # The replaced chapter was a duplicate boss.
+                                    # Remove the replaced index from the list of duplicates.
+                                    duplicates_list = found_boss_indices_to_duplicates_list[i]
+                                    duplicates_list.remove(i)
+                                    # Remove the index from the dict of indices that are duplicated. This is not
+                                    # strictly necessary because `i` is the iteration variable and will not have the
+                                    # same value more than once, but removing helps make debugging easier.
+                                    del found_boss_indices_to_duplicates_list[i]
+                                    if len(duplicates_list) == 1:
+                                        # If there is only one duplicate remaining, then the boss is now unique instead
+                                        # of being duplicated. A unique boss cannot be replaced, so remove the index for
+                                        # the unique boss to prevent the unique boss from being replaced.
+                                        now_unique_boss_index = duplicates_list[0]
+                                        del found_boss_indices_to_duplicates_list[now_unique_boss_index]
                                 if len(replaced_chapters) == missing_boss_count:
                                     # All needed replacements have been made.
                                     break
@@ -499,13 +537,16 @@ class LegoStarWarsTCSWorld(World):
                     else:
                         # There are too few bosses, so replace the latest picked chapters, that are not bosses, with
                         # chapters that have bosses.
-                        extra_bosses_to_pick_from = sorted(set(allowed_bosses).difference(tentative_enabled_chapters))
+                        extra_bosses_to_pick_from = sorted(allowed_boss_chapters.difference(tentative_enabled_chapters))
                         self.random.shuffle(extra_bosses_to_pick_from)
                         enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
                         # Remove the latest picked chapters that are not bosses.
                         found_boss_indices_set = set(found_boss_indices)
                         reversed_indices = reversed(range(len(tentative_enabled_chapters)))
                         replaced_chapters = []
+
+                        assert len(extra_bosses_to_pick_from) >= missing_boss_count, (
+                            "The number of extra bosses to pick from was less than the missing boss count")
                         for i in reversed_indices:
                             if i not in found_boss_indices_set:
                                 # The chapter is not a boss, so replace it.
