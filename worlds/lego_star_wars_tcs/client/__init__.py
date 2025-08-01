@@ -983,7 +983,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         if code in self.acquired_generic.receivable_ap_ids:
             self.acquired_generic.receive_generic(self, code)
         elif code in self.acquired_minikits.receivable_ap_ids:
-            self.acquired_minikits.receive_minikit(code)
+            self.acquired_minikits.receive_minikit(self, code)
         elif code in self.acquired_characters.receivable_ap_ids:
             self.acquired_characters.receive_character(code)
             self.unlocked_chapter_manager.on_character_or_episode_unlocked(code)

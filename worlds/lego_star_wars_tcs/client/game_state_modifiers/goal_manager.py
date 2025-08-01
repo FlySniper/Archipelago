@@ -19,9 +19,11 @@ class GoalManager(GameStateUpdater):
     receivable_ap_ids = MINIKIT_ITEMS
 
     goal_minikit_count: int = 999_999_999  # Set by an option and read from slot data.
+    goal_text_needs_update: bool = True
 
     def init_from_slot_data(self, ctx: TCSContext, slot_data: dict[str, Any]) -> None:
         self.goal_minikit_count = slot_data["minikit_goal_amount"]
+        self.goal_text_needs_update = True
         assert isinstance(self.goal_minikit_count, int)
 
     def _update_minikit_goal_display(self, ctx: TCSContext):
@@ -43,7 +45,9 @@ class GoalManager(GameStateUpdater):
             ctx.write_bytes(CUSTOM_CHARACTER2_NAME_OFFSET, goal_display_text, len(goal_display_text))
 
     async def update_game_state(self, ctx: TCSContext):
-        self._update_minikit_goal_display(ctx)
+        if self.goal_text_needs_update:
+            self.goal_text_needs_update = False
+            self._update_minikit_goal_display(ctx)
 
     def is_goal_complete(self, ctx: TCSContext):
         return ctx.acquired_minikits.minikit_count >= self.goal_minikit_count

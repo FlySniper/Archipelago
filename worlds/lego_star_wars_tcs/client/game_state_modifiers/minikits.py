@@ -24,10 +24,11 @@ class AcquiredMinikits(ItemReceiver):
     def clear_received_items(self) -> None:
         self.minikit_count = 0
 
-    def receive_minikit(self, ap_item_id: int):
+    def receive_minikit(self, ctx: TCSContext, ap_item_id: int):
         # Minikits
         if ap_item_id in MINIKIT_ITEMS:
             self.minikit_count += MINIKIT_ITEMS[ap_item_id]
+            ctx.goal_manager.goal_text_needs_update = True
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
 
