@@ -44,6 +44,22 @@ class GoalManager(GameStateUpdater):
             goal_display_text = goal_display_text[:15] + b"\x00"
             ctx.write_bytes(CUSTOM_CHARACTER2_NAME_OFFSET, goal_display_text, len(goal_display_text))
 
+    def _update_paused_text_goal_display(self, ctx: TCSContext):
+        """
+        Replace the current "Paused" text, displayed in the UI under the Player that paused the game, with current goal
+        progress.
+        """
+        vanilla_text = ctx.text_replacer.get_vanilla_string(TextId.PAUSED).decode(errors="replace")
+        custom_message = f"{vanilla_text} - Goal: "
+        goals: list[str] = []
+        if self.goal_minikit_count > 0:
+            minikit_goal = f"{ctx.acquired_minikits.minikit_count}/{self.goal_minikit_count} Minikits"
+            goals.append(minikit_goal)
+        if not goals:
+            goals.append("Error, no goal found")
+        custom_message += ", ".join(goals)
+        ctx.text_replacer.write_custom_string(TextId.PAUSED, custom_message)
+
     async def update_game_state(self, ctx: TCSContext):
         if self.goal_text_needs_update:
             self.goal_text_needs_update = False
