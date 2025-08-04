@@ -13,12 +13,13 @@ class TextId(IntEnum):
     CHARACTER_NAME_R2_D2 = 103
     CHARACTER_NAME_C_3PO = 104
 
-    EPISODE_1 = 560
-    EPISODE_2 = 1350
-    EPISODE_3 = 1359
-    EPISODE_4 = 500
-    EPISODE_5 = 520
-    EPISODE_6 = 540
+    # The names of each episode. These are always displayed by unlocked Episode doors in the Cantina.
+    EPISODE_1_NAME = 561
+    EPISODE_2_NAME = 1351
+    EPISODE_3_NAME = 1360
+    EPISODE_4_NAME = 501
+    EPISODE_5_NAME = 521
+    EPISODE_6_NAME = 541
 
     # Unlocked hints to mostly be used for information display, e.g. goal requirements.
     SHOP_UNLOCKED_HINT_1 = 630
