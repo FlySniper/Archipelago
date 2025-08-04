@@ -1,7 +1,7 @@
 import logging
 import re
 from collections import Counter
-from typing import cast, Iterable, Mapping, Any, NoReturn, Callable, ClassVar
+from typing import cast, Iterable, Mapping, Any, NoReturn, Callable, ClassVar, TextIO
 
 from BaseClasses import (
     Region,
@@ -1730,6 +1730,25 @@ class LegoStarWarsTCSWorld(World):
                 "defeat_bosses_goal_amount",
             )
         }
+
+    def write_spoiler_header(self, spoiler_handle: TextIO) -> None:
+        super().write_spoiler_header(spoiler_handle)
+
+        spoiler_handle.write(f"Apworld version: {constants.AP_WORLD_VERSION}\n")
+
+        spoiler_handle.write(f"Starting Chapter: {self.starting_chapter}\n")
+
+        enabled_episodes = sorted(self.enabled_episodes)
+        spoiler_handle.write(f"Enabled Episodes: {enabled_episodes}\n")
+
+        enabled_chapters = sorted(self.enabled_chapters)
+        spoiler_handle.write(f"Enabled Chapters: {enabled_chapters}\n")
+
+        enabled_bonuses = sorted(self.enabled_bonuses)
+        spoiler_handle.write(f"Enabled Bonuses: {enabled_bonuses}\n")
+
+        enabled_bosses = sorted(self.enabled_bosses)
+        spoiler_handle.write(f"Enabled Bosses: {enabled_bosses}\n")
 
     @staticmethod
     def interpret_slot_data(slot_data: dict[str, Any]) -> dict[str, Any] | None:
