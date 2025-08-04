@@ -23,7 +23,7 @@ class GoalManager(GameStateUpdater):
     goal_minikit_count: int = 999_999_999  # Set by an option and read from slot data.
     _goal_text_needs_update: bool = True
 
-    goal_bosses_count: int = 999_999_999
+    goal_bosses_count: int = 999_999_999  # Set by an option and read from slot data.
     goal_bosses_must_be_unique: bool = False
     goal_bosses_anakin_as_vader: bool = False
     enabled_boss_chapters: set[AreaId]
@@ -168,5 +168,33 @@ class GoalManager(GameStateUpdater):
     def tag_for_update(self):
         self._goal_text_needs_update = True
 
+    def _is_bosses_goal_complete(self, completed_area_ids: set[int]):
+        required_count = self.goal_bosses_count
+        if self.goal_bosses_must_be_unique:
+            for area_ids in self.enabled_unique_bosses.values():
+                for area_id in area_ids:
+                    if area_id in completed_area_ids:
+                        required_count -= 1
+                        if required_count <= 0:
+                            return True
+                        break
+        else:
+            for area_id in self.enabled_boss_chapters:
+                if area_id in completed_area_ids:
+                    required_count -= 1
+                    if required_count <= 0:
+                        return True
+        return False
+
     def is_goal_complete(self, ctx: TCSContext):
-        return ctx.acquired_minikits.minikit_count >= self.goal_minikit_count
+        # todo: Cache and re-stale after tag_for_update() is called instead of constantly re-checking.
+        if self.goal_minikit_count > 0:
+            if ctx.acquired_minikits.minikit_count < self.goal_minikit_count:
+                return False
+        if self.goal_bosses_count > 0:
+            # todo: Once a boss has been defeated, reduce a remaining count and remove the boss from a set of remaining
+            #  bosses. That way, the check becomes more efficient over time.
+            if not self._is_bosses_goal_complete(ctx.free_play_completion_checker.completed_free_play):
+                return False
+
+        return True
