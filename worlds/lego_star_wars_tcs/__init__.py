@@ -422,7 +422,7 @@ class LegoStarWarsTCSWorld(World):
                             boss_character = "Darth Vader"
                         found_boss_indices_by_boss_character.setdefault(boss_character, []).append(i)
                         index_to_boss_character[i] = boss_character
-                    missing_boss_count = goal_boss_count - len(found_boss_indices_by_boss_character)
+                    missing_boss_count = options.enabled_bosses_count - len(found_boss_indices_by_boss_character)
                     if missing_boss_count == 0:
                         # The exact required number of bosses are present, so no changes are needed.
                         enabled_bosses = {
@@ -537,7 +537,7 @@ class LegoStarWarsTCSWorld(World):
                                                                               " match the missing boss count")
                 else:
                     # Each boss counts separately, even if some bosses use the same boss character.
-                    missing_boss_count = goal_boss_count - len(found_boss_indices)
+                    missing_boss_count = options.enabled_bosses_count - len(found_boss_indices)
                     if missing_boss_count == 0:
                         # The exact required number of bosses are present, so no changes are needed.
                         enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
