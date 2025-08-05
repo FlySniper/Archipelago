@@ -4,7 +4,7 @@ from time import perf_counter_ns
 from typing import Any
 
 from . import GameStateUpdater
-from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS
+from ..common_addresses import OPENED_MENU_DEPTH_ADDRESS, GAME_STATE_ADDRESS
 from ..type_aliases import TCSContext
 from .text_replacer import TextId
 
@@ -31,16 +31,6 @@ TABBED_OUT_WHEN_1_ADDRESS = 0x9868C4
 # 0 when playing, 1 when in a cutscene, same-level door transition, Indy trailer and title crawl.
 # Rarely unstable and seen as -1 briefly while playing
 IS_PLAYING_WHEN_0_ADDRESS = 0x297C0AC
-
-# 255: Cutscene
-# 1: Playing, Indy trailer, loading into Cantina, Title crawl
-# 2: In-level 'cutscene' where non-playable characters play an animation and the player has no control
-# 6: Bounty Hunter missions select
-# 7: In custom character creator
-# 8: In Cantina shop
-# 9: Minikits display on outside scrapyard
-# There is another address at 0x925395
-GAME_STATE_ADDRESS = 0x925394
 
 
 class InGameTextDisplay(GameStateUpdater):

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, TYPE_CHECKING, ClassVar, Literal, Iterable, Mapping, Sequence
+from typing import Optional, TYPE_CHECKING, ClassVar, Literal, Iterable, Mapping, AbstractSet
 
 from BaseClasses import Item, ItemClassification
 from .constants import (
@@ -486,6 +486,10 @@ ITEM_DATA: list[GenericItemData] = [
     MinikitItemData(199, "Minikit", 1),
     MinikitItemData(200, "2 Minikits", 2),
     MinikitItemData(201, "10 Minikits", 10),
+
+    # "Extra Toggle" characters.
+    _char(-1, "Womp Rat", 165),
+    _char(-1, "Skeleton", 231),
 ]
 
 USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {
@@ -517,6 +521,12 @@ CHARACTERS_AND_VEHICLES_BY_NAME: Mapping[str, GenericCharacterData] = {data.name
 GENERIC_BY_NAME: Mapping[str, GenericItemData] = {data.name: data for data in ITEM_DATA if data.item_type == "Generic"}
 MINIKITS_BY_NAME: Mapping[str, MinikitItemData] = {data.name: data for data in ITEM_DATA
                                                    if isinstance(data, MinikitItemData)}
+NON_VEHICLE_CHARACTER_BY_INDEX: Mapping[int, CharacterData] = {char.character_index: char
+                                                               for char in CHARACTERS_AND_VEHICLES_BY_NAME.values()
+                                                               if isinstance(char, CharacterData)}
+AP_NON_VEHICLE_CHARACTER_INDICES: AbstractSet[int] = {char.character_index
+                                                      for char in NON_VEHICLE_CHARACTER_BY_INDEX.values()
+                                                      if char.is_sendable}
 
 ITEM_NAME_TO_ID: Mapping[str, int] = {name: item.code for name, item in ITEM_DATA_BY_NAME.items() if item.is_sendable}
 

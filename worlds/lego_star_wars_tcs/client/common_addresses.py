@@ -8,6 +8,18 @@ EXTRAS_SHOP_START = 0x86E4B8
 OPENED_MENU_DEPTH_ADDRESS = 0x800944
 
 
+# Byte
+# 255: Cutscene
+# 1: Playing, Indy trailer, loading into Cantina, Title crawl
+# 2: In-level 'cutscene' where non-playable characters play an animation and the player has no control
+# 6: Bounty Hunter missions select
+# 7: In custom character creator
+# 8: In Cantina shop
+# 9: Minikits display on outside scrapyard
+# There is another address at 0x925395
+GAME_STATE_ADDRESS = 0x925394
+
+
 class ShopType(IntEnum):
     NONE = 255  # -1 as a `signed char`
     HINTS = 0
