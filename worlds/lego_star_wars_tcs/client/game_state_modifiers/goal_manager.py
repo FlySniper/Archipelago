@@ -32,7 +32,6 @@ class GoalManager(GameStateUpdater):
     _goal_text_needs_update: bool = True
 
     goal_minikit_count: int = 999_999_999  # Set by an option and read from slot data.
-    _minikit_goal_text_needs_update: bool = True
 
     goal_bosses_count: int = 999_999_999  # Set by an option and read from slot data.
     goal_bosses_must_be_unique: bool = False
@@ -119,24 +118,6 @@ class GoalManager(GameStateUpdater):
         self.tag_for_update("all")
         assert isinstance(self.goal_minikit_count, int)
 
-    def _update_minikit_goal_display(self, ctx: TCSContext):
-        if self.goal_minikit_count > 0:
-            goal_count = str(self.goal_minikit_count)
-            # Display the current count with as many digits as the goal count.
-            leading_digits_to_display = len(goal_count)
-
-            # PyCharm does not like the fact that an f-string is being used to format a format string.
-            # noinspection PyStringFormat
-            current_minikit_count = f"{{:0{leading_digits_to_display}d}}".format(ctx.acquired_minikits.minikit_count)
-
-            # There are few available characters. The player is limited to "0-9A-Z -", but the names are capable of
-            # displaying more punctuation and lowercase letters. A few characters with ligatures are supported as part
-            # of localisation for other languages.
-            goal_display_text = f"{current_minikit_count}/{goal_count} GOAL".encode("ascii")
-            # The maximum size is 16 bytes, but the string must be null-terminated, so there are 15 usable bytes.
-            goal_display_text = goal_display_text[:15] + b"\x00"
-            ctx.write_bytes(CUSTOM_CHARACTER2_NAME_OFFSET, goal_display_text, len(goal_display_text))
-
     def _get_bosses_defeated_count(self, ctx: TCSContext) -> int:
         completed_free_play = ctx.free_play_completion_checker.completed_free_play
         if self.goal_bosses_must_be_unique:
@@ -218,10 +199,6 @@ class GoalManager(GameStateUpdater):
             self._goal_text_needs_update = False
             self._update_paused_text_goal_display(ctx)
 
-        if self._minikit_goal_text_needs_update:
-            self._minikit_goal_text_needs_update = False
-            self._update_minikit_goal_display(ctx)
-
         if self._bosses_goal_text_needs_update:
             self._bosses_goal_text_needs_update = False
             self._update_episodes_text_for_boss_statuses(ctx)
@@ -229,10 +206,10 @@ class GoalManager(GameStateUpdater):
     def tag_for_update(self, kind: Literal["all", "minikit", "boss"] = "all"):
         self._goal_text_needs_update = True
         if kind == "all":
-            self._minikit_goal_text_needs_update = True
             self._bosses_goal_text_needs_update = True
         elif kind == "minikit":
-            self._minikit_goal_text_needs_update = True
+            # Only the shared goal text shows minikit progress currently.
+            pass
         elif kind == "boss":
             self._bosses_goal_text_needs_update = True
         else:
