@@ -497,8 +497,15 @@ USEFUL_NON_PROGRESSION_CHARACTERS: set[str] = {
     # There is currently no glitch logic for the glitchy mess that is Yoda, so ensure Yoda is never excluded by making
     # him Useful.
     "Yoda",
-    # The fastest character.
+    # The fastest character (1.8).
     "Droideka",
+    # The second-fastest character (1.5).
+    "Watto",
+    # The third-fastest character when Super Gonk is active (1.44).
+    "Gonk Droid",
+    # Fastest vehicles.
+    "Anakin's Pod",
+    "Sebulba's Pod",
 }
 
 
