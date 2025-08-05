@@ -694,16 +694,24 @@ class LegoStarWarsTCSWorld(World):
 
             if name in self.character_chapter_access_counts:
                 if self.character_chapter_access_counts[name] >= self.prog_useful_level_access_threshold_count:
+                    # Characters that block access to a large number of chapters get progression + useful
+                    # classification. This is functionally identical to progression classification, but some
+                    # games/clients may specially highlight progression + useful items.
                     classification = ItemClassification.progression | ItemClassification.useful
                 else:
                     classification = ItemClassification.progression
             elif name in ALL_AREA_REQUIREMENT_CHARACTERS:
                 classification = ItemClassification.progression
             elif abilities & constants.RARE_AND_USEFUL_ABILITIES:
+                # These abilities are typically much less common, so the characters should never be given skip_balancing
+                # classification.
                 classification = ItemClassification.progression
             elif abilities:
+                # Characters with only very common abilities are not worth spending time moving in progression balancing
+                # because there is usually such a large number of them in the item pool.
                 classification = ItemClassification.progression_skip_balancing
             elif name in USEFUL_NON_PROGRESSION_CHARACTERS:
+                # Force ghosts, glitchy characters and fast characters.
                 classification = ItemClassification.useful
 
             if name == "Admiral Ackbar":
