@@ -137,6 +137,19 @@ ACTIVE_SHOP_TYPE_ADDRESS = 0x8801AC
 # CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable characters
 # CUSTOM_CHARACTER_2_NAME = 0x86E538  # char[16], null-terminated, so 15 usable characters
 
+# Byte
+# 0 = Blue Lightsaber (requires any Jedi unlocked)
+# 1 = Green Lightsaber (default) (requires any Jedi unlocked)
+# 2 = Red Lightsaber (requires any Sith unlocked)
+# 3 = Purple Lighsaber (requires any Jedi unlocked)
+# 4 = Red Blaster (always available)
+# 5 = Blue Blaster (always available)
+# 6 = Pistol (always available)
+# 7 = Shiny Pistol (always available)
+# 8 = Crossbow (bowcaster) (requires *unknown* unlocked (probably Chewbacca or Wookie))
+# 9 = There is no 9
+CUSTOM_CHARACTER_1_WEAPON = 0x86E4F0
+
 # These character IDs/indices update when swapping characters in the Cantina, and the game reads these values to
 # determine what characters P1 and P2 should spawn into the Cantina as.
 # By changing these values and then forcing a hard (reset) load into the Cantina, the client can change the player's
@@ -537,6 +550,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 self.on_multiworld_or_slot_changed()
             if self.read_slot_name() is None:
                 self.write_slot_name(new_slot)
+                self.ap_first_time_setup()
             self.disabled_locations = set(LOCATION_NAME_TO_ID.values()) - self.server_locations
 
             self._read_slot_data(slot_data)
@@ -991,6 +1005,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             else:
                 # The Cantina's level ID is 325
                 self._load_level(325, hard_reset=hard)
+
+    def ap_first_time_setup(self):
+        # Custom Character 1 starts with a lightsaber, but the player might not have Jedi unlocked, meaning that Custom
+        # Character 1 should not be allowed to use a lightsaber.
+        # Custom Characters always have access to blasters, so give Custom Character 1 a Red Blaster.
+        self.write_byte(CUSTOM_CHARACTER_1_WEAPON, 4)
 
     @staticmethod
     def _get_valid_replacement_characters(unlocked_characters: set[int], needed_count: int) -> list[int]:
