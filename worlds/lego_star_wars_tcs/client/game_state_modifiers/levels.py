@@ -52,7 +52,7 @@ class UnlockedChapterManager(ClientComponent):
             sorted_chapters = sorted(enabled_chapters)
             chapters_text = ", ".join(sorted_chapters[:-1])
             chapters_text += f" and {sorted_chapters[-1]}"
-        chapters_info_text = f"Chapters enabled in this multiworld: {chapters_text}"
+        chapters_info_text = f"Enabled Chapters for this slot: {chapters_text}"
         ctx.text_replacer.write_custom_string(TextId.SHOP_UNLOCKED_HINT_1, chapters_info_text)
 
         # Set 'All Episodes' unlock requirement.
