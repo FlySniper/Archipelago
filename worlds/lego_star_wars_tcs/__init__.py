@@ -104,8 +104,8 @@ class LegoStarWarsTCSWorld(World):
 
     origin_region_name = "Cantina"
 
-    # TODO: Temporarily disabled until UT fixes their YAMLless generation
-    #ut_can_gen_without_yaml = True  # Used by Universal Tracker to allow generation without player yaml.
+    # Requires Universal Tracker 0.2.12 or newer because the game name contains a colon.
+    ut_can_gen_without_yaml = True  # Used by Universal Tracker to allow generation without player yaml.
 
     PROG_USEFUL_LEVEL_ACCESS_THRESHOLD_PERCENT: ClassVar[float] = 1/6
     prog_useful_level_access_threshold_count: int = 6
