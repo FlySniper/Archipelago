@@ -153,8 +153,7 @@ class GoalManager(GameStateUpdater):
         Replace the current "Paused" text, displayed in the UI under the Player that paused the game, with current goal
         progress.
         """
-        vanilla_text = ctx.text_replacer.get_vanilla_string(TextId.PAUSED).decode(errors="replace")
-        custom_message = f"{vanilla_text} - Goal: "
+        suffix_message = f" - Goal: "
         goals: list[str] = []
         if self.goal_minikit_count > 0:
             minikit_goal = f"{ctx.acquired_minikits.minikit_count}/{self.goal_minikit_count} Minikits"
@@ -168,8 +167,8 @@ class GoalManager(GameStateUpdater):
             goals.append(bosses_goal)
         if not goals:
             goals.append("Error, no goal found")
-        custom_message += ", ".join(goals)
-        ctx.text_replacer.write_custom_string(TextId.PAUSED, custom_message)
+        suffix_message += ", ".join(goals)
+        ctx.text_replacer.suffix_custom_string(TextId.PAUSED, suffix_message)
 
     def _update_episodes_text_for_boss_statuses(self, ctx: TCSContext):
         if self.goal_bosses_count <= 0:
