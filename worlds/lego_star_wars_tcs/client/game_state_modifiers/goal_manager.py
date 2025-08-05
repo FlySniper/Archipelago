@@ -1,10 +1,10 @@
 import logging
-from typing import Mapping, Any
+from typing import Mapping, Any, Literal
 
 from .text_replacer import TextId
 from ..type_aliases import TCSContext, AreaId
 from ...items import MINIKITS_BY_COUNT
-from ...levels import SHORT_NAME_TO_CHAPTER_AREA
+from ...levels import SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA
 from ...options import OnlyUniqueBossesCountTowardsGoal
 from . import GameStateUpdater
 
@@ -16,18 +16,30 @@ CUSTOM_CHARACTER2_NAME_OFFSET = 0x86E524 + 0x14  # string[15]
 
 logger = logging.getLogger("Client")
 
+EPISODE_NUMBER_TO_EPISODE_TEXT = {
+    1: TextId.EPISODE_1_NAME,
+    2: TextId.EPISODE_2_NAME,
+    3: TextId.EPISODE_3_NAME,
+    4: TextId.EPISODE_4_NAME,
+    5: TextId.EPISODE_5_NAME,
+    6: TextId.EPISODE_6_NAME,
+}
+
 
 class GoalManager(GameStateUpdater):
     receivable_ap_ids = MINIKIT_ITEMS
 
-    goal_minikit_count: int = 999_999_999  # Set by an option and read from slot data.
     _goal_text_needs_update: bool = True
+
+    goal_minikit_count: int = 999_999_999  # Set by an option and read from slot data.
+    _minikit_goal_text_needs_update: bool = True
 
     goal_bosses_count: int = 999_999_999  # Set by an option and read from slot data.
     goal_bosses_must_be_unique: bool = False
     goal_bosses_anakin_as_vader: bool = False
     enabled_boss_chapters: set[AreaId]
     enabled_unique_bosses: dict[str, set[AreaId]]
+    _bosses_goal_text_needs_update: bool = True
 
     def __init__(self):
         self.enabled_boss_chapters = set()
@@ -104,7 +116,7 @@ class GoalManager(GameStateUpdater):
         ctx.text_replacer.write_custom_string(TextId.SHOP_UNLOCKED_HINT_2, minikit_goal_info_text)
         ctx.text_replacer.write_custom_string(TextId.SHOP_UNLOCKED_HINT_3, boss_goal_info_text)
 
-        self.tag_for_update()
+        self.tag_for_update("all")
         assert isinstance(self.goal_minikit_count, int)
 
     def _update_minikit_goal_display(self, ctx: TCSContext):
@@ -159,14 +171,73 @@ class GoalManager(GameStateUpdater):
         custom_message += ", ".join(goals)
         ctx.text_replacer.write_custom_string(TextId.PAUSED, custom_message)
 
+    def _update_episodes_text_for_boss_statuses(self, ctx: TCSContext):
+        if self.goal_bosses_count <= 0:
+            return
+        completed_area_ids = ctx.free_play_completion_checker.completed_free_play
+        bosses_per_episode: dict[int, list[tuple[int, str, bool]]] = {i: [] for i in range(1, 7)}
+
+        if self.enabled_unique_bosses:
+            for boss, area_ids in self.enabled_unique_bosses.items():
+                defeated = not area_ids.isdisjoint(completed_area_ids)
+                for area_id in area_ids:
+                    area = AREA_ID_TO_CHAPTER_AREA[area_id]
+                    # Anakin could count as Darth Vader, so use the boss name from self.enabled_unique_bosses instead of
+                    # area.unique_boss_name.
+                    bosses_per_episode[area.episode].append(
+                        (area.number_in_episode, f"{boss} ({area.short_name})", defeated))
+        else:
+            for area_id in self.enabled_boss_chapters:
+                defeated = area_id in completed_area_ids
+                area = AREA_ID_TO_CHAPTER_AREA[area_id]
+                bosses_per_episode[area.episode].append((area.number_in_episode, area.unique_boss_name, defeated))
+
+        for episode, bosses in bosses_per_episode.items():
+            if not bosses:
+                continue
+            # The chapter number within the episode is first, so is what will be used to sort.
+            bosses.sort()
+            defeat_boss_strings = []
+            defeated_boss_strings = []
+            for _, unique_boss_name, defeated in bosses:
+                if defeated:
+                    defeated_boss_strings.append(unique_boss_name)
+                else:
+                    defeat_boss_strings.append(unique_boss_name)
+            text_to_append = " - "
+            if defeat_boss_strings:
+                text_to_append += "Defeat " + ", ".join(defeat_boss_strings)
+                if defeated_boss_strings:
+                    text_to_append += ". "
+            if defeated_boss_strings:
+                text_to_append += "Defeated " + ", ".join(defeated_boss_strings)
+            episode_text_id = EPISODE_NUMBER_TO_EPISODE_TEXT[episode]
+            ctx.text_replacer.suffix_custom_string(episode_text_id, text_to_append)
+
     async def update_game_state(self, ctx: TCSContext):
         if self._goal_text_needs_update:
             self._goal_text_needs_update = False
-            self._update_minikit_goal_display(ctx)
             self._update_paused_text_goal_display(ctx)
 
-    def tag_for_update(self):
+        if self._minikit_goal_text_needs_update:
+            self._minikit_goal_text_needs_update = False
+            self._update_minikit_goal_display(ctx)
+
+        if self._bosses_goal_text_needs_update:
+            self._bosses_goal_text_needs_update = False
+            self._update_episodes_text_for_boss_statuses(ctx)
+
+    def tag_for_update(self, kind: Literal["all", "minikit", "boss"] = "all"):
         self._goal_text_needs_update = True
+        if kind == "all":
+            self._minikit_goal_text_needs_update = True
+            self._bosses_goal_text_needs_update = True
+        elif kind == "minikit":
+            self._minikit_goal_text_needs_update = True
+        elif kind == "boss":
+            self._bosses_goal_text_needs_update = True
+        else:
+            raise ValueError(f"Unexpected goal kind '{kind}'")
 
     def _is_bosses_goal_complete(self, completed_area_ids: set[int]):
         required_count = self.goal_bosses_count

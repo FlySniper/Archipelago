@@ -188,6 +188,13 @@ class TextReplacer(GameStateUpdater):
     def write_vanilla_string(self, string_index: TextId):
         self._write_vanilla_string(string_index.value)
 
+    def suffix_custom_string(self, string_index: TextId, to_append: str, minimum_allocate_size=256):
+        """Write a suffix string onto the end of the vanilla string."""
+        self._set_custom_bytes(string_index.value,
+                               self.get_vanilla_string(string_index).rstrip(b"\x00")
+                               + to_append.encode("utf-8", "replace") + b"\x00",
+                               minimum_allocate_size)
+
     def get_vanilla_string(self, string_index: TextId) -> bytes:
         return self._get_vanilla_string(string_index.value)
 
