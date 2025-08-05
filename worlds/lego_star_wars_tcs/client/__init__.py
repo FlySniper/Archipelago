@@ -154,8 +154,8 @@ CUSTOM_CHARACTER_1_WEAPON = 0x86E4F0
 # determine what characters P1 and P2 should spawn into the Cantina as.
 # By changing these values and then forcing a hard (reset) load into the Cantina, the client can change the player's
 # characters to whatever the client needs.
-P1_CANTINA_CHARACTER_ID = 0x802bb8
-P2_CANTINA_CHARACTER_ID = 0x802bbc
+P1_CANTINA_CHARACTER_ID = 0x802bd8
+P2_CANTINA_CHARACTER_ID = 0x802bdc
 
 
 # # Unverified, but seems to be the case.
