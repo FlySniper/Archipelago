@@ -28,7 +28,7 @@ class AcquiredMinikits(ItemReceiver):
         # Minikits
         if ap_item_id in MINIKIT_ITEMS:
             self.minikit_count += MINIKIT_ITEMS[ap_item_id]
-            ctx.goal_manager.tag_for_update()
+            ctx.goal_manager.tag_for_update("minikit")
         else:
             logger.error("Unhandled ap_item_id %s for generic item", ap_item_id)
 
