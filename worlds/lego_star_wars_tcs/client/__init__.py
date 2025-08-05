@@ -132,8 +132,8 @@ SHOP_CHECK_IS_IN_SHOP = b"\x00"
 ACTIVE_SHOP_TYPE_ADDRESS = 0x8801AC
 
 
-CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable characters
-CUSTOM_CHARACTER_2_NAME = 0x86E538  # char[16], null-terminated, so 15 usable characters
+# CUSTOM_CHARACTER_1_NAME = 0x86E500  # char[16], null-terminated, so 15 usable characters
+# CUSTOM_CHARACTER_2_NAME = 0x86E538  # char[16], null-terminated, so 15 usable characters
 
 
 # # Unverified, but seems to be the case.
