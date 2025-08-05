@@ -1029,8 +1029,16 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         needed_remaining = needed_count - len(replacements)
 
-        # Pick from unlocked characters
-        to_pick_from = sorted(unlocked_characters.intersection(AP_NON_VEHICLE_CHARACTER_INDICES))
+        # Pick from unlocked characters, except Custom Characters, who are not allowed in the Cantina because that is
+        # where they are edited.
+        not_allowed = {
+            CHARACTERS_AND_VEHICLES_BY_NAME["Custom Character 1"].character_index,
+            CHARACTERS_AND_VEHICLES_BY_NAME["Custom Character 2"].character_index,
+        }
+        allowed_character_indices = unlocked_characters - not_allowed
+        allowed_character_indices.intersection_update(AP_NON_VEHICLE_CHARACTER_INDICES)
+
+        to_pick_from = sorted(allowed_character_indices)
         picks = random.sample(to_pick_from, min(needed_remaining, len(to_pick_from)))
         replacements.extend(picks)
         needed_remaining -= len(picks)
