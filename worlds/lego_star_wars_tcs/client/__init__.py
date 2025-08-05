@@ -986,7 +986,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if reset_door:
                 self.write_byte(0x9513b8, 0)
             if hard_reset:
-                self.write_uint(0x803764, 0xFFFFFFFF)
+                self.write_uint(0x803784, 0xFFFFFFFF)
                 self.write_uint(0x93b2ac, 0x20)
             level_data_start_addr = self.read_uint(0x951b78)
             # Each level struct is 0x130 bytes. Level IDs are consecutive according to the order they are defined in
