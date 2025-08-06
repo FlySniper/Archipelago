@@ -315,6 +315,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     _gog_memory_offset: int = 0
     # In the case of an unrecognised version, an overall memory offset may be set.
     _overall_memory_offset: int = 0
+    _cantina_needs_reload_to_fix_characters: bool = False
 
     # Client state.
     acquired_characters: AcquiredCharacters
@@ -996,15 +997,17 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             # Some sort of flag that BrickBench sets. I don't know what this does.
             self.write_uint(0x93d850, 1)
 
-    def reload_cantina(self, hard: bool = False):
+    def reload_cantina(self, hard: bool = False) -> bool:
         if self.is_in_game() and self.read_current_cantina_room() == CantinaRoom.SHOP_ROOM:
             if self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP:
                 # Reloading the cantina while the shop is open gets the camera stuck in the shop, with seemingly no way
                 # to fix.
-                return
+                return False
             else:
                 # The Cantina's level ID is 325
                 self._load_level(325, hard_reset=hard)
+                return True
+        return False
 
     def ap_first_time_setup(self):
         # Custom Character 1 starts with a lightsaber, but the player might not have Jedi unlocked, meaning that Custom
@@ -1063,10 +1066,18 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 and self.read_uchar(GAME_STATE_ADDRESS) == 1
                 and self.read_uchar(OPENED_MENU_DEPTH_ADDRESS) == 0
         ):
+            if self._cantina_needs_reload_to_fix_characters:
+                if self.reload_cantina(hard=True):
+                    await asyncio.sleep(1.0)
+                    self._cantina_needs_reload_to_fix_characters = False
+                return
             # Skeleton is the backup character the client forces when the player does not have at least 2 unlocked
             # non-vehicle characters.
             skeleton_character_index = CHARACTERS_AND_VEHICLES_BY_NAME["Skeleton"].character_index
             needed_replacements = 0
+            # todo: Rather than reading these addresses for the P1/P2 character IDs, get the IDs directly from the
+            #  character array (the one that gives all characters in the current level, but use the P1 and P2 pointers
+            #  into the character array to get the correct characters)
             p1_character_id = self.read_uint(P1_CANTINA_CHARACTER_ID)
             if p1_character_id != skeleton_character_index and p1_character_id not in unlocked_characters:
                 needed_replacements += 1
@@ -1088,7 +1099,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             if replace_p2:
                 self.write_uint(P2_CANTINA_CHARACTER_ID, replacements.pop(0))
 
-            self.reload_cantina(hard=True)
+            if self.reload_cantina(hard=True):
+                await asyncio.sleep(1.0)
+            else:
+                # If the reload failed (e.g. the player is in the shop or the game is paused), try again.
+                self._cantina_needs_reload_to_fix_characters = True
 
     def set_game_expected_idx(self, idx: int) -> None:
         # The expected idx is stored in the unused 4 bytes at the end of Negotiations' (1-1's) save data.
