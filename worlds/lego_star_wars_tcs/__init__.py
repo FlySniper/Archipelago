@@ -880,6 +880,7 @@ class LegoStarWarsTCSWorld(World):
                 choices.append(char)
             starting_jedi = self.random.choice(choices)
             starting_abilities |= starting_jedi.abilities
+            self.push_precollected(self.create_item(starting_jedi.name))
             del possible_pool_character_items[starting_jedi.name]
 
         effective_item_classifications, effective_item_collect_extras = (
