@@ -54,7 +54,10 @@ class MinikitGoalAmount(NamedRange):
     """
     The number of Minikits required to goal.
 
-    If set to zero, Minikits will not be part of the goal, but will still be in the item pool as filler items.
+    If set to zero, Minikits will not be part of the goal, but will still be in the item pool as filler items if Minikit
+    locations are enabled.
+
+    If set to non-zero, and Minikit locations are disabled, the Minikit Bundle Size will be forcefully set to 10.
 
     Each enabled episode chapter shuffles 10 Minikits into the item pool, which may be bundled to reduce the number
     Minikit items in the item pool.
@@ -311,6 +314,26 @@ class PreferEntireEpisodes(Toggle):
     When combined with the Preferred Chapters option, this option can be used to guarantee entire episodes.
     """
     display_name = "Prefer Entire Episodes"
+
+
+class EnableMinikitLocations(DefaultOnToggle):
+    """
+    Enable locations for collecting each Minikit in enabled Chapters.
+
+    Minikit locations are progressive within each Chapter (to be changed in the future), so collecting 4 Minikits in any
+    order in a Chapter will send the location checks for Minikit 1, Minikit 2, Minikit 3 and Minikit 4, in that Chapter,
+    in order.
+
+    All Minikits in a Chapter enter logic at the same time, when it is logically possible to reach all Minikits in that
+    Chapter.
+
+    If Minikit locations are not enabled, but the goal requires Minikits, the Minikit Bundle Size will be forcefully set
+    to 10.
+
+    When Minikit locations are not enabled, Bonus levels will not consider the 10/10 Minikit Gold Bricks as part of Gold
+    Brick logic.
+    """
+    display_name = "Enable Minikit Locations"
 
 
 class EnableChapterCompletionCharacterUnlockLocations(DefaultOnToggle):
@@ -843,6 +866,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     enable_story_character_unlock_locations: EnableChapterCompletionCharacterUnlockLocations
     enable_bonus_locations: EnableBonusLocations
     enable_all_episodes_purchases: EnableAllEpisodesCharacterPurchaseLocations
+    enable_minikit_locations: EnableMinikitLocations
 
     # Logic.
     # logic_difficulty: LogicDifficulty
@@ -887,6 +911,7 @@ OPTION_GROUPS: list[OptionGroup] = [
         PreferEntireEpisodes,
     ]),
     OptionGroup("Location Options", [
+        EnableMinikitLocations,
         EnableChapterCompletionCharacterUnlockLocations,
         EnableBonusLocations,
         EnableAllEpisodesCharacterPurchaseLocations,

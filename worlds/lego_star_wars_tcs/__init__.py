@@ -176,6 +176,7 @@ class LegoStarWarsTCSWorld(World):
             self.options.defeat_bosses_goal_amount.value = passthrough["defeat_bosses_goal_amount"]
             self.options.only_unique_bosses_count.value = passthrough["only_unique_bosses_count"]
             self.options.defeat_bosses_goal_amount.value = passthrough["defeat_bosses_goal_amount"]
+            self.options.enable_minikit_locations.value = passthrough["enable_minikit_locations"]
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -296,6 +297,16 @@ class LegoStarWarsTCSWorld(World):
                                   len(allowed_chapters),
                                   len(allowed_chapters))
                 options.enabled_chapters_count.value = len(allowed_chapters)
+
+            # If the Minikits goal is enabled, but Minikit locations are disabled, force Minikit bundle size to 10
+            # -1 is the "use_percentage" value, which is always non-zero
+            if (options.minikit_goal_amount != 0
+                    and not options.enable_minikit_locations
+                    and options.minikit_bundle_size != 10):
+                self._log_warning("The Minikits goal is enabled, but Minikit locations are disabled, so the Minikit"
+                                  " Bundle size has been forcefully set to 10, otherwise there would not be enough"
+                                  " locations to place all the Minikits")
+                options.minikit_bundle_size.value = 10
 
             # Determine unique allowed boss characters.
             maximum_boss_chapters = len(allowed_boss_chapters)
@@ -617,9 +628,13 @@ class LegoStarWarsTCSWorld(World):
             self.minikit_bundle_name = MINIKITS_BY_COUNT[bundle_size].name
             # todo?: Set self.available_minikits = 0 when self.options.minikit_goal_amount.value == 0 to remove minikits
             #  from the item pool?
-            self.available_minikits = self.enabled_chapter_count * 10  # 10 Minikits per chapter.
-            self.minikit_bundle_count = (self.available_minikits // bundle_size
-                                         + (self.available_minikits % bundle_size != 0))
+            if self.options.minikit_goal_amount != 0 or self.options.enable_minikit_locations:
+                self.available_minikits = self.enabled_chapter_count * 10  # 10 Minikits per chapter.
+                self.minikit_bundle_count = (self.available_minikits // bundle_size
+                                             + (self.available_minikits % bundle_size != 0))
+            else:
+                self.available_minikits = 0
+                self.minikit_bundle_count = 0
 
             # Adjust Minikit options.
             if self.options.minikit_goal_amount.value > self.available_minikits:
@@ -966,9 +981,20 @@ class LegoStarWarsTCSWorld(World):
 
         # The vanilla rewards for these are Gold Bricks, which are events, so these are effectively free locations for
         # any kind of item.
-        completion_location_count = self.enabled_chapter_count + len(self.enabled_bonuses)
         true_jedi_location_count = self.enabled_chapter_count
-        free_minikit_location_count = self.enabled_chapter_count * 10 - required_minikit_location_count
+        completion_location_count = self.enabled_chapter_count + len(self.enabled_bonuses)
+        if self.options.enable_minikit_locations:
+            free_minikit_location_count = self.enabled_chapter_count * 10 - required_minikit_location_count
+        else:
+            if self.options.minikit_goal_amount != 0:
+                assert self.options.minikit_bundle_size == 10
+                assert self.minikit_bundle_name == "10 Minikits"
+                assert self.minikit_bundle_count == self.enabled_chapter_count
+                # The free Chapter Completion locations are consumed to fit the Minikits
+                completion_location_count -= self.enabled_chapter_count
+                free_minikit_location_count = 0
+            else:
+                free_minikit_location_count = 0
         free_location_count = completion_location_count + true_jedi_location_count + free_minikit_location_count
 
         episode_related_items = []
@@ -1348,21 +1374,26 @@ class LegoStarWarsTCSWorld(World):
                 self.character_unlock_location_count += len(chapter.character_shop_unlocks)
 
                 # Minikits.
-                chapter_minikits = self.create_region(f"{chapter.name} Minikits")
-                chapter_region.connect(chapter_minikits, f"{chapter.name} - Collect All Minikits")
-                for i in range(1, 11):
-                    loc_name = f"{chapter.short_name} Minikit {i}"
-                    location = LegoStarWarsTCSLocation(self.player, loc_name, self.location_name_to_id[loc_name],
-                                                       chapter_minikits)
-                    chapter_minikits.locations.append(location)
-                    available_minikits_check += 1
-                if self.options.enable_bonus_locations:
-                    # All Minikits Gold Brick.
-                    all_minikits_gold_brick = LegoStarWarsTCSLocation(
-                        self.player, f"{chapter_minikits.name} - Gold Brick", None, chapter_minikits)
-                    all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                    self.gold_brick_event_count += 1
-                    chapter_minikits.locations.append(all_minikits_gold_brick)
+                if self.options.enable_minikit_locations:
+                    chapter_minikits = self.create_region(f"{chapter.name} Minikits")
+                    chapter_region.connect(chapter_minikits, f"{chapter.name} - Collect All Minikits")
+                    for i in range(1, 11):
+                        loc_name = f"{chapter.short_name} Minikit {i}"
+                        location = LegoStarWarsTCSLocation(self.player, loc_name, self.location_name_to_id[loc_name],
+                                                           chapter_minikits)
+                        chapter_minikits.locations.append(location)
+                        available_minikits_check += 1
+                    if self.options.enable_bonus_locations:
+                        # All Minikits Gold Brick.
+                        all_minikits_gold_brick = LegoStarWarsTCSLocation(
+                            self.player, f"{chapter_minikits.name} - Gold Brick", None, chapter_minikits)
+                        all_minikits_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                        self.gold_brick_event_count += 1
+                        chapter_minikits.locations.append(all_minikits_gold_brick)
+                elif self.options.minikit_goal_amount != 0:
+                    # If Minikit locations are disabled, but the goal requires Minikits, the Chapter Completion location
+                    # is instead treated as if it was the vanilla location for a 10 Minikits bundle.
+                    available_minikits_check += 10
 
                 if self.options.enable_story_character_unlock_locations:
                     # Story Character unlocks.
@@ -1595,8 +1626,9 @@ class LegoStarWarsTCSWorld(World):
                 self._add_score_multiplier_rule(power_brick, chapter.power_brick_studs_cost)
 
                 # Set Minikits logic
-                all_minikits_entrance = self.get_entrance(f"{chapter.name} - Collect All Minikits")
-                set_chapter_spot_abilities_rule(all_minikits_entrance, chapter.all_minikits_ability_requirements)
+                if self.options.enable_minikit_locations:
+                    all_minikits_entrance = self.get_entrance(f"{chapter.name} - Collect All Minikits")
+                    set_chapter_spot_abilities_rule(all_minikits_entrance, chapter.all_minikits_ability_requirements)
 
                 # Set Character Purchase logic
                 for shop_unlock, studs_cost in chapter.character_shop_unlocks.items():
@@ -1740,6 +1772,7 @@ class LegoStarWarsTCSWorld(World):
                 "defeat_bosses_goal_amount",
                 "only_unique_bosses_count",
                 "defeat_bosses_goal_amount",
+                "enable_minikit_locations",
             )
         }
 
