@@ -177,6 +177,7 @@ class LegoStarWarsTCSWorld(World):
             self.options.only_unique_bosses_count.value = passthrough["only_unique_bosses_count"]
             self.options.defeat_bosses_goal_amount.value = passthrough["defeat_bosses_goal_amount"]
             self.options.enable_minikit_locations.value = passthrough["enable_minikit_locations"]
+            self.options.enable_true_jedi_locations.value = passthrough["enable_true_jedi_locations"]
 
             # Attributes normally derived from options during generate_early.
             self.enabled_chapters = set(passthrough["enabled_chapters"])
@@ -980,8 +981,11 @@ class LegoStarWarsTCSWorld(World):
         required_minikit_location_count = self.minikit_bundle_count
 
         # The vanilla rewards for these are Gold Bricks, which are events, so these are effectively free locations for
-        # any kind of item.
-        true_jedi_location_count = self.enabled_chapter_count
+        # any kind of item when enabled.
+        if self.options.enable_true_jedi_locations:
+            true_jedi_location_count = self.enabled_chapter_count
+        else:
+            true_jedi_location_count = 0
         completion_location_count = self.enabled_chapter_count + len(self.enabled_bonuses)
         if self.options.enable_minikit_locations:
             free_minikit_location_count = self.enabled_chapter_count * 10 - required_minikit_location_count
@@ -1340,17 +1344,18 @@ class LegoStarWarsTCSWorld(World):
                     chapter_region.locations.append(completion_gold_brick)
 
                 # True Jedi.
-                true_jedi_name = f"{chapter.short_name} True Jedi"
-                true_jedi_loc = LegoStarWarsTCSLocation(self.player, true_jedi_name,
-                                                        self.location_name_to_id[true_jedi_name], chapter_region)
-                chapter_region.locations.append(true_jedi_loc)
-                if self.options.enable_bonus_locations:
-                    # True Jedi Gold Brick event.
-                    true_jedi_gold_brick = LegoStarWarsTCSLocation(self.player, f"{true_jedi_name} - Gold Brick",
-                                                                   None, chapter_region)
-                    true_jedi_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
-                    self.gold_brick_event_count += 1
-                    chapter_region.locations.append(true_jedi_gold_brick)
+                if self.options.enable_true_jedi_locations:
+                    true_jedi_name = f"{chapter.short_name} True Jedi"
+                    true_jedi_loc = LegoStarWarsTCSLocation(self.player, true_jedi_name,
+                                                            self.location_name_to_id[true_jedi_name], chapter_region)
+                    chapter_region.locations.append(true_jedi_loc)
+                    if self.options.enable_bonus_locations:
+                        # True Jedi Gold Brick event.
+                        true_jedi_gold_brick = LegoStarWarsTCSLocation(self.player, f"{true_jedi_name} - Gold Brick",
+                                                                       None, chapter_region)
+                        true_jedi_gold_brick.place_locked_item(self.create_event(GOLD_BRICK_EVENT_NAME))
+                        self.gold_brick_event_count += 1
+                        chapter_region.locations.append(true_jedi_gold_brick)
 
                 # Power Brick.
                 power_brick_location_name = chapter.power_brick_location_name
@@ -1773,6 +1778,7 @@ class LegoStarWarsTCSWorld(World):
                 "only_unique_bosses_count",
                 "defeat_bosses_goal_amount",
                 "enable_minikit_locations",
+                "enable_true_jedi_locations",
             )
         }
 

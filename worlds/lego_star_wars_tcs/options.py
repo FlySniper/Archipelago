@@ -336,6 +336,16 @@ class EnableMinikitLocations(DefaultOnToggle):
     display_name = "Enable Minikit Locations"
 
 
+class EnableTrueJediLocations(DefaultOnToggle):
+    """
+    Enable locations for completing True Jedi in each enabled Chapter.
+
+    When True Jedi locations are not enabled, Bonus levels will not consider True Jedi Gold Bricks as part of Gold Brick
+    logic.
+    """
+    display_name = "Enable True Jedi Locations"
+
+
 class EnableChapterCompletionCharacterUnlockLocations(DefaultOnToggle):
     """
     Enable locations for unlocking Story mode characters that would normally unlock when completing a Chapter in
@@ -867,6 +877,7 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     enable_bonus_locations: EnableBonusLocations
     enable_all_episodes_purchases: EnableAllEpisodesCharacterPurchaseLocations
     enable_minikit_locations: EnableMinikitLocations
+    enable_true_jedi_locations: EnableTrueJediLocations
 
     # Logic.
     # logic_difficulty: LogicDifficulty
@@ -912,6 +923,7 @@ OPTION_GROUPS: list[OptionGroup] = [
     ]),
     OptionGroup("Location Options", [
         EnableMinikitLocations,
+        EnableTrueJediLocations,
         EnableChapterCompletionCharacterUnlockLocations,
         EnableBonusLocations,
         EnableAllEpisodesCharacterPurchaseLocations,
