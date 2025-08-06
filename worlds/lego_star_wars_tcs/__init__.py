@@ -865,6 +865,9 @@ class LegoStarWarsTCSWorld(World):
             # Pick a Jedi that is not a requirement to access a chapter.
             choices: list[CharacterData] = []
             for char in CHARACTERS_AND_VEHICLES_BY_NAME.values():
+                if not char.is_sendable:
+                    # The character is not an AP item.
+                    continue
                 if CharacterAbility.JEDI not in char.abilities:
                     # The character is not a Jedi.
                     continue
