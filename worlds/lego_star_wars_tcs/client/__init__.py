@@ -1290,6 +1290,8 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext,
                 if last_seed_name is not None:
                     logger.info("Copied the last connected multiworld seed hash to the new save file.")
                     ctx.write_seed_name_hash(last_seed_name)
+                # The save file is new, so run first-time setup.
+                ctx.ap_first_time_setup()
             else:
                 # The player *could* have another save file with the same seed and slot, which would be
                 # unusual, but acceptable.
