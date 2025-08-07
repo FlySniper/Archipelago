@@ -104,7 +104,6 @@ CURRENT_LEVEL_ID = 0x951BA0  # 2 bytes (or more)
 # otherwise those extras cannot be bought from the shop.
 # When entering the Cantina, all purchased extras that have not been received will need to be locked because entering
 # the cantina will unlock all extras that have been purchased.
-# How was this 69 before????
 LEVEL_ID_CANTINA = 325
 
 CURRENT_SAVE_SLOT = 0x802014  # byte, 255/-1 for no save file loaded. [0-5] for save file [1-6]
