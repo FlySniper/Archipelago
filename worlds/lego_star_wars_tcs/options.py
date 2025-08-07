@@ -99,6 +99,7 @@ class DefeatBossesGoalAmount(Range):
 
     The Chapter a boss is in must be completed for defeating the boss to count.
     """
+    display_name = "Defeat Bosses Goal Amount"
     range_start = 0
     range_end = len(BOSS_UNIQUE_NAME_TO_CHAPTER)
 
@@ -113,6 +114,7 @@ class EnabledBossesCount(Range):
     If there are not enough bosses in the picked Enabled Chapters, boss Chapters will replace the last picked Chapters
     until there are enough Boss Chapters in the world.
     """
+    display_name = "Enabled Bosses Count"
     range_start = 0
     range_end = len(BOSS_UNIQUE_NAME_TO_CHAPTER)
 
@@ -141,6 +143,7 @@ class AllowedBosses(OptionSet):
     - Darth Sidious (6-5) # Jedi Destiny
     - Death Star II (6-6) # Into The Death Star
     """
+    display_name = "Allowed Bosses"
     valid_keys = list(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
     default = list(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
 
@@ -153,6 +156,7 @@ class OnlyUniqueBossesCountTowardsGoal(ChoiceFromStringExtension):
     The maximum number of allowed bosses will be reduced to 12, or 11 when Anakin Skywalker counts as the same boss as
     Darth Vader.
     """
+    display_name = "Only Count Unique Bosses"
     option_disabled = 0
     option_enabled = 1
     option_enabled_and_count_anakin_as_vader = 2
