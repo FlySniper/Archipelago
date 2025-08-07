@@ -366,7 +366,7 @@ ITEM_DATA: list[GenericItemData] = [
     _char(88, "Jawa", 22, abilities=SHORTIE),  # Note: Cannot grapple
     _char(89, "Sandtrooper", 51, abilities=IMPERIAL | BLASTER),
     _char(90, "Greedo", 171, abilities=BOUNTY_HUNTER | BLASTER),
-    _char(91, "Imperial Spy", 172, abilities=IMPERIAL),
+    _char(91, "Imperial Spy", 172),
     _char(92, "Beach Trooper", 48, abilities=IMPERIAL | BLASTER),
     _char(93, "Death Star Trooper", 49, abilities=IMPERIAL | BLASTER),
     _char(94, "TIE Fighter Pilot", 50, abilities=IMPERIAL | BLASTER),
