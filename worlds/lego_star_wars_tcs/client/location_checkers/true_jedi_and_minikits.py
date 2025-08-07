@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from ..type_aliases import TCSContext
 from ...levels import SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA, ChapterArea
 from ...locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
@@ -64,32 +66,39 @@ class TrueJediAndMinikitChecker:
 
     async def check_true_jedi_and_minikits(self, ctx: TCSContext, new_location_checks: list[int]):
         current_area_id = ctx.read_uchar(CURRENT_AREA_ADDRESS)
+        true_jedi_datastorage_area_ids_to_update = []
         if current_area_id in AREA_ID_TO_CHAPTER_AREA:
             current_area = AREA_ID_TO_CHAPTER_AREA[current_area_id]
             self._check_minikits_from_current_area(current_area, ctx, new_location_checks)
-            self._check_true_jedi_from_current_area(current_area, ctx, new_location_checks)
+            if self._check_true_jedi_from_current_area(current_area, ctx, new_location_checks):
+                true_jedi_datastorage_area_ids_to_update.append(current_area_id)
 
-        self._check_true_jedi_and_minikits_from_save_data(ctx, new_location_checks)
+        new_true_jedi_from_sava_data = self._check_true_jedi_and_minikits_from_save_data(ctx, new_location_checks)
+        true_jedi_datastorage_area_ids_to_update.extend(new_true_jedi_from_sava_data)
+        ctx.update_datastorage_true_jedi_completion(true_jedi_datastorage_area_ids_to_update)
 
     def _check_true_jedi_from_current_area(self,
                                            current_area: ChapterArea,
                                            ctx: TCSContext,
                                            new_location_checks: list[int]
-                                           ):
+                                           ) -> bool:
         shortname = current_area.short_name
         if shortname not in self.remaining_true_jedi_check_shortnames:
-            return
+            return False
 
         location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
         location_id = LOCATION_NAME_TO_ID[location_name]
         if not ctx.is_location_sendable(location_id):
             self.remaining_true_jedi_check_shortnames.remove(shortname)
-            return
+            return True
 
         current_area_true_jedi_complete = ctx.read_uint(CURRENT_AREA_TRUE_JEDI_COMPLETE_STORY_OR_FREE_PLAY_ADDRESS)
         if current_area_true_jedi_complete:
             new_location_checks.append(location_id)
             self.remaining_true_jedi_check_shortnames.remove(shortname)
+            return True
+        else:
+            return False
 
     def _check_minikits_from_current_area(self,
                                           current_area: ChapterArea,
@@ -119,7 +128,15 @@ class TrueJediAndMinikitChecker:
         else:
             del self.remaining_minikit_checks_by_shortname[shortname]
 
-    def _check_true_jedi_and_minikits_from_save_data(self, ctx: TCSContext, new_location_checks: list[int]):
+    @staticmethod
+    def update_from_datastorage(ctx: TCSContext, new_area_ids: Iterable[int]):
+        for area_id in new_area_ids:
+            area = AREA_ID_TO_CHAPTER_AREA[area_id]
+            true_jedi_address = area.address + 3
+            ctx.write_byte(true_jedi_address, 1)
+
+    def _check_true_jedi_and_minikits_from_save_data(self, ctx: TCSContext, new_location_checks: list[int]
+                                                     ) -> list[int]:
         # todo: More smartly read only as many bytes as necessary. So only 1 byte when either the True Jedi is complete
         #  or all Minikits have been collected.
         cached_bytes: dict[str, tuple[int, int]] = {}
@@ -137,12 +154,15 @@ class TrueJediAndMinikitChecker:
                 cached_bytes[short_name] = new_bytes
                 return new_bytes
 
+        checked_true_jedi_area_ids = []
         # A copy has to be iterated so that elements can be removed while iterating.
         for shortname in tuple(self.remaining_true_jedi_check_shortnames):
             location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
             location_id = LOCATION_NAME_TO_ID[location_name]
             if not ctx.is_location_sendable(location_id):
                 self.remaining_true_jedi_check_shortnames.remove(shortname)
+                area_id = SHORT_NAME_TO_CHAPTER_AREA[shortname].area_id
+                checked_true_jedi_area_ids.append(area_id)
                 continue
             true_jedi = get_bytes_for_short_name(shortname)[0]
             if true_jedi:
@@ -166,3 +186,5 @@ class TrueJediAndMinikitChecker:
                     if minikit_count >= count:
                         new_location_checks.append(location_id)
         self.remaining_minikit_checks_by_shortname = updated_remaining_minikit_checks_by_shortname
+
+        return checked_true_jedi_area_ids

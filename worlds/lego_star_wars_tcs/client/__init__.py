@@ -265,6 +265,9 @@ DATA_STORAGE_KEY_SUFFIX = "{team}_{slot}"
 COMPLETED_FREE_PLAY_KEY_PREFIX = "tcs_completed_free_play_"
 COMPLETED_FREE_PLAY_KEY_FORMAT = COMPLETED_FREE_PLAY_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
 
+COMPLETED_TRUE_JEDI_KEY_PREFIX = "tcs_completed_true_jedi_"
+COMPLETED_TRUE_JEDI_KEY_FORMAT = COMPLETED_TRUE_JEDI_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
+
 LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
 LEVEL_ID_KEY_FORMAT = LEVEL_ID_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
 
@@ -381,6 +384,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
     @property
     def datastorage_free_play_completion_key(self) -> str:
         return COMPLETED_FREE_PLAY_KEY_FORMAT.format(team=self.team, slot=self.slot)
+
+    @property
+    def datastorage_true_jedi_completion_key(self) -> str:
+        return COMPLETED_TRUE_JEDI_KEY_PREFIX.format(team=self.team, slot=self.slot)
 
     def on_print_json(self, args: dict) -> None:
         super().on_print_json(args)
@@ -559,15 +566,19 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.last_connected_slot = self.auth
             self.auth_status = AuthStatus.AUTHENTICATED
             # Get, and subscribe to, updates to Free Play completions
+            listen_keys = [
+                self.datastorage_free_play_completion_key,
+                self.datastorage_true_jedi_completion_key,
+            ]
             Utils.async_start(self.send_msgs(
                 [
                     {
                         "cmd": "Get",
-                        "keys": [self.datastorage_free_play_completion_key]
+                        "keys": listen_keys
                     },
                     {
                         "cmd": "SetNotify",
-                        "keys": [self.datastorage_free_play_completion_key]
+                        "keys": listen_keys
                     }
                 ]
             ))
@@ -577,11 +588,21 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 value = args["value"]
                 if value is not None:
                     self.free_play_completion_checker.update_from_datastorage(self, value)
+            elif key.startswith(COMPLETED_TRUE_JEDI_KEY_PREFIX) and key == self.datastorage_true_jedi_completion_key:
+                value = args["value"] or ()
+                previous_value = args["original_value"] or ()
+                new_values = set(value)
+                new_values.difference_update(previous_value)
+                if new_values:
+                    self.true_jedi_and_minikit_checker.update_from_datastorage(self, new_values)
         elif cmd == "Retrieved":
             keys: dict[str, typing.Any] = args["keys"]
             completed_free_play = keys.get(self.datastorage_free_play_completion_key) or ()
             if completed_free_play:
                 self.free_play_completion_checker.update_from_datastorage(self, completed_free_play)
+            completed_true_jedi = keys.get(self.datastorage_true_jedi_completion_key) or ()
+            if completed_true_jedi:
+                self.true_jedi_and_minikit_checker.update_from_datastorage(self, completed_true_jedi)
 
     def update_datastorage_free_play_completion(self, area_ids: list[int]):
         if self.server_version < (0, 6, 2):
@@ -594,6 +615,22 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         Utils.async_start(self.send_msgs([{
             "cmd": "Set",
             "key": self.datastorage_free_play_completion_key,
+            "default": [],
+            "want_reply": False,
+            "operations": [{"operation": "update", "value": area_ids}]
+        }]))
+
+    def update_datastorage_true_jedi_completion(self, area_ids: list[int]):
+        if self.server_version < (0, 6, 2):
+            # Using the "update" operation on list values was only added in AP 0.6.2, so an older server version will
+            # disconnect the client.
+            return
+        if not area_ids:
+            return
+        debug_logger.info("Sending True Jedi Completion area_ids to datastorage: %s", area_ids)
+        Utils.async_start(self.send_msgs([{
+            "cmd": "Set",
+            "key": self.datastorage_true_jedi_completion_key,
             "default": [],
             "want_reply": False,
             "operations": [{"operation": "update", "value": area_ids}]
