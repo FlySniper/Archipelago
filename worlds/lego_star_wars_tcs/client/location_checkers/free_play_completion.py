@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Iterable
 
 from ...levels import CHAPTER_AREAS, ChapterArea, AREA_ID_TO_CHAPTER_AREA
 from ...locations import LOCATION_NAME_TO_ID, LEVEL_COMMON_LOCATIONS
@@ -125,7 +125,7 @@ class FreePlayChapterCompletionChecker(ClientComponent):
         ctx.update_datastorage_free_play_completion(completed_area_ids)
         ctx.goal_manager.tag_for_update("boss")
 
-    def update_from_datastorage(self, ctx: TCSContext, area_ids: list[int]):
+    def update_from_datastorage(self, ctx: TCSContext, area_ids: Iterable[int]):
         debug_logger.info("Updating Free Play Completion area_ids from datastorage: %s", area_ids)
         for area_id in area_ids:
             self.completed_free_play.add(area_id)
