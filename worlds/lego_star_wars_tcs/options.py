@@ -663,6 +663,28 @@ class StartWithDetectors(DefaultOnToggle):
     display_name = "Start With Detector Extras"
 
 
+class FillerReserveCharacters(DefaultOnToggle):
+    """
+    When enabled, reserve space in the item pool for at least as many Characters as enabled locations that would
+    normally unlock Characters in vanilla.
+
+    When disabled, the only reserved space in the item pool for Characters will be the Characters needed to reach all
+    locations. Additional Characters will only get added to the item pool through the Filler Weight: Characters option.
+    """
+    display_name = "Filler Reserve: Characters"
+
+
+class FillerReserveExtras(DefaultOnToggle):
+    """
+    When enabled, reserve space in the item pool for at least as many Extras as enabled locations that would normally
+    unlock Extras in vanilla.
+
+    When disabled, the only reserved space in the item pool for Extras will be the Extras needed to reach all locations.
+    Additional Extras will only get added to the item pool through the Filler Weight: Extras option.
+    """
+    display_name = "Filler Reserve: Extras"
+
+
 class FillerWeightCharacters(Range):
     """
     This option controls the weight of characters when choosing which items to fill out the rest of the space in the
@@ -891,6 +913,8 @@ class LegoStarWarsTCSOptions(PerGameCommonOptions):
     preferred_characters: PreferredCharacters
     preferred_extras: PreferredExtras
     start_with_detectors: StartWithDetectors
+    filler_reserve_characters: FillerReserveCharacters
+    filler_reserve_extras: FillerReserveExtras
     filler_weight_characters: FillerWeightCharacters
     filler_weight_extras: FillerWeightExtras
     filler_weight_junk: FillerWeightJunk
@@ -938,6 +962,8 @@ OPTION_GROUPS: list[OptionGroup] = [
         StartWithDetectors,
         PreferredCharacters,
         PreferredExtras,
+        FillerReserveCharacters,
+        FillerReserveExtras,
         FillerWeightCharacters,
         FillerWeightExtras,
         FillerWeightJunk,

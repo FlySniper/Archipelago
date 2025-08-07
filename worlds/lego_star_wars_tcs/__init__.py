@@ -794,9 +794,15 @@ class LegoStarWarsTCSWorld(World):
                 # classification.
                 classification = ItemClassification.progression
             elif abilities:
-                # Characters with only very common abilities are not worth spending time moving in progression balancing
-                # because there is usually such a large number of them in the item pool.
-                classification = ItemClassification.progression_skip_balancing
+                if self.options.filler_reserve_characters:
+                    # Characters with only very common abilities are not worth spending time moving in progression
+                    # balancing because there is usually such a large number of them in the item pool.
+                    classification = ItemClassification.progression_skip_balancing
+                else:
+                    # Assume that there won't be many characters in the pool, so don't skip progression balancing.
+                    # It is possible for there to still be many characters in the item pool if the filler weight for
+                    # characters is high, however, for simplicity, it is assumed that there won't be many characters.
+                    classification = ItemClassification.progression
             elif name in USEFUL_NON_PROGRESSION_CHARACTERS:
                 # Force ghosts, glitchy characters and fast characters.
                 classification = ItemClassification.useful
@@ -1040,11 +1046,28 @@ class LegoStarWarsTCSWorld(World):
         pool_required_extras = ["Progressive Score Multiplier"] * required_score_multipliers
         non_required_extras.extend(["Progressive Score Multiplier"] * non_required_score_multipliers)
 
+        required_characters_count = len(pool_required_characters)
+        required_extras_count = len(pool_required_extras)
+
         # Try to add as many characters to the pool as this.
-        reserved_character_location_count = self.character_unlock_location_count
+        reserved_character_location_count: int
+        free_character_location_count: int
+        if self.options.filler_reserve_characters:
+            reserved_character_location_count = self.character_unlock_location_count
+            free_character_location_count = 0
+        else:
+            reserved_character_location_count = min(required_characters_count, self.character_unlock_location_count)
+            free_character_location_count = self.character_unlock_location_count - reserved_character_location_count
 
         # Try to create as many Extras as this.
-        reserved_power_brick_location_count = self.enabled_chapter_count
+        reserved_power_brick_location_count: int
+        free_extra_location_count: int
+        if self.options.filler_reserve_extras:
+            reserved_power_brick_location_count = self.enabled_chapter_count
+            free_extra_location_count = 0
+        else:
+            reserved_power_brick_location_count = min(required_extras_count, self.enabled_chapter_count)
+            free_extra_location_count = self.enabled_chapter_count - reserved_power_brick_location_count
 
         # As many minikit bundles as this will always be created. This may be fewer than is required to goal, but
         # reducing the total bundle count can make a seed longer, so all minikit bundles should be considered to be
@@ -1071,7 +1094,14 @@ class LegoStarWarsTCSWorld(World):
             else:
                 assert required_minikit_location_count == 0
                 free_minikit_location_count = 0
-        free_location_count = completion_location_count + true_jedi_location_count + free_minikit_location_count
+
+        free_location_count = (
+                completion_location_count
+                + true_jedi_location_count
+                + free_minikit_location_count
+                + free_character_location_count
+                + free_extra_location_count
+        )
 
         assert free_location_count >= 0, "initial free_location_count should always be >= 0"
 
@@ -1086,9 +1116,6 @@ class LegoStarWarsTCSWorld(World):
                 episode_related_items.append("All Episodes Token")
 
         free_location_count -= len(episode_related_items)
-
-        required_characters_count = len(pool_required_characters)
-        required_extras_count = len(pool_required_extras)
 
         if free_location_count < 0:
             needed = -free_location_count
