@@ -189,10 +189,43 @@ class LegoStarWarsTCSWorld(World):
             # unique bosses.
             # If no more unique bosses are needed, but more boss chapters are needed, replace chapters that are not
             # bosses with new unique bosses, or duplicate bosses.
-            unpicked_boss_chapters_set = allowed_boss_chapters.difference(tentative_enabled_chapters)
             # Deterministically shuffle for deterministic randomness in pick order.
-            unpicked_boss_chapters = sorted(unpicked_boss_chapters_set)
+            unpicked_boss_chapters = sorted(allowed_boss_chapters.difference(tentative_enabled_chapters))
             self.random.shuffle(unpicked_boss_chapters)
+
+            def replace_chapter_at(i: int, boss_chapter_replacement: str):
+                # Replace the chapter at index `i`.
+                replaced_chapter = tentative_enabled_chapters[i]
+                tentative_enabled_chapters[i] = boss_chapter_replacement
+
+                # Add the replacement boss chapter to the set of enabled boss chapters.
+                assert boss_chapter_replacement not in picked_boss_chapters
+                picked_boss_chapters.add(boss_chapter_replacement)
+
+                # Remove the replacement boss chapter from the chapters that have not been picked.
+                unpicked_boss_chapters.remove(replacement_boss_chapter)
+
+                # Add the index to the chapter indices of the boss of the replacement chapter.
+                boss_character_replacement = short_name_to_boss_character[boss_chapter_replacement]
+                boss_character_indices = picked_boss_characters_to_indices.setdefault(boss_character_replacement, [])
+                assert i not in boss_character_indices
+                boss_character_indices.append(i)
+
+                if replaced_chapter in short_name_to_boss_character:
+                    # The replaced chapter was a boss, so update the sets of enabled boss chapters and unpicked boss
+                    # chapters.
+                    picked_boss_chapters.remove(replaced_chapter)
+                    assert replaced_chapter not in unpicked_boss_chapters
+                    unpicked_boss_chapters.append(replaced_chapter)
+
+                    # Remove the index from the chapter indices of the boss of the replaced chapter.
+                    replaced_boss_character = short_name_to_boss_character[replaced_chapter]
+                    boss_characters_indices = picked_boss_characters_to_indices[replaced_boss_character]
+                    boss_characters_indices.remove(i)
+                else:
+                    # The replaced chapter was not a boss, but has been replaced by a boss, so add the current index to
+                    # the picked indices.
+                    picked_boss_indices.append(i)
 
             # Find unique bosses to pick from. The order of this dict is deterministically random because it is created
             # based on the order of `unpicked_boss_chapters`.
@@ -207,8 +240,7 @@ class LegoStarWarsTCSWorld(World):
                     >= required_unique_boss_count), (
                 "There are fewer unique bosses available than the number of required unique bosses."
                 " This should not happen.")
-            assert (len(unpicked_boss_chapters)
-                    + len(picked_boss_chapters)) >= required_boss_chapter_count, (
+            assert (len(unpicked_boss_chapters) + len(picked_boss_chapters)) >= required_boss_chapter_count, (
                 "There are fewer boss chapters available than the number of required boss chapters."
                 " This should not happen.")
             # Replace the latest picked chapters that are not unique bosses or not bosses depending on what is needed
@@ -275,38 +307,10 @@ class LegoStarWarsTCSWorld(World):
                     else:
                         # No suitable replacement found, so pick the first boss chapter.
                         replacement_boss_chapter = unpicked_boss_chapters[0]
-                    replacement_boss_character = short_name_to_boss_character[replacement_boss_chapter]
 
-                # Replace the chapter at the current index `i`.
-                tentative_enabled_chapters[i] = replacement_boss_chapter
-
-                # Add the replacement boss chapter to the set of enabled boss chapters.
-                assert replacement_boss_chapter not in picked_boss_chapters
-                picked_boss_chapters.add(replacement_boss_chapter)
-
-                # Remove the replacement boss chapter from the chapters that have not been picked.
-                unpicked_boss_chapters.remove(replacement_boss_chapter)
-                unpicked_boss_chapters_set.remove(replacement_boss_chapter)
-
-                boss_character_indices = picked_boss_characters_to_indices.setdefault(
-                    replacement_boss_character, [])
-                assert i not in boss_character_indices
-                boss_character_indices.append(i)
-
-                if chapter_at_index_is_a_boss:
-                    # The replaced chapter was a boss, so update the sets of enabled boss chapters and unpicked boss
-                    # chapters.
-                    picked_boss_chapters.remove(chapter_to_replace)
-                    assert chapter_to_replace not in unpicked_boss_chapters
-                    unpicked_boss_chapters.append(chapter_to_replace)
-                    unpicked_boss_chapters_set.add(chapter_to_replace)
-
-                    replaced_boss_character = short_name_to_boss_character[chapter_to_replace]
-
-                    boss_characters_indices = picked_boss_characters_to_indices[replaced_boss_character]
-                    boss_characters_indices.remove(i)
-                else:
-                    picked_boss_indices.append(i)
+                # Replace the existing chapter with the replacement boss chapter, and update each of the containers for
+                # this replacement.
+                replace_chapter_at(i, replacement_boss_chapter)
 
                 if not need_more_unique_bosses() and not need_more_boss_chapters():
                     # All needed replacements have been made.
@@ -585,7 +589,7 @@ class LegoStarWarsTCSWorld(World):
                 if maximum_boss_chapters == 0:
                     assert options.enabled_chapters_count.value == 1
                     self._option_error("Only one Chapter is enabled, but none of the allowed starting chapters were"
-                                       " also an allowed boss, and the goal required defeating bosses.")
+                                       " also an allowed boss, and the goal requires defeating bosses.")
                 else:
                     self._log_warning("The number of bosses to defeat as part of the goal was %i, but the maximum"
                                       " number of bosses that were allowed to be enabled was %i. The number of bosses"
