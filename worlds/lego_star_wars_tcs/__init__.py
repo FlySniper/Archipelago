@@ -324,12 +324,12 @@ class LegoStarWarsTCSWorld(World):
                         boss_character = "Darth Vader"
                     assert boss_character is not None
                     unique_allowed_boss_characters.add(boss_character)
-                maximum_unique_bosses = len(unique_allowed_boss_characters)
+                maximum_unique_boss_characters = len(unique_allowed_boss_characters)
                 # The number of unique allowed boss characters is always less than or equal to the number of allowed
-                # boss.
-                assert maximum_unique_bosses <= maximum_boss_chapters
+                # boss chapters because there can be chapters that have the same boss character.
+                assert maximum_unique_boss_characters <= maximum_boss_chapters
             else:
-                maximum_unique_bosses = -1
+                maximum_unique_boss_characters = -1
 
             # If the starting chapter cannot be a boss chapter, then the maximum possible number of bosses is 1 fewer.
             starting_chapter_cannot_be_a_boss = allowed_starting_chapters.isdisjoint(allowed_boss_chapters)
@@ -339,10 +339,10 @@ class LegoStarWarsTCSWorld(World):
                 maximum_boss_chapters = min(options.enabled_chapters_count.value, maximum_boss_chapters)
 
             # Update the maximum unique bosses count.
-            maximum_unique_bosses = min(maximum_unique_bosses, maximum_boss_chapters)
+            maximum_unique_boss_characters = min(maximum_unique_boss_characters, maximum_boss_chapters)
 
             if unique_bosses_only:
-                maximum_bosses_for_goal = maximum_unique_bosses
+                maximum_bosses_for_goal = maximum_unique_boss_characters
             else:
                 maximum_bosses_for_goal = maximum_boss_chapters
 
@@ -419,141 +419,206 @@ class LegoStarWarsTCSWorld(World):
                 *non_starting_allowed_chapters[:options.enabled_chapters_count.value - 1],
             ]
             if bosses_required_for_goal:
-                found_boss_indices: list[int] = [i for i, chapter in enumerate(tentative_enabled_chapters)
-                                                 if chapter in allowed_boss_chapters]
                 enabled_bosses: set[str]
+                found_boss_indices: list[int] = []
+                picked_boss_chapters: set[str] = set()
+                for i, chapter in enumerate(tentative_enabled_chapters):
+                    if chapter in allowed_boss_chapters:
+                        found_boss_indices.append(i)
+                        picked_boss_chapters.add(chapter)
                 if unique_bosses_only:
                     # The number of bosses is counted by the number of unique boss characters.
-                    found_boss_indices_by_boss_character: dict[str, list[int]] = {}
-                    index_to_boss_character: dict[int, str] = {}
-                    for i in found_boss_indices:
-                        area = SHORT_NAME_TO_CHAPTER_AREA[tentative_enabled_chapters[i]]
+                    short_name_to_boss_character: dict[str, str] = {}
+                    for boss_chapter in allowed_boss_chapters:
+                        area = SHORT_NAME_TO_CHAPTER_AREA[boss_chapter]
                         boss_character = area.boss
                         assert boss_character is not None
                         if unique_bosses_anakin_as_darth_vader and boss_character == "Anakin Skywalker":
                             boss_character = "Darth Vader"
-                        found_boss_indices_by_boss_character.setdefault(boss_character, []).append(i)
-                        index_to_boss_character[i] = boss_character
-                    missing_boss_count = options.enabled_bosses_count - len(found_boss_indices_by_boss_character)
-                    if missing_boss_count == 0:
-                        # The exact required number of bosses are present, so no changes are needed.
-                        enabled_bosses = {
-                            tentative_enabled_chapters[i] for boss_indices
-                            in found_boss_indices_by_boss_character.values()
-                            for i in boss_indices
-                        }
-                    elif missing_boss_count < 0:
-                        # Too many bosses are present, so pick only as many to enable as needed.
-                        # If the starting chapter is a boss, always un-pick it first because starting with a boss level
-                        # is less interesting, especially if there is only one required boss.
-                        if found_boss_indices[0] == 0:
-                            starting_boss = index_to_boss_character[0]
-                            for i in found_boss_indices_by_boss_character[starting_boss]:
-                                # If the boss was duplicated by other chapters, also remove those other chapters from
-                                # the bosses that will be picked from.
-                                found_boss_indices.remove(i)
-                            del found_boss_indices_by_boss_character[starting_boss]
-                        chosen_boss_characters = self.random.sample(tuple(found_boss_indices_by_boss_character.keys()),
-                                                                    k=goal_boss_count)
-                        enabled_bosses = {
-                            tentative_enabled_chapters[i] for boss_names in chosen_boss_characters
-                            for i in found_boss_indices_by_boss_character[boss_names]
-                        }
-                    else:
-                        # There are too few bosses, so replace the latest picked chapters, that are not bosses, with
-                        # chapters that have new unique bosses.
-                        extra_boss_characters_to_pick_from: dict[str, list[str]] = {}
-                        extra_bosses_to_pick_from = sorted(allowed_boss_chapters.difference(tentative_enabled_chapters))
-                        self.random.shuffle(extra_bosses_to_pick_from)
-                        enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
-                        for boss_chapter in extra_bosses_to_pick_from:
+                        short_name_to_boss_character[boss_chapter] = boss_character
+
+                    picked_boss_characters_to_indices: dict[str, list[int]] = {}
+                    picked_index_to_boss_character: dict[int, str] = {}
+                    for i in found_boss_indices:
+                        boss_chapter = tentative_enabled_chapters[i]
+                        boss_character = short_name_to_boss_character[boss_chapter]
+                        picked_boss_characters_to_indices.setdefault(boss_character, []).append(i)
+                        picked_index_to_boss_character[i] = boss_character
+                    picked_boss_characters = picked_boss_characters_to_indices.keys()
+
+                    required_unique_boss_count = goal_boss_count
+                    required_boss_chapter_count = options.enabled_bosses_count.value
+
+                    def need_more_unique_bosses() -> bool:
+                        return len(picked_boss_characters) < required_unique_boss_count
+
+                    def need_more_boss_chapters() -> bool:
+                        return len(picked_boss_chapters) < required_boss_chapter_count
+
+                    if need_more_unique_bosses() or need_more_boss_chapters():
+                        # There are too few unique bosses or boss chapters present, more need to be enabled.
+                        # Replace the latest picked chapters.
+                        # If more unique bosses are needed, replace chapters that are not unique bosses, with chapters
+                        # that have new unique bosses.
+                        # If no more unique bosses are needed, but more boss chapters are needed, replace chapters that
+                        # are not bosses with new unique bosses, or duplicate bosses.
+                        unpicked_boss_chapters_set = allowed_boss_chapters.difference(tentative_enabled_chapters)
+                        # Deterministically shuffle for deterministic randomness in pick order.
+                        unpicked_boss_chapters = sorted(unpicked_boss_chapters_set)
+                        self.random.shuffle(unpicked_boss_chapters)
+
+                        # Find unique bosses to pick from. The order of this dict is deterministically random because it
+                        # is created based on the order of `unpicked_boss_chapters`.
+                        unpicked_boss_characters_to_pick_from: dict[str, list[str]] = {}
+                        for boss_chapter in unpicked_boss_chapters:
                             area = SHORT_NAME_TO_CHAPTER_AREA[boss_chapter]
                             boss_character = area.boss
                             assert boss_character is not None
-                            if boss_character not in found_boss_indices_by_boss_character:
-                                extra_boss_characters_to_pick_from.setdefault(boss_character, []).append(boss_chapter)
-                        assert len(extra_bosses_to_pick_from) >= missing_boss_count
-                        # Replace the latest picked chapters that are not unique bosses.
-                        # Find all bosses that are duplicated.
-                        found_boss_indices_to_duplicates_list: dict[int, list[int]] = {
-                            # The indices list is deliberately shared by each index within the list, so that it is easy
-                            # to update the indices list whenever a duplicated boss is removed.
-                            index: indices for
-                            indices in found_boss_indices_by_boss_character.values()
-                            for index in indices
-                            if len(indices) > 1
-                        }
-                        found_boss_indices_set = set(found_boss_indices)
+                            if boss_character not in picked_boss_characters:
+                                unpicked_boss_characters_to_pick_from.setdefault(
+                                    boss_character, []).append(boss_chapter)
+                        assert (len(unpicked_boss_characters_to_pick_from)
+                                + len(picked_boss_characters)) >= required_unique_boss_count, (
+                            "There are fewer unique bosses available than the number of required unique bosses."
+                            " This should not happen.")
+                        assert (len(unpicked_boss_chapters)
+                                + len(picked_boss_chapters)) >= required_boss_chapter_count, (
+                            "There are fewer boss chapters available than the number of required boss chapters."
+                            " This should not happen.")
+                        # Replace the latest picked chapters that are not unique bosses or not bosses depending on what
+                        # is needed most.
                         reversed_indices = reversed(range(len(tentative_enabled_chapters)))
-                        replaced_chapters = []
                         for i in reversed_indices:
-                            chapter_at_index_is_not_a_boss = i not in found_boss_indices_set
-                            chapter_at_index_is_a_duplicated_boss = i in found_boss_indices_to_duplicates_list
-                            if chapter_at_index_is_not_a_boss or chapter_at_index_is_a_duplicated_boss:
-                                # The chapter is not a boss or is a duplicate boss, so replace it.
-                                chapter_to_replace = tentative_enabled_chapters[i]
-                                # Replace the removed chapter with a unique boss in the same episode if possible.
-                                removed_chapter_episode_number_str = chapter_to_replace[0]
+                            chapter_to_replace = tentative_enabled_chapters[i]
+                            chapter_at_index_is_a_boss = chapter_to_replace in short_name_to_boss_character
+                            boss_character_to_replace = short_name_to_boss_character.get(chapter_to_replace, None)
+                            chapter_at_index_is_a_duplicated_boss = (
+                                boss_character_to_replace is not None
+                                and len(picked_boss_characters_to_indices[boss_character_to_replace]) > 1
+                            )
+
+                            if self.options.prefer_entire_episodes:
+                                # Try to replace chapters with boss chapters from the same episode where possible when
+                                # the option to prefer entire episodes is enabled.
+                                preferred_episode_number_str = chapter_to_replace[0]
+                            else:
+                                preferred_episode_number_str = None
+
+                            # Replace the removed chapter with a unique boss.
+                            replacement_boss_chapter: str
+                            replacement_boss_character: str
+                            if need_more_unique_bosses():
+                                if chapter_at_index_is_a_boss and not chapter_at_index_is_a_duplicated_boss:
+                                    # The chapter at `i` is already a unique boss, so replacing the chapter cannot
+                                    # increase the number of unique bosses.
+                                    continue
                                 # Iterate through all remaining enabled unique bosses to try to find one in the same
                                 # episode.
-                                replacement_boss_character: str
-                                replacement_boss_chapter: str
                                 for replacement_boss_character, boss_chapters in (
-                                        extra_boss_characters_to_pick_from.items()
+                                        unpicked_boss_characters_to_pick_from.items()
                                 ):
-                                    for replacement_boss_chapter in reversed(boss_chapters):
-                                        if replacement_boss_chapter[0] == removed_chapter_episode_number_str:
+                                    for replacement_boss_chapter in boss_chapters:
+                                        if (preferred_episode_number_str is None
+                                                or replacement_boss_chapter[0] == preferred_episode_number_str):
+                                            # Suitable replacement found, so break the inner loop.
                                             break
                                     else:
-                                        # No break, so no replacement found.
+                                        # No break, so no suitable replacement found.
                                         continue
-                                    # Replacement found, so break.
+                                    # Suitable replacement found, so break.
                                     break
                                 else:
-                                    # No boss in the same episode was found, so pick the first boss in the dict to
-                                    # replace it.
-                                    it = iter(extra_boss_characters_to_pick_from.items())
+                                    # No unique boss in the same episode was found, so pick the first boss in the dict
+                                    # to replace it.
+                                    it = iter(unpicked_boss_characters_to_pick_from.items())
                                     replacement_boss_character, boss_chapters = next(it)
                                     replacement_boss_chapter = boss_chapters[0]
-                                # Add the replacement boss chapter to the set of enabled boss chapters.
-                                enabled_bosses.add(replacement_boss_chapter)
                                 # Remove the replacement boss character from the dict of extra, unique boss characters
                                 # to pick from. There could be additional chapters that feature this boss, but now that
                                 # the boss has been picked, those additional chapters would no longer feature a unique
                                 # boss.
-                                del extra_boss_characters_to_pick_from[replacement_boss_character]
+                                del unpicked_boss_characters_to_pick_from[replacement_boss_character]
+                            else:
+                                if chapter_at_index_is_a_boss:
+                                    # The chapter at `i` is already a boss chapter, so replacing the chapter cannot
+                                    # increase the number of bosses.
+                                    continue
+                                for replacement_boss_chapter in unpicked_boss_chapters:
+                                    if (preferred_episode_number_str is None
+                                            or replacement_boss_chapter[0] == preferred_episode_number_str):
+                                        # Suitable replacement found, so break.
+                                        break
+                                else:
+                                    # No suitable replacement found, so pick the first boss chapter.
+                                    if len(unpicked_boss_chapters) == 0:
+                                        raise RuntimeError("what")
+                                    replacement_boss_chapter = unpicked_boss_chapters[0]
+                                replacement_boss_character = short_name_to_boss_character[replacement_boss_chapter]
 
-                                # Replace the chapter at the current index `i`.
-                                tentative_enabled_chapters[i] = replacement_boss_chapter
-                                replaced_chapters.append(chapter_to_replace)
+                            # Replace the chapter at the current index `i`.
+                            tentative_enabled_chapters[i] = replacement_boss_chapter
+                            # Add the replacement boss chapter to the set of enabled boss chapters.
+                            assert replacement_boss_chapter not in picked_boss_chapters
+                            picked_boss_chapters.add(replacement_boss_chapter)
+                            unpicked_boss_chapters.remove(replacement_boss_chapter)
+                            unpicked_boss_chapters_set.remove(replacement_boss_chapter)
 
-                                if chapter_at_index_is_a_duplicated_boss:
-                                    # The replaced chapter was a duplicate boss.
-                                    # Remove the replaced index from the list of duplicates.
-                                    duplicates_list = found_boss_indices_to_duplicates_list[i]
-                                    duplicates_list.remove(i)
-                                    # Remove the index from the dict of indices that are duplicated. This is not
-                                    # strictly necessary because `i` is the iteration variable and will not have the
-                                    # same value more than once, but removing helps make debugging easier.
-                                    del found_boss_indices_to_duplicates_list[i]
-                                    if len(duplicates_list) == 1:
-                                        # If there is only one duplicate remaining, then the boss is now unique instead
-                                        # of being duplicated. A unique boss cannot be replaced, so remove the index for
-                                        # the unique boss to prevent the unique boss from being replaced.
-                                        now_unique_boss_index = duplicates_list[0]
-                                        del found_boss_indices_to_duplicates_list[now_unique_boss_index]
-                                if len(replaced_chapters) == missing_boss_count:
-                                    # All needed replacements have been made.
-                                    break
-                        assert len(replaced_chapters) == missing_boss_count, ("The number of replaced chapters did not"
-                                                                              " match the missing boss count")
+                            boss_character_indices = picked_boss_characters_to_indices.setdefault(
+                                replacement_boss_character, [])
+                            assert i not in boss_character_indices
+                            boss_character_indices.append(i)
+                            picked_index_to_boss_character[i] = replacement_boss_character
+
+                            if chapter_at_index_is_a_boss:
+                                # The replaced chapter was a boss, so update the sets of enabled boss chapters and
+                                # unpicked boss chapters.
+                                # There is no need to remove `i` from `found_boss_indices_set` because the
+                                # replacement chapter is guaranteed to also a boss.
+                                picked_boss_chapters.remove(chapter_to_replace)
+                                assert chapter_to_replace not in unpicked_boss_chapters
+                                unpicked_boss_chapters.append(chapter_to_replace)
+                                unpicked_boss_chapters_set.add(chapter_to_replace)
+
+                                replaced_boss_character = short_name_to_boss_character[chapter_to_replace]
+
+                                boss_characters_indices = picked_boss_characters_to_indices[replaced_boss_character]
+                                boss_characters_indices.remove(i)
+
+                            if not need_more_unique_bosses() and not need_more_boss_chapters():
+                                # All needed replacements have been made.
+                                break
+                    assert not need_more_unique_bosses()
+                    assert not need_more_boss_chapters()
+
+                    if len(picked_boss_chapters) > required_boss_chapter_count:
+                        # There are too many bosses enabled, so disable some bosses while ensuring that we don't go
+                        # under `required_unique_boss_count`
+                        remaining_unique_picks = list(picked_boss_characters_to_indices.values())
+                        # Pick unique bosses in the order they were initially picked.
+                        enabled_boss_indices = {indices.pop(0) for indices
+                                                in remaining_unique_picks[:required_unique_boss_count]}
+                        extra_boss_chapters_needed = required_boss_chapter_count - len(enabled_boss_indices)
+                        # Pick extra boss chapters in the order they were initially picked.
+                        remaining_chapter_picks = [i for i in found_boss_indices if i not in enabled_boss_indices]
+                        assert len(remaining_chapter_picks) >= extra_boss_chapters_needed
+                        enabled_boss_indices.update(remaining_chapter_picks[:extra_boss_chapters_needed])
+                        enabled_bosses = {tentative_enabled_chapters[i] for i in enabled_boss_indices}
+                        # These variables may no longer be correct.
+                        # del picked_boss_characters_to_indices
+                        # del picked_boss_characters
+                        # del picked_boss_chapters
+                        # del picked_index_to_boss_character
+                    else:
+                        enabled_bosses = picked_boss_chapters
+
+                    assert len(enabled_bosses) == required_boss_chapter_count
                 else:
                     # Each boss counts separately, even if some bosses use the same boss character.
-                    missing_boss_count = options.enabled_bosses_count - len(found_boss_indices)
-                    if missing_boss_count == 0:
+                    missing_boss_chapter_count = options.enabled_bosses_count - len(found_boss_indices)
+                    if missing_boss_chapter_count == 0:
                         # The exact required number of bosses are present, so no changes are needed.
                         enabled_bosses = {tentative_enabled_chapters[i] for i in found_boss_indices}
-                    elif missing_boss_count < 0:
+                    elif missing_boss_chapter_count < 0:
                         # Too many bosses are present, so pick only as many as needed.
                         # If the starting chapter is a boss, always un-pick it first because starting with a boss level
                         # is less interesting, especially if there is only one required boss.
@@ -572,16 +637,16 @@ class LegoStarWarsTCSWorld(World):
                         reversed_indices = reversed(range(len(tentative_enabled_chapters)))
                         replaced_chapters = []
 
-                        assert len(extra_bosses_to_pick_from) >= missing_boss_count, (
+                        assert len(extra_bosses_to_pick_from) >= missing_boss_chapter_count, (
                             "The number of extra bosses to pick from was less than the missing boss count")
                         for i in reversed_indices:
                             if i not in found_boss_indices_set:
                                 # The chapter is not a boss, so replace it.
                                 chapter_to_replace = tentative_enabled_chapters[i]
                                 # Replace the removed chapter with a boss in the same episode if possible.
-                                removed_chapter_episode_number_str = chapter_to_replace[0]
+                                preferred_episode_number_str = chapter_to_replace[0]
                                 for j, boss in enumerate(reversed(extra_bosses_to_pick_from), start=1):
-                                    if boss[0] == removed_chapter_episode_number_str:
+                                    if boss[0] == preferred_episode_number_str:
                                         del extra_bosses_to_pick_from[-j]
                                         enabled_bosses.add(boss)
                                         tentative_enabled_chapters[i] = boss
@@ -592,11 +657,11 @@ class LegoStarWarsTCSWorld(World):
                                     tentative_enabled_chapters[i] = boss
                                     enabled_bosses.add(boss)
                                 replaced_chapters.append(chapter_to_replace)
-                                if len(replaced_chapters) == missing_boss_count:
+                                if len(replaced_chapters) == missing_boss_chapter_count:
                                     # All needed replacements have been made.
                                     break
-                        assert len(replaced_chapters) == missing_boss_count, ("The number of replaced chapters did not"
-                                                                              " match the missing boss count")
+                        assert len(replaced_chapters) == missing_boss_chapter_count, (
+                            "The number of replaced chapters did not match the missing boss count")
                 self.enabled_bosses = enabled_bosses
             else:
                 self.enabled_bosses = set()
@@ -994,26 +1059,47 @@ class LegoStarWarsTCSWorld(World):
                 assert self.options.minikit_bundle_size == 10
                 assert self.minikit_bundle_name == "10 Minikits"
                 assert self.minikit_bundle_count == self.enabled_chapter_count
-                # The free Chapter Completion locations are consumed to fit the Minikits
+                # Consume the free Chapter Completion locations to fit the Minikits.
                 completion_location_count -= self.enabled_chapter_count
                 free_minikit_location_count = 0
             else:
+                assert required_minikit_location_count == 0
                 free_minikit_location_count = 0
         free_location_count = completion_location_count + true_jedi_location_count + free_minikit_location_count
+
+        assert free_location_count >= 0, "initial free_location_count should always be >= 0"
 
         episode_related_items = []
         # A few free locations may need to be used for episode unlock items and/or episode tokens.
         if self.options.episode_unlock_requirement == "episode_item":
-            free_location_count -= len(self.enabled_episodes) - 1
             for i in self.enabled_episodes:
                 if i != self.starting_episode:
                     episode_related_items.append(f"Episode {i} Unlock")
         if self.options.all_episodes_character_purchase_requirements == "episodes_tokens":
-            free_location_count -= len(self.enabled_episodes)
             for _ in range(len(self.enabled_episodes)):
                 episode_related_items.append("All Episodes Token")
 
-        assert free_location_count >= 0, "free_location_count should always be >= 0 to start with"
+        free_location_count -= len(episode_related_items)
+
+        required_characters_count = len(pool_required_characters)
+        required_extras_count = len(pool_required_extras)
+
+        if free_location_count < 0:
+            needed = -free_location_count
+            # Subtract from reserved, but not required, counts.
+            ok_to_replace_character_count = max(0, reserved_character_location_count - required_characters_count)
+            ok_to_replace_extras_count = max(0, reserved_power_brick_location_count - required_extras_count)
+            total_replaceable = ok_to_replace_character_count + ok_to_replace_extras_count
+            if needed > total_replaceable:
+                self._option_error("There are not enough locations to fit all required items. Enabled")
+            character_percentage = ok_to_replace_character_count / total_replaceable
+            character_subtract = min(needed, round(character_percentage * needed))
+            extra_subtract = needed - character_subtract
+            reserved_character_location_count -= character_subtract
+            reserved_power_brick_location_count -= extra_subtract
+            free_location_count = 0
+
+        assert free_location_count >= 0, "free_location_count must always be >= 0"
 
         unfilled_locations = self.multiworld.get_unfilled_locations(self.player)
         num_to_fill = len(self.multiworld.get_unfilled_locations(self.player))
@@ -1026,26 +1112,19 @@ class LegoStarWarsTCSWorld(World):
                 + len(episode_related_items)
         )
 
-        required_characters_count = len(pool_required_characters)
         required_extras_count = len(pool_required_extras)
         required_excludable_count = sum(loc.progress_type == LocationProgressType.EXCLUDED for loc in unfilled_locations)
 
         if free_location_count < required_excludable_count:
-            # This shouldn't really happen unless basically the entire world is excluded and minikits are individual
-            # instead of bundled.
+            # This shouldn't really happen unless basically the entire world is excluded and/or barely any locations
+            # are enabled.
             needed = required_excludable_count - free_location_count
             # Find how many character/extra locations can be used for filler placement without issue.
             ok_to_replace_character_count = max(0, reserved_character_location_count - required_characters_count)
             ok_to_replace_extras_count = max(0, reserved_power_brick_location_count - required_extras_count)
             total_replaceable = ok_to_replace_extras_count + ok_to_replace_extras_count
-            if total_replaceable >= needed:
-                character_percentage = ok_to_replace_character_count / total_replaceable
-                character_subtract = min(needed, round(character_percentage * needed))
-                extra_subtract = needed - character_subtract
-                reserved_character_location_count -= character_subtract
-                reserved_power_brick_location_count -= extra_subtract
-            else:
-                # There are still too many non-excludable items for the number of excluded locations.
+            if needed > total_replaceable:
+                # There are too many non-excludable items for the number of excluded locations.
                 # Give up.
                 # If this is too common of an issue, it would be possible to add some of the required characters/extras
                 # to start inventory instead of erroring here.
@@ -1055,6 +1134,11 @@ class LegoStarWarsTCSWorld(World):
                                    " There are %i non-excluded locations, but there are %i required items.",
                                    non_excluded_count,
                                    required_count)
+            character_percentage = ok_to_replace_character_count / total_replaceable
+            character_subtract = min(needed, round(character_percentage * needed))
+            extra_subtract = needed - character_subtract
+            reserved_character_location_count -= character_subtract
+            reserved_power_brick_location_count -= extra_subtract
             free_location_count = 0
         else:
             free_location_count -= required_excludable_count
