@@ -27,7 +27,7 @@ class BasePurchasesChecker(abc.ABC):
         updated_remaining_purchases: dict[MemoryOffset, dict[BitMask, ApLocationId]] = {}
         for byte_offset, bit_mask_to_ap_id in self.remaining_purchases.items():
             updated_bit_to_ap_id: dict[BitMask, ApLocationId] = {bit: ap_id for bit, ap_id in bit_mask_to_ap_id.items()
-                                                                 if ctx.is_location_sendable(ap_id)}
+                                                                 if ctx.is_location_unchecked(ap_id)}
             if updated_bit_to_ap_id:
                 updated_remaining_purchases[byte_offset] = updated_bit_to_ap_id
 

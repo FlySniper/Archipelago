@@ -88,7 +88,7 @@ class TrueJediAndMinikitChecker:
 
         location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
         location_id = LOCATION_NAME_TO_ID[location_name]
-        if not ctx.is_location_sendable(location_id):
+        if not ctx.is_location_unchecked(location_id):
             self.remaining_true_jedi_check_shortnames.remove(shortname)
             return True
 
@@ -114,7 +114,7 @@ class TrueJediAndMinikitChecker:
         updated_remaining_minikits: list[tuple[int, str]] = []
         for count, location_name in remaining_minikits:
             location_id = LOCATION_NAME_TO_ID[location_name]
-            if ctx.is_location_sendable(location_id):
+            if ctx.is_location_unchecked(location_id):
                 not_checked_minikit_checks.append(location_id)
                 updated_remaining_minikits.append((count, location_name))
         if updated_remaining_minikits:
@@ -159,7 +159,7 @@ class TrueJediAndMinikitChecker:
         for shortname in tuple(self.remaining_true_jedi_check_shortnames):
             location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
             location_id = LOCATION_NAME_TO_ID[location_name]
-            if not ctx.is_location_sendable(location_id):
+            if not ctx.is_location_unchecked(location_id):
                 self.remaining_true_jedi_check_shortnames.remove(shortname)
                 area_id = SHORT_NAME_TO_CHAPTER_AREA[shortname].area_id
                 checked_true_jedi_area_ids.append(area_id)
@@ -174,7 +174,7 @@ class TrueJediAndMinikitChecker:
             updated_remaining_minikits: list[tuple[int, str]] = []
             for count, location_name in remaining_minikits:
                 location_id = LOCATION_NAME_TO_ID[location_name]
-                if ctx.is_location_sendable(location_id):
+                if ctx.is_location_unchecked(location_id):
                     not_checked_minikit_checks.append(location_id)
                     updated_remaining_minikits.append((count, location_name))
             if updated_remaining_minikits:

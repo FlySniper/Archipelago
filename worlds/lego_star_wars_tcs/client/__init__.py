@@ -640,7 +640,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
         self.reset_persisted_client_data()
 
-    def is_location_sendable(self, location_id: int):
+    def is_location_unchecked(self, location_id: int):
+        """Return whether a location id exists, but has not been checked."""
         return location_id not in self.checked_locations and location_id not in self.disabled_locations
 
     def run_gui(self):
