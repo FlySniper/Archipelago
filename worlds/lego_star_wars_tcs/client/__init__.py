@@ -387,7 +387,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     @property
     def datastorage_true_jedi_completion_key(self) -> str:
-        return COMPLETED_TRUE_JEDI_KEY_PREFIX.format(team=self.team, slot=self.slot)
+        return COMPLETED_TRUE_JEDI_KEY_FORMAT.format(team=self.team, slot=self.slot)
 
     def on_print_json(self, args: dict) -> None:
         super().on_print_json(args)
