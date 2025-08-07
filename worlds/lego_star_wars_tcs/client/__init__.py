@@ -644,6 +644,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         """Return whether a location id exists, but has not been checked."""
         return location_id not in self.checked_locations and location_id not in self.disabled_locations
 
+    def is_location_sendable(self, location_id: int):
+        return location_id not in self.disabled_locations
+
     def run_gui(self):
         from kvui import GameManager
 

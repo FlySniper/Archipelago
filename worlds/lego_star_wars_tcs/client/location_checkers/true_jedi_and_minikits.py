@@ -88,16 +88,29 @@ class TrueJediAndMinikitChecker:
 
         location_name = LEVEL_COMMON_LOCATIONS[shortname]["True Jedi"]
         location_id = LOCATION_NAME_TO_ID[location_name]
-        if not ctx.is_location_unchecked(location_id):
-            self.remaining_true_jedi_check_shortnames.remove(shortname)
-            return True
-
-        current_area_true_jedi_complete = ctx.read_uint(CURRENT_AREA_TRUE_JEDI_COMPLETE_STORY_OR_FREE_PLAY_ADDRESS)
-        if current_area_true_jedi_complete:
-            new_location_checks.append(location_id)
-            self.remaining_true_jedi_check_shortnames.remove(shortname)
-            return True
+        if ctx.is_location_sendable(location_id):
+            current_area_true_jedi_complete = ctx.read_uint(
+                CURRENT_AREA_TRUE_JEDI_COMPLETE_STORY_OR_FREE_PLAY_ADDRESS)
+            if current_area_true_jedi_complete:
+                self.remaining_true_jedi_check_shortnames.remove(shortname)
+                # The location may already be checked due to a !collect, however, already checked locations get
+                # filtered out automatically.
+                new_location_checks.append(location_id)
+                return True
+            # The True Jedi is still incomplete, so the client will need to continue polling until the True Jedi is
+            # completed in-game. It is important to keep polling even when the location has been checked due to a
+            # !collect because completing True Jedi gives a Gold Brick, which should only be given to the player when
+            # True Jedi has actually been completed.
+            # When True Jedi has actually been completed, it will update datastorage, telling other TCS clients
+            # connected to the same slot that they should award the True Jedi Gold Brick. This is important for
+            # supporting same-slot co-op.
+            return False
         else:
+            # The location is not sendable, so the client can forget about polling for this True Jedi location from now
+            # on.
+            # Note that this means that True Jedi completion does not sync in same-slot co-op when True Jedi locations
+            # are disabled.
+            self.remaining_true_jedi_check_shortnames.remove(shortname)
             return False
 
     def _check_minikits_from_current_area(self,
@@ -162,7 +175,8 @@ class TrueJediAndMinikitChecker:
             if not ctx.is_location_unchecked(location_id):
                 self.remaining_true_jedi_check_shortnames.remove(shortname)
                 area_id = SHORT_NAME_TO_CHAPTER_AREA[shortname].area_id
-                checked_true_jedi_area_ids.append(area_id)
+                if ctx.is_location_sendable(location_id):
+                    checked_true_jedi_area_ids.append(area_id)
                 continue
             true_jedi = get_bytes_for_short_name(shortname)[0]
             if true_jedi:
