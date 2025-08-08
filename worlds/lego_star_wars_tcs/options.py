@@ -110,9 +110,6 @@ class EnabledBossesCount(Range):
 
     This will automatically be set at least as high as the number of bosses required to goal.
     This will automatically be set no higher than the maximum of the number of allowed bosses in allowed Chapters.
-
-    If there are not enough bosses in the picked Enabled Chapters, boss Chapters will replace the last picked Chapters
-    until there are enough Boss Chapters in the world.
     """
     display_name = "Enabled Bosses Count"
     range_start = 0
@@ -126,22 +123,23 @@ class AllowedBosses(OptionSet):
     When bosses must be defeated as part of the goal, the Chapters for the bosses in this list will be added to Allowed
     Chapters list if they are not already in Allowed Chapters list.
 
-    - Darth Maul (1-6) # Darth Maul
-    - Zam Wesell (2-1) # Bounty Hunter Pursuit
-    - Jango Fett (2-2) # Discovery On Kamino
-    - Jango Fett (2-4) # Jedi Battle
-    - Count Dooku (2-6) # Count Dooku
-    - Count Dooku (3-2) # Chancellor In Peril
-    - General Grievous (3-3) # General Grievous
-    - Anakin Skywalker (3-6) # Darth Vader
-    - Death Star (4-6) # Rebel Attack
-    - Darth Vader (5-4) # Dagobah
-    - Darth Vader (5-5) # Cloud City Trap
-    - Boba Fett (5-6) # Betrayal Over Bespin
-    - Rancor (6-1) # Jabba's Palace
-    - Boba Fett (6-2) # The Great Pit Of Carkoon
-    - Darth Sidious (6-5) # Jedi Destiny
-    - Death Star II (6-6) # Into The Death Star
+    allowed_bosses:
+      - Darth Maul (1-6) # Darth Maul
+      - Zam Wesell (2-1) # Bounty Hunter Pursuit
+      - Jango Fett (2-2) # Discovery On Kamino
+      - Jango Fett (2-4) # Jedi Battle
+      - Count Dooku (2-6) # Count Dooku
+      - Count Dooku (3-2) # Chancellor In Peril
+      - General Grievous (3-3) # General Grievous
+      - Anakin Skywalker (3-6) # Darth Vader
+      - Death Star (4-6) # Rebel Attack
+      - Darth Vader (5-4) # Dagobah
+      - Darth Vader (5-5) # Cloud City Trap
+      - Boba Fett (5-6) # Betrayal Over Bespin
+      - Rancor (6-1) # Jabba's Palace
+      - Boba Fett (6-2) # The Great Pit Of Carkoon
+      - Darth Sidious (6-5) # Jedi Destiny
+      - Death Star II (6-6) # Into The Death Star
     """
     display_name = "Allowed Bosses"
     valid_keys = list(BOSS_UNIQUE_NAME_TO_CHAPTER.keys())
@@ -150,11 +148,11 @@ class AllowedBosses(OptionSet):
 
 class OnlyUniqueBossesCountTowardsGoal(ChoiceFromStringExtension):
     """
-    When enabled, only unique bosses will count towards your goal. Defeating the same boss in two separate Chapters will
-    only count as one boss kill.
+    When enabled, only unique bosses will count towards your goal. Defeating the same boss character in two separate
+    Chapters will only count as one boss kill.
 
-    The maximum number of allowed bosses will be reduced to 12, or 11 when Anakin Skywalker counts as the same boss as
-    Darth Vader.
+    When unique bosses are enabled, the maximum number of bosses that can count towards the goal will be reduced to 12,
+    or 11 when Anakin Skywalker counts as the same boss as Darth Vader.
     """
     display_name = "Only Count Unique Bosses"
     option_disabled = 0
