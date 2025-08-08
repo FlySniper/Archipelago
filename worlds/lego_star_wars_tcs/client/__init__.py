@@ -263,19 +263,10 @@ UNUSED_AREA_DWORD_SLOT_NAME_AREAS = slice(UNUSED_AREA_DWORD_SLOT_NAME_START,
 DATA_STORAGE_KEY_SUFFIX = "{team}_{slot}"
 
 COMPLETED_FREE_PLAY_KEY_PREFIX = "tcs_completed_free_play_"
-COMPLETED_FREE_PLAY_KEY_FORMAT = COMPLETED_FREE_PLAY_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
-
 COMPLETED_TRUE_JEDI_KEY_PREFIX = "tcs_completed_true_jedi_"
-COMPLETED_TRUE_JEDI_KEY_FORMAT = COMPLETED_TRUE_JEDI_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
-
 COMPLETED_BONUSES_KEY_PREFIX = "tcs_completed_bonuses_"
-COMPLETED_BONUSES_KEY_FORMAT = COMPLETED_BONUSES_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
-
 LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
-LEVEL_ID_KEY_FORMAT = LEVEL_ID_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
-
 CANTINA_ROOM_KEY_PREFIX = "tcs_cantina_room_"
-CANTINA_ROOM_KEY_FORMAT = CANTINA_ROOM_KEY_PREFIX + DATA_STORAGE_KEY_SUFFIX
 
 
 class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
@@ -384,17 +375,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         self.fully_connected = False
 
-    @property
-    def datastorage_free_play_completion_key(self) -> str:
-        return COMPLETED_FREE_PLAY_KEY_FORMAT.format(team=self.team, slot=self.slot)
+    def _get_datastorage_key(self, key_prefix: str):
+        return key_prefix + DATA_STORAGE_KEY_SUFFIX.format(team=self.team, slot=self.slot)
 
-    @property
-    def datastorage_true_jedi_completion_key(self) -> str:
-        return COMPLETED_TRUE_JEDI_KEY_FORMAT.format(team=self.team, slot=self.slot)
-
-    @property
-    def datastorage_bonuses_completion_key(self) -> str:
-        return COMPLETED_BONUSES_KEY_FORMAT.format(team=self.team, slot=self.slot)
+    def _is_datastorage_key(self, to_check: str, prefix: str):
+        return to_check.startswith(prefix) and to_check == self._get_datastorage_key(prefix)
 
     def on_print_json(self, args: dict) -> None:
         super().on_print_json(args)
@@ -573,11 +558,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             self.last_connected_slot = self.auth
             self.auth_status = AuthStatus.AUTHENTICATED
             # Get, and subscribe to, updates to Free Play completions
-            listen_keys = [
-                self.datastorage_free_play_completion_key,
-                self.datastorage_true_jedi_completion_key,
-                self.datastorage_bonuses_completion_key,
-            ]
+            listen_keys = list(
+                map(
+                    self._get_datastorage_key,
+                    (COMPLETED_FREE_PLAY_KEY_PREFIX, COMPLETED_TRUE_JEDI_KEY_PREFIX, COMPLETED_BONUSES_KEY_PREFIX)
+                )
+            )
             Utils.async_start(self.send_msgs(
                 [
                     {
@@ -592,18 +578,18 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             ))
         elif cmd == "SetReply":
             key: str = args["key"]
-            if key.startswith(COMPLETED_FREE_PLAY_KEY_PREFIX) and key == self.datastorage_free_play_completion_key:
+            if self._is_datastorage_key(key, COMPLETED_FREE_PLAY_KEY_PREFIX):
                 value = args["value"]
                 if value is not None:
                     self.free_play_completion_checker.update_from_datastorage(self, value)
-            elif key.startswith(COMPLETED_TRUE_JEDI_KEY_PREFIX) and key == self.datastorage_true_jedi_completion_key:
+            elif self._is_datastorage_key(key, COMPLETED_TRUE_JEDI_KEY_PREFIX):
                 value = args["value"] or ()
                 previous_value = args["original_value"] or ()
                 new_values = set(value)
                 new_values.difference_update(previous_value)
                 if new_values:
                     self.true_jedi_and_minikit_checker.update_from_datastorage(self, new_values)
-            elif key.startswith(COMPLETED_BONUSES_KEY_PREFIX) and key == self.datastorage_bonuses_completion_key:
+            elif self._is_datastorage_key(key, COMPLETED_BONUSES_KEY_PREFIX):
                 value = args["value"] or ()
                 previous_value = args["original_value"] or ()
                 new_values = set(value)
@@ -612,63 +598,40 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                     self.bonus_area_completion_checker.update_from_datastorage(self, new_values)
         elif cmd == "Retrieved":
             keys: dict[str, typing.Any] = args["keys"]
-            completed_free_play = keys.get(self.datastorage_free_play_completion_key) or ()
+            completed_free_play = keys.get(self._get_datastorage_key(COMPLETED_FREE_PLAY_KEY_PREFIX))
             if completed_free_play:
                 self.free_play_completion_checker.update_from_datastorage(self, completed_free_play)
-            completed_true_jedi = keys.get(self.datastorage_true_jedi_completion_key) or ()
+            completed_true_jedi = keys.get(self._get_datastorage_key(COMPLETED_TRUE_JEDI_KEY_PREFIX))
             if completed_true_jedi:
                 self.true_jedi_and_minikit_checker.update_from_datastorage(self, completed_true_jedi)
-            completed_bonuses = keys.get(self.datastorage_bonuses_completion_key) or ()
+            completed_bonuses = keys.get(self._get_datastorage_key(COMPLETED_BONUSES_KEY_PREFIX))
             if completed_bonuses:
                 self.bonus_area_completion_checker.update_from_datastorage(self, completed_bonuses)
 
-    def update_datastorage_free_play_completion(self, area_ids: list[int]):
+    def _update_datastorage_area_ids(self, key_prefix: str, area_ids: list[int], log_name: str):
         if self.server_version < (0, 6, 2):
             # Using the "update" operation on list values was only added in AP 0.6.2, so an older server version will
             # disconnect the client.
             return
         if not area_ids:
             return
-        debug_logger.info("Sending Free Play Completion area_ids to datastorage: %s", area_ids)
+        debug_logger.info("Sending %s area_ids to datastorage: %s", log_name, area_ids)
         Utils.async_start(self.send_msgs([{
             "cmd": "Set",
-            "key": self.datastorage_free_play_completion_key,
+            "key": self._get_datastorage_key(key_prefix),
             "default": [],
             "want_reply": False,
             "operations": [{"operation": "update", "value": area_ids}]
         }]))
+
+    def update_datastorage_free_play_completion(self, area_ids: list[int]):
+        self._update_datastorage_area_ids(COMPLETED_FREE_PLAY_KEY_PREFIX, area_ids, "Free Play Completion")
 
     def update_datastorage_true_jedi_completion(self, area_ids: list[int]):
-        if self.server_version < (0, 6, 2):
-            # Using the "update" operation on list values was only added in AP 0.6.2, so an older server version will
-            # disconnect the client.
-            return
-        if not area_ids:
-            return
-        debug_logger.info("Sending True Jedi Completion area_ids to datastorage: %s", area_ids)
-        Utils.async_start(self.send_msgs([{
-            "cmd": "Set",
-            "key": self.datastorage_true_jedi_completion_key,
-            "default": [],
-            "want_reply": False,
-            "operations": [{"operation": "update", "value": area_ids}]
-        }]))
+        self._update_datastorage_area_ids(COMPLETED_TRUE_JEDI_KEY_PREFIX, area_ids, "True Jedi Completion")
 
     def update_datastorage_bonuses_completion(self, area_ids: list[int]):
-        if self.server_version < (0, 6, 2):
-            # Using the "update" operation on list values was only added in AP 0.6.2, so an older server version will
-            # disconnect the client.
-            return
-        if not area_ids:
-            return
-        debug_logger.info("Sending Bonuses Completion area_ids to datastorage: %s", area_ids)
-        Utils.async_start(self.send_msgs([{
-            "cmd": "Set",
-            "key": self.datastorage_bonuses_completion_key,
-            "default": [],
-            "want_reply": False,
-            "operations": [{"operation": "update", "value": area_ids}]
-        }]))
+        self._update_datastorage_area_ids(COMPLETED_BONUSES_KEY_PREFIX, area_ids, "Bonuses Completion")
 
     def on_multiworld_or_slot_changed(self):
         # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
@@ -986,7 +949,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             # Update the datastorage value in the background.
             Utils.async_start(self.send_msgs([{
                 "cmd": "Set",
-                "key": LEVEL_ID_KEY_FORMAT.format(slot=self.slot, team=self.team),
+                "key": self._get_datastorage_key(LEVEL_ID_KEY_PREFIX),
                 "want_reply": False,
                 "operations": [{"operation": "replace", "value": new_level_id}]
             }]))
@@ -1012,7 +975,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             # Update the datastorage value in the background.
             Utils.async_start(self.send_msgs([{
                 "cmd": "Set",
-                "key": CANTINA_ROOM_KEY_FORMAT.format(slot=self.slot, team=self.team),
+                "key": self._get_datastorage_key(CANTINA_ROOM_KEY_PREFIX),
                 "want_reply": False,
                 "operations": [{"operation": "replace", "value": new_cantina_room.value}]
             }]))
