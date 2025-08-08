@@ -1068,14 +1068,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         """
         # Prioritise good characters.
         replacements = []
-        for good_character in ("Droideka", "Yoda (Ghost)", "Yoda"):
-            character_index = CHARACTERS_AND_VEHICLES_BY_NAME[good_character].character_index
-            if character_index in unlocked_characters:
-                replacements.append(character_index)
-        if len(replacements) >= needed_count:
-            return replacements
-
-        needed_remaining = needed_count - len(replacements)
+        needed_remaining = needed_count
 
         # Pick from unlocked characters, except Custom Characters, who are not allowed in the Cantina because that is
         # where they are edited.
