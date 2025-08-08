@@ -153,8 +153,8 @@ CUSTOM_CHARACTER_1_WEAPON = 0x86E4F0
 # determine what characters P1 and P2 should spawn into the Cantina as.
 # By changing these values and then forcing a hard (reset) load into the Cantina, the client can change the player's
 # characters to whatever the client needs.
-P1_CANTINA_CHARACTER_ID = 0x802bd8
-P2_CANTINA_CHARACTER_ID = 0x802bdc
+P1_CANTINA_FREE_PLAY_SELECTION_CHARACTER_ID = 0x802bd8
+P2_CANTINA_FREE_PLAY_SELECTION_CHARACTER_ID = 0x802bdc
 
 
 # # Unverified, but seems to be the case.
@@ -1098,6 +1098,44 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             replacements.extend([CHARACTERS_AND_VEHICLES_BY_NAME["Skeleton"].character_index] * needed_remaining)
             return replacements
 
+    def _get_player_character_addr(self, player: int) -> int:
+        # Note: The returned address from this function is not static for the current game instance. Whenever P1 swaps
+        #  character with P2 (or P3/P4/etc. for Story mode), the value of this pointer changes to point to the other
+        #  character.
+        # The data at a character address includes things like the character's position vector and rotation.
+        if player == 1:
+            # There seems to be the same pointer value at +0x20, but Brick Bench uses 0x93d810 (GOG), which is 0x93d7f0
+            # (STEAM) used below, so lets use that one.
+            # Maybe 0x93d830 can be different in some cases?
+            ptr_addr = 0x93d7f0
+        elif player == 2:
+            ptr_addr = 0x93d7f4
+        else:
+            raise ValueError(f"Invalid player {player}")
+        character_address = self.read_uint(ptr_addr)
+        return character_address
+
+    def _get_character_data_address(self, character_address: int) -> int:
+        # Each character has a pointer to its character data, which controls how the character looks, what animations it
+        # plays, and probably what abilities the character has and other static data that can be referenced by multiple
+        # characters with the same character data, e.g. all the regular Battle Droids in 1-1 are separate character
+        # instances, but each reference the same Battle Droid character data.
+        if character_address == 0:
+            # NULL pointer
+            return 0
+        character_data_address = self.read_uint(character_address + 0x50, raw=True)
+        return character_data_address
+
+    def _get_character_id(self, character_data_address) -> int | None:
+        if character_data_address == 0:
+            return None
+        # Character ID is the first 2 bytes
+        character_id = self.read_ushort(character_data_address + 0x0, raw=True)
+        return character_id
+
+    def _get_player_character_id(self, player: int) -> int | None:
+        return self._get_character_id(self._get_character_data_address(self._get_player_character_addr(player)))
+
     async def reload_cantina_if_invalid_characters(self):
         unlocked_characters = self.acquired_characters.unlocked_characters
 
@@ -1120,19 +1158,24 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             # non-vehicle characters.
             skeleton_character_index = CHARACTERS_AND_VEHICLES_BY_NAME["Skeleton"].character_index
             needed_replacements = 0
-            # todo: Rather than reading these addresses for the P1/P2 character IDs, get the IDs directly from the
-            #  character array (the one that gives all characters in the current level, but use the P1 and P2 pointers
-            #  into the character array to get the correct characters)
-            p1_character_id = self.read_uint(P1_CANTINA_CHARACTER_ID)
-            if p1_character_id != skeleton_character_index and p1_character_id not in unlocked_characters:
+            p1_character_id = self._get_player_character_id(1)
+            if (p1_character_id is not None
+                    and p1_character_id != skeleton_character_index
+                    and p1_character_id not in unlocked_characters):
                 needed_replacements += 1
                 replace_p1 = True
+                debug_logger.info("P1 is character ID %i in the Cantina, which is not unlocked. Picking a replacement"
+                                  " character and reloading the Cantina.", p1_character_id)
             else:
                 replace_p1 = False
-            p2_character_id = self.read_uint(P2_CANTINA_CHARACTER_ID)
-            if p2_character_id != skeleton_character_index and p2_character_id not in unlocked_characters:
+            p2_character_id = self._get_player_character_id(2)
+            if (p2_character_id is not None
+                    and p2_character_id != skeleton_character_index
+                    and p2_character_id not in unlocked_characters):
                 needed_replacements += 1
                 replace_p2 = True
+                debug_logger.info("P2 is character ID %i in the Cantina, which is not unlocked. Picking a replacement"
+                                  " character and reloading the Cantina.", p2_character_id)
             else:
                 replace_p2 = False
             if needed_replacements == 0:
@@ -1140,9 +1183,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 return
             replacements = self._get_valid_replacement_characters(unlocked_characters, needed_replacements)
             if replace_p1:
-                self.write_uint(P1_CANTINA_CHARACTER_ID, replacements.pop(0))
+                self.write_uint(P1_CANTINA_FREE_PLAY_SELECTION_CHARACTER_ID, replacements.pop(0))
             if replace_p2:
-                self.write_uint(P2_CANTINA_CHARACTER_ID, replacements.pop(0))
+                self.write_uint(P2_CANTINA_FREE_PLAY_SELECTION_CHARACTER_ID, replacements.pop(0))
 
             if self.reload_cantina(hard=True):
                 await asyncio.sleep(1.0)
