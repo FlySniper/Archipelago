@@ -1070,8 +1070,8 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         # Pick from unlocked characters, except Custom Characters, who are not allowed in the Cantina because that is
         # where they are edited.
         not_allowed = {
-            CHARACTERS_AND_VEHICLES_BY_NAME["Custom Character 1"].character_index,
-            CHARACTERS_AND_VEHICLES_BY_NAME["Custom Character 2"].character_index,
+            CHARACTERS_AND_VEHICLES_BY_NAME["STRANGER 1"].character_index,
+            CHARACTERS_AND_VEHICLES_BY_NAME["STRANGER 2"].character_index,
         }
         allowed_character_indices = unlocked_characters - not_allowed
         allowed_character_indices.intersection_update(AP_NON_VEHICLE_CHARACTER_INDICES)

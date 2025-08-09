@@ -472,8 +472,8 @@ ITEM_DATA: list[GenericItemData] = [
     _extra(-1, "Adaptive Difficulty", 0x2C, None),  # Effectively a difficulty setting, so not randomized.
     # Custom characters can only use unlocked character equipment, besides some blasters. They do not get access to
     # lightsabers/force unless Jedi are unlocked.
-    _char(188, "Custom Character 1", 168, abilities=BLASTER),
-    _char(189, "Custom Character 2", 169, abilities=BLASTER),
+    _char(188, "STRANGER 1", 168, abilities=BLASTER),
+    _char(189, "STRANGER 2", 169, abilities=BLASTER),
     _vehicle(190, "Sebulba's Pod", 261),
     _vehicle(191, "Zam's Airspeeder", 277),
     _vehicle(192, "Droid Trifighter", 292),
