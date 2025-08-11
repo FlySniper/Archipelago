@@ -24,7 +24,7 @@ from ..constants import GAME_NAME, AP_WORLD_VERSION
 from ..items import CHARACTERS_AND_VEHICLES_BY_NAME, AP_NON_VEHICLE_CHARACTER_INDICES
 from ..levels import SHORT_NAME_TO_CHAPTER_AREA, CHAPTER_AREAS, ChapterArea
 from ..locations import LOCATION_NAME_TO_ID
-from .common_addresses import ShopType, CantinaRoom, GAME_STATE_ADDRESS, OPENED_MENU_DEPTH_ADDRESS
+from .common_addresses import ShopType, CantinaRoom, GameState1, OPENED_MENU_DEPTH_ADDRESS
 from .location_checkers.free_play_completion import FreePlayChapterCompletionChecker
 from .location_checkers.bonus_level_completion import BonusAreaCompletionChecker
 from .location_checkers.true_jedi_and_minikits import TrueJediAndMinikitChecker
@@ -267,6 +267,9 @@ COMPLETED_TRUE_JEDI_KEY_PREFIX = "tcs_completed_true_jedi_"
 COMPLETED_BONUSES_KEY_PREFIX = "tcs_completed_bonuses_"
 LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
 CANTINA_ROOM_KEY_PREFIX = "tcs_cantina_room_"
+# By writing whether the minikit goal has been submitted to datastorage, only one player in same-slot co-op needs to
+# submit the minikits to the minikit display in the cantina's junkyard.
+MINIKIT_GOAL_SUBMITTED_PREFIX = "tcs_minikit_goal_submitted_"
 
 
 class LegoStarWarsTheCompleteSagaCommandProcessor(ClientCommandProcessor):
@@ -561,7 +564,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             listen_keys = list(
                 map(
                     self._get_datastorage_key,
-                    (COMPLETED_FREE_PLAY_KEY_PREFIX, COMPLETED_TRUE_JEDI_KEY_PREFIX, COMPLETED_BONUSES_KEY_PREFIX)
+                    (
+                        COMPLETED_FREE_PLAY_KEY_PREFIX,
+                        COMPLETED_TRUE_JEDI_KEY_PREFIX,
+                        COMPLETED_BONUSES_KEY_PREFIX,
+                        MINIKIT_GOAL_SUBMITTED_PREFIX,
+                    )
                 )
             )
             Utils.async_start(self.send_msgs(
@@ -596,6 +604,11 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 new_values.difference_update(previous_value)
                 if new_values:
                     self.bonus_area_completion_checker.update_from_datastorage(self, new_values)
+            elif self._is_datastorage_key(key, MINIKIT_GOAL_SUBMITTED_PREFIX):
+                value = args["value"]
+                if value:
+                    self.goal_manager.complete_minikit_goal_from_datastorage(self)
+
         elif cmd == "Retrieved":
             keys: dict[str, typing.Any] = args["keys"]
             completed_free_play = keys.get(self._get_datastorage_key(COMPLETED_FREE_PLAY_KEY_PREFIX))
@@ -607,6 +620,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             completed_bonuses = keys.get(self._get_datastorage_key(COMPLETED_BONUSES_KEY_PREFIX))
             if completed_bonuses:
                 self.bonus_area_completion_checker.update_from_datastorage(self, completed_bonuses)
+            completed_minikit_goal = keys.get(self._get_datastorage_key(MINIKIT_GOAL_SUBMITTED_PREFIX))
+            if completed_minikit_goal:
+                self.goal_manager.complete_minikit_goal_from_datastorage(self)
 
     def _update_datastorage_area_ids(self, key_prefix: str, area_ids: list[int], log_name: str):
         if self.server_version < (0, 6, 2):
@@ -632,6 +648,16 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def update_datastorage_bonuses_completion(self, area_ids: list[int]):
         self._update_datastorage_area_ids(COMPLETED_BONUSES_KEY_PREFIX, area_ids, "Bonuses Completion")
+
+    def update_datastorage_minikits_goal_submitted(self):
+        debug_logger.info("Sending minikit-goal-submitted to datastorage")
+        Utils.async_start(self.send_msgs([{
+            "cmd": "Set",
+            "key": self._get_datastorage_key(MINIKIT_GOAL_SUBMITTED_PREFIX),
+            "default": False,
+            "want_reply": False,
+            "operations": [{"operation": "replace", "value": True}]
+        }]))
 
     def on_multiworld_or_slot_changed(self):
         # The client is connecting to a different multiworld or slot to before, so reset all persisted client data.
@@ -1008,7 +1034,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         """Check whether the player is currently in a shop. Does not check for being in-game."""
         # todo: Just the SHOP_CHECK is probably enough to determine whether the player is in a shop, but it is not clear
         #  if that byte is used for something more general than only the shop.
-        # todo: text_display.GAME_STATE_ADDRESS looks like it can also be used to check if the player is in the shop.
+        # todo: common_addresses.GameState1 looks like it can also be used to check if the player is in the shop.
         return (self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
                 and self.read_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
                 and self.read_uchar(CANTINA_ROOM_ID) == CantinaRoom.SHOP_ROOM.value  # and in the room with the shops.
@@ -1136,7 +1162,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         if (
                 self.is_in_game()
                 and self.read_current_level_id() == LEVEL_ID_CANTINA
-                and self.read_uchar(GAME_STATE_ADDRESS) == 1
+                and GameState1.PLAYING_OR_TRAILER_OR_CANTINA_LOAD_OR_CHAPTER_TITLE_CRAWL.is_set(self)
                 and self.read_uchar(OPENED_MENU_DEPTH_ADDRESS) == 0
         ):
             if self._cantina_needs_reload_to_fix_characters:

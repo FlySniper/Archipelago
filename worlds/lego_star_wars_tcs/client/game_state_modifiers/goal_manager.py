@@ -2,6 +2,7 @@ import logging
 from typing import Mapping, Any, Literal
 
 from .text_replacer import TextId
+from ..common_addresses import CantinaRoom, CustomSaveFlags1, GameState1
 from ..type_aliases import TCSContext, AreaId
 from ...items import MINIKITS_BY_COUNT
 from ...levels import SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA
@@ -40,6 +41,8 @@ class GoalManager(GameStateUpdater):
     enabled_unique_bosses: dict[str, set[AreaId]]
     _bosses_goal_text_needs_update: bool = True
 
+    minikit_goal_complete: bool = False
+
     def __init__(self):
         self.enabled_boss_chapters = set()
 
@@ -51,6 +54,12 @@ class GoalManager(GameStateUpdater):
             minimum_minikits_in_the_multiworld = 10 * enabled_chapter_count
             minikit_goal_info_text = (f"{self.goal_minikit_count} Minikits are needed to goal. There are a minimum of"
                                       f" {minimum_minikits_in_the_multiworld} Minikits to be found in the multiworld.")
+            # If the save file says the minikits goal is complete, ensure the AP server also thinks the minikits goal is
+            # complete.
+            if CustomSaveFlags1.MINIKIT_GOAL_COMPLETE.is_set(ctx):
+                ctx.update_datastorage_minikits_goal_submitted()
+                self.minikit_goal_complete = True
+                self.tag_for_update("minikit")
         else:
             minikit_goal_info_text = "Minikit items are not needed to goal."
 
@@ -137,7 +146,13 @@ class GoalManager(GameStateUpdater):
         suffix_message = f" - Goal: "
         goals: list[str] = []
         if self.goal_minikit_count > 0:
-            minikit_goal = f"{ctx.acquired_minikits.minikit_count}/{self.goal_minikit_count} Minikits"
+            minikit_progress = f"{ctx.acquired_minikits.minikit_count}/{self.goal_minikit_count}"
+            if self.minikit_goal_complete:
+                minikit_goal = f"Minikit Goal Completed ({minikit_progress})"
+            elif self.goal_minikit_count >= self.goal_minikit_count:
+                minikit_goal = f"Finish Minikit Goal at the Cantina Junkyard Minikit Display ({minikit_progress})"
+            else:
+                minikit_goal = f"{minikit_progress} Minikits"
             goals.append(minikit_goal)
         if self.goal_bosses_count > 0:
             defeated_count = self._get_bosses_defeated_count(ctx)
@@ -215,6 +230,17 @@ class GoalManager(GameStateUpdater):
         else:
             raise ValueError(f"Unexpected goal kind '{kind}'")
 
+    def complete_minikit_goal_from_datastorage(self, ctx: TCSContext):
+        """
+        Mark the minikit goal as complete when datastorage says it is complete.
+
+        Usually, the client and save file will already think the minikit goal is complete, but this means that, in
+        same-slot co-op, only one player needs to submit the goal.
+        """
+        CustomSaveFlags1.MINIKIT_GOAL_COMPLETE.set(ctx)
+        self.minikit_goal_complete = True
+        self.tag_for_update("minikit")
+
     def _is_bosses_goal_complete(self, completed_area_ids: set[int]):
         required_count = self.goal_bosses_count
         if self.goal_bosses_must_be_unique:
@@ -234,10 +260,21 @@ class GoalManager(GameStateUpdater):
         return False
 
     def is_goal_complete(self, ctx: TCSContext):
-        # todo: Cache and re-stale after tag_for_update() is called instead of constantly re-checking.
-        if self.goal_minikit_count > 0:
-            if ctx.acquired_minikits.minikit_count < self.goal_minikit_count:
+        if self.goal_minikit_count > 0 and not self.minikit_goal_complete:
+            if not ctx.is_in_game():
                 return False
+            if (ctx.read_current_cantina_room() != CantinaRoom.JUNKYARD
+                    or not GameState1.IN_JUNKYARD_MINIKITS_DISPLAY.is_set(ctx)):
+                # The player is not in the Junkyard Minikits display, where the Minikit goal is submitted.
+                return False
+            if ctx.acquired_minikits.minikit_count < self.goal_minikit_count:
+                # The goal is incomplete. The player needs to receive/find more Minikit items.
+                return False
+            CustomSaveFlags1.MINIKIT_GOAL_COMPLETE.set(ctx)
+            self.minikit_goal_complete = True
+            self.tag_for_update("minikit")
+            ctx.update_datastorage_minikits_goal_submitted()
+            ctx.text_display.priority_message("Minikit Goal Completed")
         if self.goal_bosses_count > 0:
             # todo: Once a boss has been defeated, reduce a remaining count and remove the boss from a set of remaining
             #  bosses. That way, the check becomes more efficient over time.
