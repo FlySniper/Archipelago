@@ -71,6 +71,9 @@ class CantinaRoom(IntEnum):
     BOUNTY_HUNTER_MISSIONS = 9
 
 
+_CUSTOM_SAVE_FLAGS_1_ADDRESS = 0x86e4e6  # 0x86e506 (GOG)
+
+
 class CustomSaveFlags1(IntFlag):
     """
     There are two unused bytes in the save data after the byte that stores whether the Indiana Jones trailer has been
@@ -80,8 +83,6 @@ class CustomSaveFlags1(IntFlag):
 
     The client uses these two bytes for storing up to 16 flags.
     """
-    _ignore_ = ["address"]
-    address = 0x86e4e6  # 0x86e506 (GOG)
     MINIKIT_GOAL_COMPLETE = 0x1
     FIELD_2 = 0x2  # DEFEAT_BOSSES_GOAL_COMPLETE
     FIELD_3 = 0x4  # DEATH_LINK_ENABLED
@@ -100,38 +101,41 @@ class CustomSaveFlags1(IntFlag):
     FIELD_16 = 0x8000
 
     def is_set(self, ctx: TCSContext) -> bool:
+        # noinspection PyTypeChecker
         v: int = self.value
         if v <= 0xFF:
-            addr = self.address
+            addr = _CUSTOM_SAVE_FLAGS_1_ADDRESS
         else:
             v = v >> 8
-            addr = self.address + 1
+            addr = _CUSTOM_SAVE_FLAGS_1_ADDRESS + 1
 
         return (ctx.read_uchar(addr) & v) != 0
 
     def set(self, ctx: TCSContext):
+        # noinspection PyTypeChecker
         v: int = self.value
         if v <= 0xFF:
-            addr = self.address
+            addr = _CUSTOM_SAVE_FLAGS_1_ADDRESS
         else:
             v = v >> 8
-            addr = self.address + 1
+            addr = _CUSTOM_SAVE_FLAGS_1_ADDRESS + 1
 
         b = ctx.read_uchar(addr)
         if not (b & v):
-            ctx.write_byte(self.address, b | v)
+            ctx.write_byte(_CUSTOM_SAVE_FLAGS_1_ADDRESS, b | v)
 
     def unset(self, ctx: TCSContext):
+        # noinspection PyTypeChecker
         v: int = self.value
         if v <= 0xFF:
-            addr = self.address
+            addr = _CUSTOM_SAVE_FLAGS_1_ADDRESS
         else:
             v = v >> 8
-            addr = self.address + 1
+            addr = _CUSTOM_SAVE_FLAGS_1_ADDRESS + 1
 
         b = ctx.read_uchar(addr)
         if b & v:
-            ctx.write_byte(self.address, b & ~v)
+            ctx.write_byte(_CUSTOM_SAVE_FLAGS_1_ADDRESS, b & ~v)
 
 # Other potential unused sava-data bytes
 # Some (most?) (all?) bonus levels have enough space reserved for all the Minikits/True Jedi/Power Brick bytes, which
