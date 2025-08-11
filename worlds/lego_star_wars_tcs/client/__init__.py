@@ -1414,16 +1414,17 @@ async def game_watcher_check_save_file(ctx: LegoStarWarsTheCompleteSagaContext,
         # If the player loads a different save file, re-check the multiworld seed and slot name and reset
         # persistent client data if either the seed or slot name differ.
         last_save_file = ctx.last_loaded_save_file
-        if current_save_file != last_save_file:
+        if (current_save_file != last_save_file
+                or (only_just_loaded_into_game and current_save_file is None and last_save_file is None)):
             last_slot_name = ctx.last_connected_slot
             last_seed_name = ctx.last_connected_seed_name
 
             # The player is allowed to exit to the main menu and start a new game.
             if current_save_file is None:
-                if last_slot_name is not None:
+                if last_slot_name is not None and ctx.read_slot_name() is None:
                     logger.info("Copied the last connected slot name to the new save file.")
                     ctx.write_slot_name(last_slot_name)
-                if last_seed_name is not None:
+                if last_seed_name is not None and ctx.read_seed_name_hash() is None:
                     logger.info("Copied the last connected multiworld seed hash to the new save file.")
                     ctx.write_seed_name_hash(last_seed_name)
                 # The save file is new, so run first-time setup.
@@ -1511,8 +1512,8 @@ async def game_watcher(ctx: LegoStarWarsTheCompleteSagaContext):
                         # main menu.
                         last_connected_slot_name = ctx.last_connected_slot
                         if last_connected_slot_name is not None:
-                            log_message(f"Load back into the save file, or a new game (Gold Brick progress will be"
-                                        f" lost), to continue as {last_connected_slot_name}.")
+                            log_message(f"Load back into the save file, or a new game, to continue as"
+                                        f" {last_connected_slot_name}.")
                         else:
                             log_message("Load back into a save file or a new game to continue.")
                     else:
