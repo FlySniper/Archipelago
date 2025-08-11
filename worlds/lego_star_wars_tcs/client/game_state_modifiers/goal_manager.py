@@ -149,7 +149,7 @@ class GoalManager(GameStateUpdater):
             minikit_progress = f"{ctx.acquired_minikits.minikit_count}/{self.goal_minikit_count}"
             if self.minikit_goal_complete:
                 minikit_goal = f"Minikit Goal Completed ({minikit_progress})"
-            elif self.goal_minikit_count >= self.goal_minikit_count:
+            elif ctx.acquired_minikits.minikit_count >= self.goal_minikit_count:
                 minikit_goal = f"Finish Minikit Goal at the Cantina Junkyard Minikit Display ({minikit_progress})"
             else:
                 minikit_goal = f"{minikit_progress} Minikits"
