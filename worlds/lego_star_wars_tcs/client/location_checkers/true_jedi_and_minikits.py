@@ -59,6 +59,7 @@ class TrueJediAndMinikitChecker:
     # Sequence and Mapping are used because they hint that the types are immutable.
     remaining_true_jedi_check_shortnames: set[str]
     remaining_minikit_checks_by_shortname: dict[str, list[tuple[int, str]]]
+    remaining_minikit_gold_bricks_by_area_id: set[int]
 
     def __init__(self):
         self.remaining_true_jedi_check_shortnames = set(ALL_GAME_AREA_SHORTNAMES)
@@ -142,28 +143,37 @@ class TrueJediAndMinikitChecker:
             del self.remaining_minikit_checks_by_shortname[shortname]
 
     @staticmethod
-    def update_from_datastorage(ctx: TCSContext, new_area_ids: Iterable[int]):
-        for area_id in new_area_ids:
+    def update_from_datastorage(ctx: TCSContext,
+                                new_true_jedi_area_ids: Iterable[int] = (),
+                                new_minikits_gold_brick_area_ids: Iterable[int] = ()):
+        for area_id in new_true_jedi_area_ids:
             area = AREA_ID_TO_CHAPTER_AREA[area_id]
             true_jedi_address = area.address + 3
             ctx.write_byte(true_jedi_address, 1)
+        for area_id in new_minikits_gold_brick_area_ids:
+            area = AREA_ID_TO_CHAPTER_AREA[area_id]
+            gold_brick_address = area.address + 4
+            ctx.write_byte(gold_brick_address, 1)
 
     def _check_true_jedi_and_minikits_from_save_data(self, ctx: TCSContext, new_location_checks: list[int]
                                                      ) -> list[int]:
         # todo: More smartly read only as many bytes as necessary. So only 1 byte when either the True Jedi is complete
         #  or all Minikits have been collected.
-        cached_bytes: dict[str, tuple[int, int]] = {}
+        cached_bytes: dict[str, tuple[int, int, int]] = {}
 
         def get_bytes_for_short_name(short_name: str):
             if short_name in cached_bytes:
                 return cached_bytes[short_name]
             else:
-                # True Jedi seems to be at the 4th byte (maybe it is the 3rd because they both get activated?), Minikit
-                # count is at the 6th byte. To reduce memory reads, both are retrieved simultaneously.
+                # True Jedi seems to be at the 4th byte (maybe it is the 3rd because they both get activated?), 10/10
+                # Minikits Gold Brick is at the 5th byte, and Minikit count is at the 6th byte. To reduce memory reads,
+                # all are retrieved simultaneously.
+                #
                 read_bytes = ctx.read_bytes(SHORT_NAME_TO_CHAPTER_AREA[short_name].address + 3, 3)
                 true_jedi_byte = read_bytes[0]
+                minikit_gold_brick = read_bytes[1]
                 minikit_count_byte = read_bytes[2]
-                new_bytes = (true_jedi_byte, minikit_count_byte)
+                new_bytes = (true_jedi_byte, minikit_gold_brick, minikit_count_byte)
                 cached_bytes[short_name] = new_bytes
                 return new_bytes
 
@@ -194,11 +204,26 @@ class TrueJediAndMinikitChecker:
             if updated_remaining_minikits:
                 updated_remaining_minikit_checks_by_shortname[shortname] = updated_remaining_minikits
 
-                minikit_count = get_bytes_for_short_name(shortname)[1]
+                minikit_count = get_bytes_for_short_name(shortname)[2]
                 zipped = zip(updated_remaining_minikits, not_checked_minikit_checks, strict=True)
                 for (count, _name), location_id in zipped:
                     if minikit_count >= count:
                         new_location_checks.append(location_id)
         self.remaining_minikit_checks_by_shortname = updated_remaining_minikit_checks_by_shortname
+
+        # There are no locations tied to getting the Gold Brick for collecting all Minikits in a Chapter, but the Gold
+        # Bricks are written to datastorage to sync Gold Bricks in same-slot co-op, and so that the PopTracker pack can
+        # determine how many, and which Gold Bricks have been acquired.
+        newly_completed_10_minikits_gold_bricks_area_ids = []
+        updated_remaining_minikit_gold_bricks_by_area_id = set()
+        for area_id in self.remaining_minikit_gold_bricks_by_area_id:
+            shortname = AREA_ID_TO_CHAPTER_AREA[area_id].short_name
+            gold_brick = get_bytes_for_short_name(shortname)[1]
+            if gold_brick:
+                newly_completed_10_minikits_gold_bricks_area_ids.append(area_id)
+            else:
+                updated_remaining_minikit_gold_bricks_by_area_id.add(area_id)
+        ctx.update_datastorage_10_minikits_completion(newly_completed_10_minikits_gold_bricks_area_ids)
+        self.remaining_minikit_gold_bricks_by_area_id = updated_remaining_minikit_gold_bricks_by_area_id
 
         return checked_true_jedi_area_ids

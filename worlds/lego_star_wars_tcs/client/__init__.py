@@ -264,6 +264,7 @@ DATA_STORAGE_KEY_SUFFIX = "{team}_{slot}"
 
 COMPLETED_FREE_PLAY_KEY_PREFIX = "tcs_completed_free_play_"
 COMPLETED_TRUE_JEDI_KEY_PREFIX = "tcs_completed_true_jedi_"
+COMPLETED_10_MINIKITS_KEY_PREFIX = "tcs_completed_10_minikits_"
 COMPLETED_BONUSES_KEY_PREFIX = "tcs_completed_bonuses_"
 LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
 CANTINA_ROOM_KEY_PREFIX = "tcs_cantina_room_"
@@ -567,6 +568,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                     (
                         COMPLETED_FREE_PLAY_KEY_PREFIX,
                         COMPLETED_TRUE_JEDI_KEY_PREFIX,
+                        COMPLETED_10_MINIKITS_KEY_PREFIX,
                         COMPLETED_BONUSES_KEY_PREFIX,
                         MINIKIT_GOAL_SUBMITTED_PREFIX,
                     )
@@ -596,7 +598,16 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 new_values = set(value)
                 new_values.difference_update(previous_value)
                 if new_values:
-                    self.true_jedi_and_minikit_checker.update_from_datastorage(self, new_values)
+                    self.true_jedi_and_minikit_checker.update_from_datastorage(
+                        self, new_true_jedi_area_ids=new_values)
+            elif self._is_datastorage_key(key, COMPLETED_10_MINIKITS_KEY_PREFIX):
+                value = args["value"] or ()
+                previous_value = args["original_value"] or ()
+                new_values = set(value)
+                new_values.difference_update(previous_value)
+                if new_values:
+                    self.true_jedi_and_minikit_checker.update_from_datastorage(
+                        self, new_minikits_gold_brick_area_ids=new_values)
             elif self._is_datastorage_key(key, COMPLETED_BONUSES_KEY_PREFIX):
                 value = args["value"] or ()
                 previous_value = args["original_value"] or ()
@@ -616,7 +627,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 self.free_play_completion_checker.update_from_datastorage(self, completed_free_play)
             completed_true_jedi = keys.get(self._get_datastorage_key(COMPLETED_TRUE_JEDI_KEY_PREFIX))
             if completed_true_jedi:
-                self.true_jedi_and_minikit_checker.update_from_datastorage(self, completed_true_jedi)
+                self.true_jedi_and_minikit_checker.update_from_datastorage(
+                    self, new_true_jedi_area_ids=completed_true_jedi)
+            completed_10_minikits = keys.get(self._get_datastorage_key(COMPLETED_10_MINIKITS_KEY_PREFIX))
+            if completed_10_minikits:
+                self.true_jedi_and_minikit_checker.update_from_datastorage(
+                    self, new_minikits_gold_brick_area_ids=completed_10_minikits)
             completed_bonuses = keys.get(self._get_datastorage_key(COMPLETED_BONUSES_KEY_PREFIX))
             if completed_bonuses:
                 self.bonus_area_completion_checker.update_from_datastorage(self, completed_bonuses)
@@ -645,6 +661,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def update_datastorage_true_jedi_completion(self, area_ids: list[int]):
         self._update_datastorage_area_ids(COMPLETED_TRUE_JEDI_KEY_PREFIX, area_ids, "True Jedi Completion")
+
+    def update_datastorage_10_minikits_completion(self, area_ids: list[int]):
+        self._update_datastorage_area_ids(COMPLETED_10_MINIKITS_KEY_PREFIX, area_ids, "10/10 Minikits Completion")
 
     def update_datastorage_bonuses_completion(self, area_ids: list[int]):
         self._update_datastorage_area_ids(COMPLETED_BONUSES_KEY_PREFIX, area_ids, "Bonuses Completion")
