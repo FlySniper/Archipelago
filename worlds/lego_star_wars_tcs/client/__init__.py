@@ -266,6 +266,8 @@ COMPLETED_FREE_PLAY_KEY_PREFIX = "tcs_completed_free_play_"
 COMPLETED_TRUE_JEDI_KEY_PREFIX = "tcs_completed_true_jedi_"
 COMPLETED_10_MINIKITS_KEY_PREFIX = "tcs_completed_10_minikits_"
 COMPLETED_BONUSES_KEY_PREFIX = "tcs_completed_bonuses_"
+COLLECTED_POWER_BRICKS_KEY_PREFIX = "tcs_collected_power_bricks_"
+
 LEVEL_ID_KEY_PREFIX = "tcs_current_level_id_"
 CANTINA_ROOM_KEY_PREFIX = "tcs_cantina_room_"
 # By writing whether the minikit goal has been submitted to datastorage, only one player in same-slot co-op needs to
@@ -495,6 +497,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         self.acquired_minikits.init_from_slot_data(self, slot_data)
         self.text_display.init_from_slot_data(self, slot_data)
 
+        self.true_jedi_and_minikit_checker.init_from_slot_data(self, slot_data)
         self.free_play_completion_checker.init_from_slot_data(self, slot_data)
         self.goal_manager.init_from_slot_data(self, slot_data)
         self.client_expected_idx = 0
@@ -570,6 +573,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                         COMPLETED_TRUE_JEDI_KEY_PREFIX,
                         COMPLETED_10_MINIKITS_KEY_PREFIX,
                         COMPLETED_BONUSES_KEY_PREFIX,
+                        COLLECTED_POWER_BRICKS_KEY_PREFIX,
                         MINIKIT_GOAL_SUBMITTED_PREFIX,
                     )
                 )
@@ -615,6 +619,14 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
                 new_values.difference_update(previous_value)
                 if new_values:
                     self.bonus_area_completion_checker.update_from_datastorage(self, new_values)
+            elif self._is_datastorage_key(key, COLLECTED_POWER_BRICKS_KEY_PREFIX):
+                value = args["value"] or ()
+                previous_value = args["original_value"] or ()
+                new_values = set(value)
+                new_values.difference_update(previous_value)
+                if new_values:
+                    self.true_jedi_and_minikit_checker.update_from_datastorage(
+                        self, new_power_brick_area_ids=new_values)
             elif self._is_datastorage_key(key, MINIKIT_GOAL_SUBMITTED_PREFIX):
                 value = args["value"]
                 if value:
@@ -636,6 +648,10 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
             completed_bonuses = keys.get(self._get_datastorage_key(COMPLETED_BONUSES_KEY_PREFIX))
             if completed_bonuses:
                 self.bonus_area_completion_checker.update_from_datastorage(self, completed_bonuses)
+            collected_power_bricks = keys.get(self._get_datastorage_key(COLLECTED_POWER_BRICKS_KEY_PREFIX))
+            if collected_power_bricks:
+                self.true_jedi_and_minikit_checker.update_from_datastorage(
+                    self, new_power_brick_area_ids=collected_power_bricks)
             completed_minikit_goal = keys.get(self._get_datastorage_key(MINIKIT_GOAL_SUBMITTED_PREFIX))
             if completed_minikit_goal:
                 self.goal_manager.complete_minikit_goal_from_datastorage(self)
@@ -667,6 +683,9 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def update_datastorage_bonuses_completion(self, area_ids: list[int]):
         self._update_datastorage_area_ids(COMPLETED_BONUSES_KEY_PREFIX, area_ids, "Bonuses Completion")
+
+    def update_datastorage_power_bricks_collected(self, area_ids: list[int]):
+        self._update_datastorage_area_ids(COLLECTED_POWER_BRICKS_KEY_PREFIX, area_ids, "Power Bricks Collected")
 
     def update_datastorage_minikits_goal_submitted(self):
         debug_logger.info("Sending minikit-goal-submitted to datastorage")
