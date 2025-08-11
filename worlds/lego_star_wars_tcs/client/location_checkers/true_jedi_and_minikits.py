@@ -1,5 +1,6 @@
-from typing import Iterable
+from typing import Iterable, Any
 
+from . import ClientComponent
 from ..type_aliases import TCSContext
 from ...levels import SHORT_NAME_TO_CHAPTER_AREA, AREA_ID_TO_CHAPTER_AREA, ChapterArea
 from ...locations import LEVEL_COMMON_LOCATIONS, LOCATION_NAME_TO_ID
@@ -40,7 +41,7 @@ CURRENT_AREA_TRUE_JEDI_COMPLETE_STORY_OR_FREE_PLAY_ADDRESS = 0x87B980
 # CURRENT_AREA_TRUE_JEDI_COMPLETE_FREE_PLAY_ONLY_ADDRESS = 0x87B996
 
 
-class TrueJediAndMinikitChecker:
+class TrueJediAndMinikitChecker(ClientComponent):
     """
     Check if the player has completed True Jedi for each level and check how many Minikit canisters the player has
     collected in each level.
@@ -62,8 +63,18 @@ class TrueJediAndMinikitChecker:
     remaining_minikit_gold_bricks_by_area_id: set[int]
 
     def __init__(self):
-        self.remaining_true_jedi_check_shortnames = set(ALL_GAME_AREA_SHORTNAMES)
-        self.remaining_minikit_checks_by_shortname = ALL_MINIKIT_CHECKS_BY_SHORTNAME.copy()
+        self.remaining_true_jedi_check_shortnames = set()
+        self.remaining_minikit_checks_by_shortname = {}
+        self.remaining_minikit_gold_bricks_by_area_id = set()
+
+    def init_from_slot_data(self, ctx: TCSContext, slot_data: dict[str, Any]) -> None:
+        enabled_shortnames = set(slot_data["enabled_chapters"])
+        self.remaining_true_jedi_check_shortnames = enabled_shortnames.copy()
+        self.remaining_minikit_checks_by_shortname = {shortname: ALL_MINIKIT_CHECKS_BY_SHORTNAME[shortname]
+                                                      for shortname in enabled_shortnames}
+        self.remaining_minikit_gold_bricks_by_area_id = {
+            SHORT_NAME_TO_CHAPTER_AREA[shortname].area_id for shortname in enabled_shortnames
+        }
 
     async def check_true_jedi_and_minikits(self, ctx: TCSContext, new_location_checks: list[int]):
         current_area_id = ctx.read_uchar(CURRENT_AREA_ADDRESS)
