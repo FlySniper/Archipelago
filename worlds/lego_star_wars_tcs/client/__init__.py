@@ -125,9 +125,6 @@ CURRENT_SAVE_SLOT = 0x802014  # byte, 255/-1 for no save file loaded. [0-5] for 
 CANTINA_ROOM_ID = 0x87B460
 CANTINA_ROOM_WITH_SHOP = 0
 
-# Appears to be 0 while in the shop, and 1 otherwise. Remains 0 when playing a cutscene from within the shop.
-SHOP_CHECK = 0x87B748  # byte
-SHOP_CHECK_IS_IN_SHOP = b"\x00"
 # Appears to be 1 while in the shop, and 0 otherwise. But becomes 0 when playing a cutscene from within the shop.
 # SHOP_CHECK2 = 0x880474  # byte
 ACTIVE_SHOP_TYPE_ADDRESS = 0x8801AC
@@ -1068,15 +1065,12 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
         else:
             return file_number
 
-    def is_in_shop(self, shop_type: ShopType) -> bool:
+    def is_in_shop(self, shop_type: ShopType | None = None) -> bool:
         """Check whether the player is currently in a shop. Does not check for being in-game."""
-        # todo: Just the SHOP_CHECK is probably enough to determine whether the player is in a shop, but it is not clear
-        #  if that byte is used for something more general than only the shop.
-        # todo: common_addresses.GameState1 looks like it can also be used to check if the player is in the shop.
-        return (self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP
+        return (GameState1.IN_CANTINA_SHOP.is_set(self)
                 and self.read_current_level_id() == LEVEL_ID_CANTINA  # Additionally check the player is in the Cantina,
                 and self.read_uchar(CANTINA_ROOM_ID) == CantinaRoom.SHOP_ROOM.value  # and in the room with the shops.
-                and self.read_uchar(ACTIVE_SHOP_TYPE_ADDRESS) == shop_type.value)
+                and (shop_type is None or self.read_uchar(ACTIVE_SHOP_TYPE_ADDRESS) == shop_type.value))
 
     def _load_level(self, level_id: int, reset_door: bool = False, hard_reset: bool = False):
         """
@@ -1105,7 +1099,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
     def reload_cantina(self, hard: bool = False) -> bool:
         if self.is_in_game() and self.read_current_cantina_room() == CantinaRoom.SHOP_ROOM:
-            if self.read_byte(SHOP_CHECK) == SHOP_CHECK_IS_IN_SHOP:
+            if self.is_in_shop():
                 # Reloading the cantina while the shop is open gets the camera stuck in the shop, with seemingly no way
                 # to fix.
                 return False
