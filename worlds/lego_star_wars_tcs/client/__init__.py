@@ -1294,6 +1294,7 @@ class LegoStarWarsTheCompleteSagaContext(CommonContext):
 
         Used when deliberately disconnecting from a server.
         """
+        self.finished_game = False
         self.locations_checked.clear()
         self.acquired_extras = AcquiredExtras()
         self.acquired_characters = AcquiredCharacters()
