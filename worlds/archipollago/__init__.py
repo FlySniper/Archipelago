@@ -24,7 +24,7 @@ class ArchipollagoWeb(WebWorld):
 
 class ArchipollagoWorld(World):
     """
-    Command an army, in this retro style turn based strategy game!
+    A live stream polling bot. Viewers can vote on which items are sent to the multiworld!
     """
 
     options: ArchipollagoOptions
