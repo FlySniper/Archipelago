@@ -7,7 +7,16 @@ from .Options import ArchipollagoOptions, archipollago_option_groups
 from .Regions import create_regions
 from .Rules import set_rules
 from worlds.AutoWorld import WebWorld, World
+from worlds.LauncherComponents import components, Component, Type, launch as launch_component
 
+
+def launch_client(*args: str):
+    from .Client import launch
+    launch_component(launch, name="ArchipollagoClient", args=args)
+
+
+components.append(Component("Archipollago Client", game_name="Archipollago", func=launch_client,
+                            component_type=Type.CLIENT))
 
 class ArchipollagoWeb(WebWorld):
     tutorials = [Tutorial(
@@ -38,7 +47,6 @@ class ArchipollagoWorld(World):
 
     def _get_slot_data(self):
         return {
-            "seed": "".join(self.random.choice(string.ascii_letters) for _ in range(16)),
             "poll_keys": self.options.poll_keys.value,
             "locations_per_key": self.options.locations_per_key.value,
             "time_between_polls": self.options.time_between_polls.value,

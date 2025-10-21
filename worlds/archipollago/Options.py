@@ -27,6 +27,14 @@ class TimeBetweenPolls(Range):
     default = 300
 
 
+class PollLength(Range):
+    """The time in seconds a poll is active for."""
+    display_name = "Poll Length"
+    range_start = 15
+    range_end = 1800
+    default = 60
+
+
 class MinorTimeSkip(Range):
     """When found, shortens the time until the next poll by these many seconds."""
     display_name = "Minor Time Skip"
@@ -98,6 +106,7 @@ archipollago_option_groups = [
             MinorMajorRatio,
         ]),
         OptionGroup("Bot Options", [
+            PollLength,
             ChannelPointVoting,
             FreeChannelPointsPerVote,
             NumberOfChoices,
@@ -113,6 +122,7 @@ class ArchipollagoOptions(PerGameCommonOptions):
     minor_time_skip: MinorTimeSkip
     major_time_skip: MajorTimeSkip
     minor_major_ratio: MinorMajorRatio
+    poll_length: PollLength
     channel_point_voting: ChannelPointVoting
     free_channel_points_per_vote: FreeChannelPointsPerVote
     number_of_choices: NumberOfChoices
