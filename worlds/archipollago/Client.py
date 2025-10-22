@@ -337,19 +337,28 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
 
 async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_choices: list[tuple[NetworkItem, Any]],
                              twitch: Twitch, twitch_user: TwitchUser):
+    if len(item_choices) == 0:
+        return
+    if len(item_choices) == 1:
+        message = [{"cmd": 'LocationChecks', "locations": [item_choices[0][1]]}]
+        await ctx.send_msgs(message)
     try:
-        poll: Poll = await twitch.create_poll(twitch_user.id, "title", choices, ctx.poll_length,
+        poll: Poll = await twitch.create_poll(twitch_user.id, "Vote for an item to send!", choices, ctx.poll_length,
                                               ctx.channel_point_voting, ctx.free_channel_points_per_vote)
     except Exception as e:
         # twitch.create_poll has thrown some undocumented exceptions, let's catch them here.
         await create_text_poll(ctx, choices, item_choices, twitch)
         return
-    while ctx.twitch_bot_running and poll is not None and poll.status == PollStatus.ACTIVE:
+    while ctx.twitch_bot_running and poll is not None and poll.status.value == PollStatus.ACTIVE.value:
+        try:
+            poll = await first(twitch.get_polls(twitch_user.id, poll.id, first=1))
+        except Exception as e:
+            logging.error(f"Unable to get poll {e}")
         await asyncio.sleep(1.0)
-    if poll is not None and poll.status == PollStatus.COMPLETED:
+    if poll is not None and poll.status.value == PollStatus.COMPLETED.value:
         highest_choice = poll.choices[0]
         for choice in poll.choices:
-            if ctx.channel_point_voting:
+            if ctx.channel_point_voting and False:
                 if highest_choice.channel_point_votes < choice.channel_point_votes:
                     highest_choice = choice
             else:
@@ -362,6 +371,11 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
             await ctx.send_msgs(message)
         except ValueError:
             pass
+    else:
+        if poll is None:
+            apoll_logger.error("Poll is None type!")
+        else:
+            apoll_logger.warning(f"Poll ended with status {poll.status.value}")
 
 
 def launch(*launch_args: str):
