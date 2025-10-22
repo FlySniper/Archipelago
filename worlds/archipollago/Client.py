@@ -5,7 +5,7 @@ import time
 from random import Random
 from typing import Any, Optional
 
-from twitchAPI.chat import Chat, EventData, ChatCommand
+from twitchAPI.chat import Chat, EventData, ChatCommand  # type: ignore
 from twitchAPI.helper import first
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.object.api import Poll, TwitchUser
@@ -23,6 +23,7 @@ if __name__ == "__main__":
     Utils.init_logging("ArchipollagoClient", exception_logger="Client")
 
 apoll_logger = logging.getLogger("APollago")
+
 
 class ArchipollagoContext(CommonContext):
     game = "Archipollago"
@@ -51,7 +52,7 @@ class ArchipollagoContext(CommonContext):
     app_id_text: str = ""
     app_secret_text: str = ""
 
-    chat_votes: dict[int, set[str]] = {1:set(), 2:set(), 3:set(), 4:set(), 5:set(),}
+    chat_votes: dict[int, set[str]] = {1: set(), 2: set(), 3: set(), 4: set(), 5: set(), }
     chat_voters: set[str] = set()
 
     def __init__(self, server_address: Optional[str] = None, password: Optional[str] = None):
@@ -219,7 +220,6 @@ class ArchipollagoContext(CommonContext):
                 self.ctx.app_id_text = self.app_id.text
                 self.ctx.app_secret_text = self.app_secret.text
 
-
             def update_login_tab(self):
                 pass
 
@@ -268,9 +268,9 @@ async def twitch_loop(ctx: ArchipollagoContext):
                     location_choices = random.choices(list(available_locations), k=number_of_choices)
                     item_choices = [(ctx.locations_info[location_choice], location_choice)
                                     for location_choice in location_choices]
-                    choices = [f"{index + 1}. {ctx.item_names.lookup_in_game(
-                        item_choice[0].item, 
-                        ctx.slot_info[item_choice[0].player].game)[:20]}" for index, item_choice in enumerate(item_choices)]
+                    choices = [f"{index + 1}. " \
+                               f"{ctx.item_names.lookup_in_game(item_choice[0].item, ctx.slot_info[item_choice[0].player].game)[:20]}"
+                               for index, item_choice in enumerate(item_choices)]
                     await create_twitch_poll(ctx, choices, item_choices, twitch, twitch_user)
                     await twitch.close()
                     ctx.time_til_next_poll = time.time() + ctx.time_between_polls
@@ -287,7 +287,7 @@ async def twitch_loop(ctx: ArchipollagoContext):
 
 
 async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_choices: list[tuple[NetworkItem, Any]],
-                             twitch: Twitch):
+                           twitch: Twitch):
     async def on_chat_bot_ready(ready_event: EventData):
         await ready_event.chat.join_room(ctx.twitch_username_text)
         await ready_event.chat.send_message(ctx.twitch_username_text, f"An Archipollago Poll has started and "
@@ -298,8 +298,6 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
         for choice in choices:
             await ready_event.chat.send_message(ctx.twitch_username_text, choice)
 
-
-
     async def ap_chat_bot_command(cmd: ChatCommand):
         if len(cmd.parameter) == 1:
             try:
@@ -309,6 +307,7 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
                     ctx.chat_voters.add(cmd.user.id)
             except ValueError:
                 pass
+
     poll_end_time = time.time() + ctx.poll_length
     chat = await Chat(twitch)
     chat.register_event(ChatEvent.READY, on_chat_bot_ready)
@@ -324,7 +323,7 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
         if votes > highest_number_of_votes:
             highest_number_of_votes = votes
             winning_option = i
-    ctx.chat_votes = {1:set(), 2:set(), 3:set(), 4:set(), 5:set()}
+    ctx.chat_votes = {1: set(), 2: set(), 3: set(), 4: set(), 5: set()}
     ctx.chat_voters = set()
     await chat.send_message(ctx.twitch_username_text, f"{choices[winning_option - 1]} will be sent to the multiworld!")
     chat.stop()
@@ -334,6 +333,7 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
         await ctx.send_msgs(message)
     except ValueError:
         pass
+
 
 async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_choices: list[tuple[NetworkItem, Any]],
                              twitch: Twitch, twitch_user: TwitchUser):
@@ -358,12 +358,8 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
     if poll is not None and poll.status.value == PollStatus.COMPLETED.value:
         highest_choice = poll.choices[0]
         for choice in poll.choices:
-            if ctx.channel_point_voting and False:
-                if highest_choice.channel_point_votes < choice.channel_point_votes:
-                    highest_choice = choice
-            else:
-                if highest_choice.votes < choice.votes:
-                    highest_choice = choice
+            if highest_choice.votes < choice.votes:
+                highest_choice = choice
         try:
             choice_id = int(highest_choice.title[0]) - 1
             item = item_choices[choice_id]
