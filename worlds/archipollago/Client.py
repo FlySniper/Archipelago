@@ -265,7 +265,11 @@ async def twitch_loop(ctx: ArchipollagoContext):
                     number_of_choices = ctx.number_of_choices
                     if len(available_locations) < ctx.number_of_choices:
                         number_of_choices = len(available_locations)
-                    location_choices = random.choices(list(available_locations), k=number_of_choices)
+                    if number_of_choices == 0:
+                        await twitch.close()
+                        ctx.time_til_next_poll = time.time() + ctx.time_between_polls
+                        continue
+                    location_choices = random.sample(list(available_locations), k=number_of_choices)
                     item_choices = [(ctx.locations_info[location_choice], location_choice)
                                     for location_choice in location_choices]
                     choices = [f"{index + 1}. " \
@@ -294,7 +298,7 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
                                                                       f"will last for {ctx.poll_length} seconds!")
         await ready_event.chat.send_message(
             ctx.twitch_username_text,
-            "Use the !ap <number> command to vote for an item to send the multiworld.")
+            "Use the !apvote <number> command to vote for an item to send the multiworld.")
         for choice in choices:
             await ready_event.chat.send_message(ctx.twitch_username_text, choice)
 
@@ -302,7 +306,7 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
         if len(cmd.parameter) == 1:
             try:
                 vote = int(cmd.parameter.strip())
-                if 0 < vote <= ctx.number_of_choices and cmd.user.id not in ctx.chat_voters:
+                if 0 < vote <= len(item_choices) and cmd.user.id not in ctx.chat_voters:
                     ctx.chat_votes[vote].add(cmd.user.id)
                     ctx.chat_voters.add(cmd.user.id)
             except ValueError:
@@ -311,14 +315,14 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
     poll_end_time = time.time() + ctx.poll_length
     chat = await Chat(twitch)
     chat.register_event(ChatEvent.READY, on_chat_bot_ready)
-    chat.register_command("ap", ap_chat_bot_command)
+    chat.register_command("apvote", ap_chat_bot_command)
     chat.start()
     while ctx.twitch_bot_running and poll_end_time > time.time():
         await asyncio.sleep(1.0)
 
     winning_option = 1
     highest_number_of_votes = 0
-    for i in range(1, ctx.number_of_choices + 1):
+    for i in range(1, len(item_choices) + 1):
         votes = len(ctx.chat_votes[i])
         if votes > highest_number_of_votes:
             highest_number_of_votes = votes
@@ -342,6 +346,11 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
     if len(item_choices) == 1:
         message = [{"cmd": 'LocationChecks', "locations": [item_choices[0][1]]}]
         await ctx.send_msgs(message)
+        chat = await Chat(twitch)
+        chat.start()
+        await chat.send_message(ctx.twitch_username_text,
+                          f"{choices[0]} was the only option left and was sent to the multiworld!")
+        chat.stop()
     try:
         poll: Poll = await twitch.create_poll(twitch_user.id, "Vote for an item to send!", choices, ctx.poll_length,
                                               ctx.channel_point_voting, ctx.free_channel_points_per_vote)
