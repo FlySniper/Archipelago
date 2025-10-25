@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import os
 import random
 import time
 from random import Random
 from typing import Any, Optional
 
+import certifi
 from twitchAPI.chat import Chat, EventData, ChatCommand  # type: ignore
 from twitchAPI.helper import first
 from twitchAPI.oauth import UserAuthenticator
@@ -132,9 +134,6 @@ class ArchipollagoContext(CommonContext):
     def stop_bot(self):
         apoll_logger.info("Stopping Twitch Bot (May wait until the current poll is done)")
         self.twitch_bot_running = False
-        self.twitch_username_text = ""
-        self.app_id_text = ""
-        self.app_secret_text = ""
 
     def run_gui(self):
         """Import kivy UI system and start running it as self.ui_task."""
@@ -240,19 +239,21 @@ async def twitch_loop(ctx: ArchipollagoContext):
                     await ctx.send_msgs([{"cmd": "LocationScouts", "locations": list(range(1, ctx.total_locations + 1)),
                                           "create_as_hint": 0}])
                     try:
-                        twitch = await Twitch(ctx.app_id_text, ctx.app_secret_text, target_app_auth_scope=target_scope)
+                        twitch = await Twitch(ctx.app_id_text, ctx.app_secret_text, authenticate_app=False, target_app_auth_scope=target_scope)
                         auth = UserAuthenticator(twitch, target_scope, force_verify=False)
                         token, refresh_token = await auth.authenticate()
                         await twitch.set_user_authentication(token, target_scope, refresh_token)
                         twitch_user = await first(twitch.get_users(logins=ctx.twitch_username_text))
                     except (TwitchAPIException, UnauthorizedException,
                             MissingScopeException, TwitchAuthorizationException,
-                            TwitchBackendException, ValueError):
+                            TwitchBackendException, ValueError) as e:
                         ctx.stop_bot()
+                        apoll_logger.error(f"Error starting Twitch Bot: {e}: ")
                         continue
                     if twitch_user is None:
                         ctx.stop_bot()
                         await twitch.close()
+                        apoll_logger.error("Twitch User Not Found")
                         continue
                 if ctx.time_til_next_poll < time.time() and len(ctx.missing_locations) > 0:
                     number_of_keys = 0
@@ -281,6 +282,9 @@ async def twitch_loop(ctx: ArchipollagoContext):
             else:
                 twitch = None
                 ctx.time_til_next_poll = 0
+                ctx.twitch_username_text = ""
+                ctx.app_id_text = ""
+                ctx.app_secret_text = ""
             if not ctx.finished_game and ctx.victory:
                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                 ctx.finished_game = True
@@ -346,11 +350,9 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
     if len(item_choices) == 1:
         message = [{"cmd": 'LocationChecks', "locations": [item_choices[0][1]]}]
         await ctx.send_msgs(message)
-        chat = await Chat(twitch)
-        chat.start()
-        await chat.send_message(ctx.twitch_username_text,
-                          f"{choices[0]} was the only option left and was sent to the multiworld!")
-        chat.stop()
+        await send_quick_chat(f"Sent {choices[0]} as it was the only option left.",
+                              ctx.twitch_username_text,
+                              twitch)
     try:
         poll: Poll = await twitch.create_poll(twitch_user.id, "Vote for an item to send!", choices, ctx.poll_length,
                                               ctx.channel_point_voting, ctx.free_channel_points_per_vote)
@@ -358,6 +360,7 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
         # twitch.create_poll has thrown some undocumented exceptions, let's catch them here.
         await create_text_poll(ctx, choices, item_choices, twitch)
         return
+    await send_quick_chat("A New Multiworld Poll is here!", ctx.twitch_username_text, twitch)
     while ctx.twitch_bot_running and poll is not None and poll.status.value == PollStatus.ACTIVE.value:
         try:
             poll = await first(twitch.get_polls(twitch_user.id, poll.id, first=1))
@@ -383,6 +386,17 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
             apoll_logger.warning(f"Poll ended with status {poll.status.value}")
 
 
+async def send_quick_chat(message: str, twitch_username: str, twitch: Twitch):
+    chat = await Chat(twitch)
+    chat.start()
+    async def on_chat_bot_ready(ready_event: EventData):
+        await ready_event.chat.join_room(twitch_username)
+        await ready_event.chat.send_message(twitch_username, message)
+    chat.register_event(ChatEvent.READY, on_chat_bot_ready)
+    await asyncio.sleep(10.0)
+    chat.stop()
+
+
 def launch(*launch_args: str):
     async def main(args):
         ctx = ArchipollagoContext(args.connect, args.password)
@@ -394,6 +408,7 @@ def launch(*launch_args: str):
         ctx.run_cli()
 
         await ctx.exit_event.wait()
+        ctx.stop_bot()
         await ctx.twitch_task
         await ctx.shutdown()
 

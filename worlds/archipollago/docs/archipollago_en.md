@@ -4,8 +4,8 @@
 
 1. Download and install the `archipollago.apworld`.
 2. Download and unzip `apollago_packages.zip` to a temporary folder.
-3. Open the `library.zip` file inside the `<AP_INSTALL>/lib` directory.
-4. Copy every file and folder inside the temporary folder and paste it into the `library.zip`.
+3. Navigate to the `<AP_INSTALL>/lib` directory.
+4. Copy every file and folder inside the temporary folder and paste it into the `<AP_INSTALL>/lib` directory.
 5. The Archipollago Client should start from the launcher.
 
 ## Setting up a Twitch Bot
@@ -36,3 +36,7 @@ the <br> `Twitch Application Secret` field.
 ### The bot is running a poll using chat instead of Twitch's official polls
 Only affiliates and partners have the ability to create Twitch official polls.
 Text based polls are used if the official polls are unable to be run for any reason.
+
+### There is an SSL error when trying to stop the bot
+Close the client and run `ap_launcher_ssl_fix.sh` for Linux or `ap_launcher_ssl_fix.bat` for Windows.
+These files should be placed into the Archipelago install directory.
