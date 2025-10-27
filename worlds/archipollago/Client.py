@@ -193,13 +193,15 @@ class ArchipollagoContext(CommonContext):
                 try:
                     login_layout = LoginLayout(orientation="vertical")
                     login_layout.add_widget(TwitchUserNameLabel(text="Twitch Username"))
-                    self.twitch_username = TwitchUserName()
+                    self.twitch_username = TwitchUserName(text=Utils.persistent_load().get("votipellago", {})
+                                                          .get("twitch_username", ""))
                     login_layout.add_widget(self.twitch_username)
                     login_layout.add_widget(AppIDLabel(text="Twitch Application ID"))
-                    self.app_id = AppID()
+                    self.app_id = AppID(text=Utils.persistent_load().get("votipellago", {}).get("app_id", ""))
                     login_layout.add_widget(self.app_id)
                     login_layout.add_widget(AppSecretLabel(text="Twitch Application Secret"))
-                    self.app_secret = AppSecret()
+                    self.app_secret = AppSecret(text=Utils.persistent_load().get("votipellago", {})
+                                                .get("app_secret", ""))
                     login_layout.add_widget(self.app_secret)
                     app_start = AppStart()
                     app_start.bind(on_press=lambda instance: self.start_bot())
@@ -218,6 +220,9 @@ class ArchipollagoContext(CommonContext):
                 self.ctx.twitch_username_text = self.twitch_username.text
                 self.ctx.app_id_text = self.app_id.text
                 self.ctx.app_secret_text = self.app_secret.text
+                Utils.persistent_store("votipellago", "twitch_username", self.twitch_username.text)
+                Utils.persistent_store("votipellago", "app_id", self.app_id.text)
+                Utils.persistent_store("votipellago", "app_secret", self.app_secret.text)
 
             def update_login_tab(self):
                 pass
