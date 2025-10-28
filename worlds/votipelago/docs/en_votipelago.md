@@ -1,4 +1,4 @@
-# Archipollago (Windows, Linux)
+# Votipelago (Windows, Linux)
 
 ## Where is the options page?
 
@@ -25,7 +25,7 @@ When the player receives an item, the item name will appear in the `All` tab of 
 
 ## What is the goal of this game when randomized?
 
-The goal is to find all the letters to spell `POLLAGO` or `ARCHIPOLLAGO` depending on the user's settings.
+The goal is to find all the letters to spell `VOTE` or `VOTIPELAGO` depending on the user's settings.
 
 ## Unique Local Commands
 

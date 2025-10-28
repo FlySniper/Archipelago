@@ -3,8 +3,8 @@ import logging
 import os
 import random
 import time
+import typing
 from random import Random
-from typing import Any, Optional
 
 import certifi
 from twitchAPI.chat import Chat, EventData, ChatCommand  # type: ignore
@@ -16,20 +16,33 @@ from twitchAPI.type import AuthScope, PollStatus, TwitchAPIException, Unauthoriz
     TwitchAuthorizationException, TwitchBackendException, ChatEvent
 
 import Utils
-from CommonClient import server_loop, CommonContext, get_base_parser, gui_enabled
+from CommonClient import server_loop, CommonContext, get_base_parser, gui_enabled, ClientCommandProcessor
 from NetUtils import NetworkItem, ClientStatus
-from . import ArchipollagoWorld
+from worlds.votipelago.ClientClasses import PollOption, POLL_OPTION_TYPE_ITEM, POLL_OPTION_TYPE_DEATHLINK
+from . import VotipelagoWorld
 from .Items import item_table
 
 if __name__ == "__main__":
-    Utils.init_logging("ArchipollagoClient", exception_logger="Client")
+    Utils.init_logging("VotipelagoClient", exception_logger="Client")
 
-apoll_logger = logging.getLogger("APollago")
+vpelago_logger = logging.getLogger("VPelago")
 
+class VotipelagoClientCommandProcessor(ClientCommandProcessor):
 
-class ArchipollagoContext(CommonContext):
-    game = "Archipollago"
+    def _cmd_deathlink(self):
+        """Toggles deathlink On/Off"""
+        if isinstance(self.ctx, VotipelagoContext):
+            self.ctx.has_death_link = not self.ctx.has_death_link
+            Utils.async_start(self.ctx.update_death_link(self.ctx.has_death_link), name="Update Deathlink")
+            if self.ctx.has_death_link:
+                self.output(f"Deathlink enabled.")
+            else:
+                self.output(f"Deathlink disabled.")
+
+class VotipelagoContext(CommonContext):
+    game = "Votipelago"
     items_handling = 0b111  # full remote
+    command_processor: int = VotipelagoClientCommandProcessor
     twitch_bot_running: bool = False
 
     slot_data = []
@@ -41,14 +54,18 @@ class ArchipollagoContext(CommonContext):
     minor_major_ratio: int
     poll_length: int
     channel_point_voting: bool
-    free_channel_points_per_vote: int
+    channel_points_per_extra_vote: int
     number_of_choices: int
     goal: int
+    starting_deathlink_pool: int
+    has_death_link: bool = False
 
     random: Random = Random()
     time_til_next_poll: float = -1
     finished_game: bool = False
     victory: bool = False
+    stored_deathlinks_key: str = ""
+
 
     twitch_username_text: str = ""
     app_id_text: str = ""
@@ -57,12 +74,12 @@ class ArchipollagoContext(CommonContext):
     chat_votes: dict[int, set[str]] = {1: set(), 2: set(), 3: set(), 4: set(), 5: set(), }
     chat_voters: set[str] = set()
 
-    def __init__(self, server_address: Optional[str] = None, password: Optional[str] = None):
+    def __init__(self, server_address: typing.Optional[str] = None, password: typing.Optional[str] = None):
         super().__init__(server_address, password)
 
     async def server_auth(self, password_requested: bool = False):
         if password_requested and not self.password:
-            await super(ArchipollagoContext, self).server_auth(password_requested)
+            await super(VotipelagoContext, self).server_auth(password_requested)
         await self.get_username()
         await self.send_connect(game=self.game)
 
@@ -79,12 +96,22 @@ class ArchipollagoContext(CommonContext):
             self.minor_major_ratio = self.slot_data.get("minor_major_ratio", 0)
             self.poll_length = self.slot_data.get("poll_length", 60)
             self.channel_point_voting = self.slot_data.get("channel_point_voting", False)
-            self.free_channel_points_per_vote = self.slot_data.get("free_channel_points_per_vote", 0)
+            self.channel_points_per_extra_vote = self.slot_data.get("channel_points_per_extra_vote", 0)
             self.number_of_choices = self.slot_data.get("number_of_choices", 0)
             self.goal = self.slot_data.get("goal", 0)
+            self.has_death_link = self.slot_data.get("death_link", False)
+            self.starting_deathlink_pool = self.slot_data.get("starting_deathlink_pool", 0)
 
+            self.stored_deathlinks_key = f"votipelago_stored_deathlinks_key{self.team}_{self.slot}"
+            self.set_notify(self.stored_deathlinks_key)
             self.time_til_next_poll = time.time() + self.time_between_polls
+            self.update_death_link(self.has_death_link)
             self.check_victory()
+            message = [{"cmd": 'Set', "key": self.stored_deathlinks_key,
+                        "default": self.starting_deathlink_pool,
+                        "want_reply": True,
+                        "operations": [{"operation": "add", "value": 0}]}]
+            Utils.async_start(self.send_msgs(message), name="Notify stored Deathlinks")
 
         elif cmd == "LocationInfo":
             for item in [NetworkItem(*item) for item in args["locations"]]:
@@ -101,17 +128,17 @@ class ArchipollagoContext(CommonContext):
     def check_victory(self):
         victory_items_count = 0
         for recieved_item in self.items_received:
-            if recieved_item.item == item_table["Letter R"].code:
+            if recieved_item.item == item_table["Letter V"].code:
                 victory_items_count += 1
-            if recieved_item.item == item_table["Letter C"].code:
+            if recieved_item.item == item_table["Letter O"].code:
                 victory_items_count += 1
-            if recieved_item.item == item_table["Letter H"].code:
+            if recieved_item.item == item_table["Letter T"].code:
                 victory_items_count += 1
             if recieved_item.item == item_table["Letter I"].code:
                 victory_items_count += 1
             if recieved_item.item == item_table["Letter P"].code:
                 victory_items_count += 1
-            if recieved_item.item == item_table["Letter O"].code:
+            if recieved_item.item == item_table["Letter E"].code:
                 victory_items_count += 1
             if recieved_item.item == item_table["Letter L"].code:
                 victory_items_count += 1
@@ -120,19 +147,22 @@ class ArchipollagoContext(CommonContext):
             if recieved_item.item == item_table["Letter G"].code:
                 victory_items_count += 1
 
-        if self.goal == 0 and victory_items_count >= 7:
-            apoll_logger.info("Goal Reached (POLLAGO)!")
+        if self.goal == 0 and victory_items_count >= 4:
+            vpelago_logger.info("Goal Reached (VOTE)!")
             self.victory = True
-        elif self.goal == 1 and victory_items_count >= 12:
-            apoll_logger.info("Goal Reached (ARCHIPOLLAGO)!")
+        elif self.goal == 1 and victory_items_count >= 10:
+            vpelago_logger.info("Goal Reached (VOTIPELAGO)!")
             self.victory = True
+
+    def on_deathlink(self, data: typing.Dict[str, typing.Any]) -> None:
+        super(VotipelagoContext, self).on_deathlink(data)
 
     async def disconnect(self, allow_autoreconnect: bool = False):
         self.stop_bot()
         await super().disconnect(allow_autoreconnect)
 
     def stop_bot(self):
-        apoll_logger.info("Stopping Twitch Bot (May wait until the current poll is done)")
+        vpelago_logger.info("Stopping Twitch Bot (May wait until the current poll is done)")
         self.twitch_bot_running = False
 
     def run_gui(self):
@@ -173,34 +203,34 @@ class ArchipollagoContext(CommonContext):
         class AppIDLabel(Label):
             pass
 
-        class ArchipollagoManager(GameManager):
+        class VotipelagoManager(GameManager):
             logging_pairs = [
                 ("Client", "Archipelago"),
-                ("APollago", "APollago Console"),
+                ("VPelago", "VPelago Console"),
             ]
-            base_title = "Archipelago Archipollago Client"
-            ctx: ArchipollagoContext
+            base_title = "Archipelago Votipelago Client"
+            ctx: VotipelagoContext
             twitch_username: TwitchUserName
             app_id: AppID
             app_secret: AppSecret
 
             def build(self):
                 container = super().build()
-                self.add_client_tab("Archipollago Settings", self.build_login())
+                self.add_client_tab("Votipelago Settings", self.build_login())
                 return container
 
             def build_login(self) -> LoginLayout:
                 try:
                     login_layout = LoginLayout(orientation="vertical")
                     login_layout.add_widget(TwitchUserNameLabel(text="Twitch Username"))
-                    self.twitch_username = TwitchUserName(text=Utils.persistent_load().get("votipellago", {})
+                    self.twitch_username = TwitchUserName(text=Utils.persistent_load().get("votipelago", {})
                                                           .get("twitch_username", ""))
                     login_layout.add_widget(self.twitch_username)
                     login_layout.add_widget(AppIDLabel(text="Twitch Application ID"))
-                    self.app_id = AppID(text=Utils.persistent_load().get("votipellago", {}).get("app_id", ""))
+                    self.app_id = AppID(text=Utils.persistent_load().get("votipelago", {}).get("app_id", ""))
                     login_layout.add_widget(self.app_id)
                     login_layout.add_widget(AppSecretLabel(text="Twitch Application Secret"))
-                    self.app_secret = AppSecret(text=Utils.persistent_load().get("votipellago", {})
+                    self.app_secret = AppSecret(text=Utils.persistent_load().get("votipelago", {})
                                                 .get("app_secret", ""))
                     login_layout.add_widget(self.app_secret)
                     app_start = AppStart()
@@ -215,25 +245,25 @@ class ArchipollagoContext(CommonContext):
                     print(e)
 
             def start_bot(self):
-                apoll_logger.info("Starting Twitch Bot")
+                vpelago_logger.info("Starting Twitch Bot")
                 self.ctx.twitch_bot_running = True
                 self.ctx.twitch_username_text = self.twitch_username.text
                 self.ctx.app_id_text = self.app_id.text
                 self.ctx.app_secret_text = self.app_secret.text
-                Utils.persistent_store("votipellago", "twitch_username", self.twitch_username.text)
-                Utils.persistent_store("votipellago", "app_id", self.app_id.text)
-                Utils.persistent_store("votipellago", "app_secret", self.app_secret.text)
+                Utils.persistent_store("votipelago", "twitch_username", self.twitch_username.text)
+                Utils.persistent_store("votipelago", "app_id", self.app_id.text)
+                Utils.persistent_store("votipelago", "app_secret", self.app_secret.text)
 
             def update_login_tab(self):
                 pass
 
-        self.ui = ArchipollagoManager(self)
-        data = pkgutil.get_data(ArchipollagoWorld.__module__, "Archipollago.kv").decode()
+        self.ui = VotipelagoManager(self)
+        data = pkgutil.get_data(VotipelagoWorld.__module__, "Votipelago.kv").decode()
         Builder.load_string(data)
         self.ui_task = asyncio.create_task(self.ui.async_run(), name="UI")
 
 
-async def twitch_loop(ctx: ArchipollagoContext):
+async def twitch_loop(ctx: VotipelagoContext):
     target_scope = [AuthScope.CHANNEL_MANAGE_POLLS, AuthScope.CHANNEL_READ_POLLS,
                     AuthScope.CHAT_READ, AuthScope.CHAT_EDIT]
     twitch = None
@@ -253,12 +283,12 @@ async def twitch_loop(ctx: ArchipollagoContext):
                             MissingScopeException, TwitchAuthorizationException,
                             TwitchBackendException, ValueError) as e:
                         ctx.stop_bot()
-                        apoll_logger.error(f"Error starting Twitch Bot: {e}: ")
+                        vpelago_logger.error(f"Error starting Twitch Bot: {e}: ")
                         continue
                     if twitch_user is None:
                         ctx.stop_bot()
                         await twitch.close()
-                        apoll_logger.error("Twitch User Not Found")
+                        vpelago_logger.error("Twitch User Not Found")
                         continue
                 if ctx.time_til_next_poll < time.time() and len(ctx.missing_locations) > 0:
                     number_of_keys = 0
@@ -267,7 +297,7 @@ async def twitch_loop(ctx: ArchipollagoContext):
                             number_of_keys += 1
                     total_available_locations = set(range(1,
                                                           number_of_keys * ctx.locations_per_key + ctx.locations_per_key + 1))
-                    available_locations = total_available_locations.intersection(ctx.missing_locations)
+                    available_locations = list(total_available_locations.intersection(ctx.missing_locations))
                     number_of_choices = ctx.number_of_choices
                     if len(available_locations) < ctx.number_of_choices:
                         number_of_choices = len(available_locations)
@@ -275,13 +305,27 @@ async def twitch_loop(ctx: ArchipollagoContext):
                         await twitch.close()
                         ctx.time_til_next_poll = time.time() + ctx.time_between_polls
                         continue
-                    location_choices = random.sample(list(available_locations), k=number_of_choices)
-                    item_choices = [(ctx.locations_info[location_choice], location_choice)
-                                    for location_choice in location_choices]
-                    choices = [f"{index + 1}. " \
-                               f"{ctx.item_names.lookup_in_game(item_choice[0].item, ctx.slot_info[item_choice[0].player].game)[:20]}"
-                               for index, item_choice in enumerate(item_choices)]
-                    await create_twitch_poll(ctx, choices, item_choices, twitch, twitch_user)
+                    deathlink_count = ctx.stored_data.get(ctx.stored_deathlinks_key, 0)
+                    if deathlink_count is None or not ctx.has_death_link:
+                        deathlink_count = 0
+                    deathlink_list = ["deathlink"] * deathlink_count
+                    available_locations += deathlink_list
+                    location_choices = random.sample(available_locations, k=number_of_choices)
+                    item_choices = []
+                    option_number = 1
+                    for location_choice in location_choices:
+                        if location_choice == "deathlink":
+                            item_choices.append(PollOption(f"{option_number}. Deathlink",None,None,
+                                                           POLL_OPTION_TYPE_DEATHLINK))
+                        else:
+                            name = f"{option_number}. {ctx.item_names.lookup_in_game(
+                                ctx.locations_info[location_choice].item,
+                                ctx.slot_info[ctx.locations_info[location_choice].player].game)[:21]}"
+                            item_choices.append(PollOption(name, ctx.locations_info[location_choice], location_choice,
+                                       POLL_OPTION_TYPE_ITEM))
+                        option_number += 1
+
+                    await create_twitch_poll(ctx, item_choices, twitch, twitch_user)
                     await twitch.close()
                     ctx.time_til_next_poll = time.time() + ctx.time_between_polls
             else:
@@ -295,21 +339,22 @@ async def twitch_loop(ctx: ArchipollagoContext):
                 ctx.finished_game = True
             await asyncio.sleep(1.0)
         except Exception as err:
-            apoll_logger.warning("Exception in twitch thread, the client may need to be restarted: " + str(err))
+            vpelago_logger.warning("Exception in twitch thread, the client may need to be restarted: " + str(err))
             await asyncio.sleep(1.0)
 
 
-async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_choices: list[tuple[NetworkItem, Any]],
+async def create_text_poll(ctx: VotipelagoContext,
+                           item_choices: list[PollOption],
                            twitch: Twitch):
     async def on_chat_bot_ready(ready_event: EventData):
         await ready_event.chat.join_room(ctx.twitch_username_text)
-        await ready_event.chat.send_message(ctx.twitch_username_text, f"An Archipollago Poll has started and "
+        await ready_event.chat.send_message(ctx.twitch_username_text, f"An Votipelago Poll has started and "
                                                                       f"will last for {ctx.poll_length} seconds!")
         await ready_event.chat.send_message(
             ctx.twitch_username_text,
             "Use the !apvote <number> command to vote for an item to send the multiworld.")
-        for choice in choices:
-            await ready_event.chat.send_message(ctx.twitch_username_text, choice)
+        for choice in item_choices:
+            await ready_event.chat.send_message(ctx.twitch_username_text, choice.name)
 
     async def ap_chat_bot_command(cmd: ChatCommand):
         if len(cmd.parameter) == 1:
@@ -338,32 +383,47 @@ async def create_text_poll(ctx: ArchipollagoContext, choices: list[str], item_ch
             winning_option = i
     ctx.chat_votes = {1: set(), 2: set(), 3: set(), 4: set(), 5: set()}
     ctx.chat_voters = set()
-    await chat.send_message(ctx.twitch_username_text, f"{choices[winning_option - 1]} will be sent to the multiworld!")
+    await chat.send_message(ctx.twitch_username_text,
+                            f"{item_choices[winning_option - 1].name} will be sent to the multiworld!")
     chat.stop()
     try:
-        item = item_choices[winning_option - 1]
-        message = [{"cmd": 'LocationChecks', "locations": [item[1]]}]
-        await ctx.send_msgs(message)
+        choice = item_choices[winning_option - 1]
+        if choice.poll_option_type == POLL_OPTION_TYPE_DEATHLINK:
+            await send_votipelago_deathlink(ctx)
+        elif choice.poll_option_type == POLL_OPTION_TYPE_ITEM:
+            message = [{"cmd": 'LocationChecks', "locations": [choice.location]}]
+            await ctx.send_msgs(message)
     except ValueError:
         pass
 
 
-async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_choices: list[tuple[NetworkItem, Any]],
+async def send_votipelago_deathlink(ctx: VotipelagoContext):
+    await ctx.send_death(f"{ctx.player_names[ctx.slot]} voted for death.")
+    message = [{"cmd": 'Set', "key": ctx.stored_deathlinks_key,
+                "default": ctx.starting_deathlink_pool,
+                "want_reply": True,
+                "operations": [{"operation": "add", "value": -1}]}]
+    await ctx.send_msgs(message)
+
+
+async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOption],
                              twitch: Twitch, twitch_user: TwitchUser):
     if len(item_choices) == 0:
         return
-    if len(item_choices) == 1:
-        message = [{"cmd": 'LocationChecks', "locations": [item_choices[0][1]]}]
+    if len(item_choices) == 1 and item_choices[0].item_reference is not None:
+        message = [{"cmd": 'LocationChecks', "locations": [item_choices[0].item_reference.item]}]
         await ctx.send_msgs(message)
-        await send_quick_chat(f"Sent {choices[0]} as it was the only option left.",
+        await send_quick_chat(f"Sent {item_choices[0].name} as it was the only option left.",
                               ctx.twitch_username_text,
                               twitch)
+        return
     try:
+        choices = [poll_option.name for poll_option in item_choices]
         poll: Poll = await twitch.create_poll(twitch_user.id, "Vote for an item to send!", choices, ctx.poll_length,
-                                              ctx.channel_point_voting, ctx.free_channel_points_per_vote)
+                                              ctx.channel_point_voting, ctx.channel_points_per_extra_vote)
     except Exception as e:
         # twitch.create_poll has thrown some undocumented exceptions, let's catch them here.
-        await create_text_poll(ctx, choices, item_choices, twitch)
+        await create_text_poll(ctx, item_choices, twitch)
         return
     await send_quick_chat("A New Multiworld Poll is here!", ctx.twitch_username_text, twitch)
     while ctx.twitch_bot_running and poll is not None and poll.status.value == PollStatus.ACTIVE.value:
@@ -379,16 +439,19 @@ async def create_twitch_poll(ctx: ArchipollagoContext, choices: list[str], item_
                 highest_choice = choice
         try:
             choice_id = int(highest_choice.title[0]) - 1
-            item = item_choices[choice_id]
-            message = [{"cmd": 'LocationChecks', "locations": [item[1]]}]
-            await ctx.send_msgs(message)
+            if item_choices[choice_id].poll_option_type == POLL_OPTION_TYPE_DEATHLINK:
+                await send_votipelago_deathlink(ctx)
+            elif item_choices[choice_id].poll_option_type == POLL_OPTION_TYPE_ITEM:
+                location = item_choices[choice_id].location
+                message = [{"cmd": 'LocationChecks', "locations": [location]}]
+                await ctx.send_msgs(message)
         except ValueError:
             pass
     else:
         if poll is None:
-            apoll_logger.error("Poll is None type!")
+            vpelago_logger.error("Poll is None type!")
         else:
-            apoll_logger.warning(f"Poll ended with status {poll.status.value}")
+            vpelago_logger.warning(f"Poll ended with status {poll.status.value}")
 
 
 async def send_quick_chat(message: str, twitch_username: str, twitch: Twitch):
@@ -404,7 +467,7 @@ async def send_quick_chat(message: str, twitch_username: str, twitch: Twitch):
 
 def launch(*launch_args: str):
     async def main(args):
-        ctx = ArchipollagoContext(args.connect, args.password)
+        ctx = VotipelagoContext(args.connect, args.password)
         ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
         ctx.twitch_task = asyncio.create_task(twitch_loop(ctx), name="twitch loop")
 
@@ -419,7 +482,7 @@ def launch(*launch_args: str):
 
     import colorama
 
-    parser = get_base_parser(description="Archipollago Client, for text interfacing.")
+    parser = get_base_parser(description="Votipelago Client, for text interfacing.")
 
     colorama.just_fix_windows_console()
     asyncio.run(main(parser.parse_args(launch_args)))

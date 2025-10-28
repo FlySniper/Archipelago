@@ -1,7 +1,7 @@
-from . import ArchipollagoOptions
+from . import VotipelagoOptions
 
 
-def create_regions(world, player: int, options: ArchipollagoOptions):
+def create_regions(world, player: int, options: VotipelagoOptions):
     from . import create_region
 
     poll_keys = options.poll_keys.value
@@ -12,7 +12,7 @@ def create_regions(world, player: int, options: ArchipollagoOptions):
         for key_location_number in range(1, locations_per_key + 1):
             locations += [f"Option Number {locations_per_key * key_number + key_location_number}"]
         if key_number == poll_keys:
-            locations += ["Archipollago Victory Location"]
+            locations += ["Votipelago Victory Location"]
             world.regions += [create_region(world, player, f"Poll Pool {key_number}", locations,[])]
         else:
             world.regions += [create_region(world, player, f"Poll Pool {key_number}", locations,

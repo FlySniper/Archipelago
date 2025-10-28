@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Choice, Range, PerGameCommonOptions, StartInventoryPool, OptionGroup, Toggle
+from Options import Choice, Range, PerGameCommonOptions, StartInventoryPool, OptionGroup, Toggle, DeathLink
 
 
 class PollKeys(Range):
@@ -76,24 +76,31 @@ class ChannelPointVoting(Toggle):
     default = 0
 
 
-class FreeChannelPointsPerVote(Range):
-    """How many free channel points per vote."""
-    display_name = "Free Channel Points Per Vote"
+class ChannelPointsPerExtraVote(Range):
+    """How many channel points per extra vote."""
+    display_name = "Channel Points Per Extra Vote"
     range_start = 0
     range_end = 1000000
-    default = 10
+    default = 100
 
 
 class Goal(Choice):
     """Select the goal for completing this world:
-    - Short Macguffin Hunt: Find the letters P.O.L.L.A.G.O (Duplicate letters must be found twice).
-    - Long Macguffin Hunt: Find the letters A.R.C.H.I.P.O.L.L.A.G.O (Duplicate letters must be found twice)."""
+    - Short Macguffin Hunt: Find the letters V.O.T.E.
+    - Long Macguffin Hunt: Find the letters V.O.T.I.P.E.L.A.G.O (Duplicate letters must be found twice)."""
     display_name = "Goal"
     option_short_macguffin_hunt= 0
     option_long_macguffin_hunt= 1
 
+class StartingDeathLinkPool(Range):
+    """How many death links are in the voting options at the start."""
+    display_name = "Starting Death Link Pool"
+    range_start = 0
+    range_end = 100
+    default = 5
 
-archipollago_option_groups = [
+
+votipelago_option_groups = [
         OptionGroup("Progression Options", [
             PollKeys,
             LocationsPerKey,
@@ -108,14 +115,18 @@ archipollago_option_groups = [
         OptionGroup("Bot Options", [
             PollLength,
             ChannelPointVoting,
-            FreeChannelPointsPerVote,
+            ChannelPointsPerExtraVote,
             NumberOfChoices,
+        ]),
+        OptionGroup("Deathlink Options", [
+            DeathLink,
+            StartingDeathLinkPool,
         ]),
 
 ]
 
 @dataclass
-class ArchipollagoOptions(PerGameCommonOptions):
+class VotipelagoOptions(PerGameCommonOptions):
     poll_keys: PollKeys
     locations_per_key: LocationsPerKey
     time_between_polls: TimeBetweenPolls
@@ -124,7 +135,9 @@ class ArchipollagoOptions(PerGameCommonOptions):
     minor_major_ratio: MinorMajorRatio
     poll_length: PollLength
     channel_point_voting: ChannelPointVoting
-    free_channel_points_per_vote: FreeChannelPointsPerVote
+    channel_points_per_extra_vote: ChannelPointsPerExtraVote
     number_of_choices: NumberOfChoices
     goal: Goal
+    starting_deathlink_pool: StartingDeathLinkPool
+    death_link: DeathLink
     start_inventory_from_pool: StartInventoryPool

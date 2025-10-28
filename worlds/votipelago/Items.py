@@ -17,12 +17,12 @@ class ItemData(typing.NamedTuple):
 item_table: Dict[str, ItemData] = {
     # Progressive Items
     "Progressive Poll Key": ItemData(1, PROGRESSION),
-    "Letter R": ItemData(2, PROGRESSION_SKIP_BALANCING),
-    "Letter C": ItemData(3, PROGRESSION_SKIP_BALANCING),
-    "Letter H": ItemData(4, PROGRESSION_SKIP_BALANCING),
+    "Letter V": ItemData(2, PROGRESSION_SKIP_BALANCING),
+    "Letter O": ItemData(3, PROGRESSION_SKIP_BALANCING),
+    "Letter T": ItemData(4, PROGRESSION_SKIP_BALANCING),
     "Letter I": ItemData(5, PROGRESSION_SKIP_BALANCING),
     "Letter P": ItemData(6, PROGRESSION_SKIP_BALANCING),
-    "Letter O": ItemData(7, PROGRESSION_SKIP_BALANCING),
+    "Letter E": ItemData(7, PROGRESSION_SKIP_BALANCING),
     "Letter L": ItemData(8, PROGRESSION_SKIP_BALANCING),
     "Letter A": ItemData(9, PROGRESSION_SKIP_BALANCING),
     "Letter G": ItemData(10, PROGRESSION_SKIP_BALANCING),
@@ -34,6 +34,6 @@ item_table: Dict[str, ItemData] = {
     "Minor Time Skip": ItemData(12, FILLER),
 
     # Event Items
-    "Archipollago Victory": ItemData(None, PROGRESSION)
+    "Votipelago Victory": ItemData(None, PROGRESSION)
 
 }
