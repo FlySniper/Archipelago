@@ -110,13 +110,13 @@ class VotipelagoContext(CommonContext):
             self.stored_deathlinks_key = f"votipelago_stored_deathlinks_key{self.team}_{self.slot}"
             self.set_notify(self.stored_deathlinks_key)
             self.time_til_next_poll = time.time() + self.time_between_polls
-            self.update_death_link(self.has_death_link)
             self.check_victory()
             message = [{"cmd": 'Set', "key": self.stored_deathlinks_key,
                         "default": self.starting_deathlink_pool,
                         "want_reply": True,
                         "operations": [{"operation": "add", "value": 0}]}]
             Utils.async_start(self.send_msgs(message), name="Notify stored Deathlinks")
+            Utils.async_start(self.update_death_link(self.has_death_link), name="Enable Deathlink")
 
         elif cmd == "LocationInfo":
             for item in [NetworkItem(*item) for item in args["locations"]]:
@@ -161,7 +161,11 @@ class VotipelagoContext(CommonContext):
 
     def on_deathlink(self, data: typing.Dict[str, typing.Any]) -> None:
         self.time_til_next_poll += float(self.death_link_time_stretch)
-        self.starting_deathlink_pool += self.death_link_add_to_pool
+        message = [{"cmd": 'Set', "key": self.stored_deathlinks_key,
+                    "default": self.starting_deathlink_pool,
+                    "want_reply": True,
+                    "operations": [{"operation": "add", "value": self.death_link_add_to_pool}]}]
+        Utils.async_start(self.send_msgs(message), name="Notify stored Deathlinks")
         self.twitch_message_queue.append(f"Deathlink received. "
                                          f"{self.death_link_time_stretch} seconds were added until the next poll. "
                                          f"{self.death_link_add_to_pool} deathlinks were added to the option pool.")
@@ -289,6 +293,8 @@ async def twitch_loop(ctx: VotipelagoContext):
                         token, refresh_token = await auth.authenticate()
                         await twitch.set_user_authentication(token, target_scope, refresh_token)
                         twitch_user = await first(twitch.get_users(logins=ctx.twitch_username_text))
+                        await send_quick_chats(ctx.twitch_message_queue, twitch_user, twitch)
+                        ctx.twitch_message_queue = []
                     except (TwitchAPIException, UnauthorizedException,
                             MissingScopeException, TwitchAuthorizationException,
                             TwitchBackendException, ValueError) as e:
@@ -308,6 +314,11 @@ async def twitch_loop(ctx: VotipelagoContext):
                     total_available_locations = set(range(1,
                                                           number_of_keys * ctx.locations_per_key + ctx.locations_per_key + 1))
                     available_locations = list(total_available_locations.intersection(ctx.missing_locations))
+                    deathlink_count = ctx.stored_data.get(ctx.stored_deathlinks_key, 0)
+                    if deathlink_count is None or not ctx.has_death_link:
+                        deathlink_count = 0
+                    deathlink_list = ["deathlink"] * deathlink_count
+                    available_locations += deathlink_list
                     number_of_choices = ctx.number_of_choices
                     if len(available_locations) < ctx.number_of_choices:
                         number_of_choices = len(available_locations)
@@ -315,11 +326,6 @@ async def twitch_loop(ctx: VotipelagoContext):
                         await twitch.close()
                         ctx.time_til_next_poll = time.time() + ctx.time_between_polls
                         continue
-                    deathlink_count = ctx.stored_data.get(ctx.stored_deathlinks_key, 0)
-                    if deathlink_count is None or not ctx.has_death_link:
-                        deathlink_count = 0
-                    deathlink_list = ["deathlink"] * deathlink_count
-                    available_locations += deathlink_list
                     location_choices = random.sample(available_locations, k=number_of_choices)
                     item_choices = []
                     option_number = 1
@@ -336,8 +342,6 @@ async def twitch_loop(ctx: VotipelagoContext):
                         option_number += 1
 
                     await create_twitch_poll(ctx, item_choices, twitch, twitch_user)
-                    await send_quick_chats(ctx.twitch_message_queue, twitch_user, twitch)
-                    ctx.twitch_message_queue = []
                     await twitch.close()
                     ctx.time_til_next_poll = time.time() + ctx.time_between_polls
             else:
@@ -360,7 +364,7 @@ async def create_text_poll(ctx: VotipelagoContext,
                            twitch: Twitch):
     async def on_chat_bot_ready(ready_event: EventData):
         await ready_event.chat.join_room(ctx.twitch_username_text)
-        await ready_event.chat.send_message(ctx.twitch_username_text, f"An Votipelago Poll has started and "
+        await ready_event.chat.send_message(ctx.twitch_username_text, f"A Votipelago Poll has started and "
                                                                       f"will last for {ctx.poll_length} seconds!")
         await ready_event.chat.send_message(
             ctx.twitch_username_text,
@@ -422,9 +426,13 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
                              twitch: Twitch, twitch_user: TwitchUser):
     if len(item_choices) == 0:
         return
-    if len(item_choices) == 1 and item_choices[0].item_reference is not None:
-        message = [{"cmd": 'LocationChecks', "locations": [item_choices[0].item_reference.item]}]
-        await ctx.send_msgs(message)
+    if len(item_choices) == 1:
+        if item_choices[0].poll_option_type == POLL_OPTION_TYPE_DEATHLINK:
+            await send_votipelago_deathlink(ctx)
+        elif item_choices[0].poll_option_type == POLL_OPTION_TYPE_ITEM:
+            location = item_choices[0].location
+            message = [{"cmd": 'LocationChecks', "locations": [location]}]
+            await ctx.send_msgs(message)
         await send_quick_chat(f"Sent {item_choices[0].name} as it was the only option left.",
                               ctx.twitch_username_text,
                               twitch)

@@ -93,7 +93,8 @@ class Goal(Choice):
     option_long_macguffin_hunt= 1
 
 class StartingDeathLinkPool(Range):
-    """How many death links are in the voting options at the start."""
+    """How many death links are in the voting options at the start.
+    A death link option is removed from the pool when it is chosen."""
     display_name = "Starting Death Link Pool"
     range_start = 0
     range_end = 100
@@ -107,8 +108,11 @@ class DeathLinkTimeStretch(Range):
     default = 30
 
 class DeathLinkAddToPool(Range):
-    """How many death links are added to the pool when a death link is received."""
-    display_name = "Death Link Add To Pool"
+    """How many death links are added to the pool when a death link is received.
+    WARNING:
+        If there are multiple worlds with this option enabled, death links could propagate endlessly and never diminish.
+    """
+    display_name = "Death Links to Add to Pool"
     range_start = 0
     range_end = 5
     default = 0

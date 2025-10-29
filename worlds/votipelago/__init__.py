@@ -49,6 +49,7 @@ class VotipelagoWorld(World):
         has_death_link = self.options.death_link.value == 1
         return {
             "poll_keys": self.options.poll_keys.value,
+            "poll_length": self.options.poll_length.value,
             "locations_per_key": self.options.locations_per_key.value,
             "time_between_polls": self.options.time_between_polls.value,
             "minor_time_skip": self.options.minor_time_skip.value,
@@ -60,7 +61,7 @@ class VotipelagoWorld(World):
             "starting_deathlink_pool": self.options.starting_deathlink_pool.value if has_death_link else 0,
             "death_link_time_stretch": self.options.death_link_time_stretch.value if has_death_link else 0,
             "death_link_add_to_pool": self.options.death_link_add_to_pool.value if has_death_link else 0,
-            "death_link": self.options.death_link.value,
+            "death_link": has_death_link,
             "goal": self.options.goal.value,
         }
 
