@@ -46,6 +46,7 @@ class VotipelagoWorld(World):
     location_name_to_id = location_table
 
     def _get_slot_data(self):
+        has_death_link = self.options.death_link.value == 1
         return {
             "poll_keys": self.options.poll_keys.value,
             "locations_per_key": self.options.locations_per_key.value,
@@ -56,8 +57,9 @@ class VotipelagoWorld(World):
             "channel_point_voting": self.options.channel_point_voting.value,
             "channel_points_per_extra_vote": self.options.channel_points_per_extra_vote.value,
             "number_of_choices": self.options.number_of_choices.value,
-            "starting_deathlink_pool": self.options.starting_deathlink_pool.value
-                                        if self.options.death_link.value == 1 else 0,
+            "starting_deathlink_pool": self.options.starting_deathlink_pool.value if has_death_link else 0,
+            "death_link_time_stretch": self.options.death_link_time_stretch.value if has_death_link else 0,
+            "death_link_add_to_pool": self.options.death_link_add_to_pool.value if has_death_link else 0,
             "death_link": self.options.death_link.value,
             "goal": self.options.goal.value,
         }

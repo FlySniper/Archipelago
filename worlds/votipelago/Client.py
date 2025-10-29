@@ -58,6 +58,8 @@ class VotipelagoContext(CommonContext):
     number_of_choices: int
     goal: int
     starting_deathlink_pool: int
+    death_link_time_stretch: int
+    death_link_add_to_pool: int
     has_death_link: bool = False
 
     random: Random = Random()
@@ -65,6 +67,7 @@ class VotipelagoContext(CommonContext):
     finished_game: bool = False
     victory: bool = False
     stored_deathlinks_key: str = ""
+    twitch_message_queue: typing.List[str] = []
 
 
     twitch_username_text: str = ""
@@ -101,6 +104,8 @@ class VotipelagoContext(CommonContext):
             self.goal = self.slot_data.get("goal", 0)
             self.has_death_link = self.slot_data.get("death_link", False)
             self.starting_deathlink_pool = self.slot_data.get("starting_deathlink_pool", 0)
+            self.death_link_time_stretch = self.slot_data.get("death_link_time_stretch", 0)
+            self.death_link_add_to_pool = self.slot_data.get("death_link_add_to_pool", 0)
 
             self.stored_deathlinks_key = f"votipelago_stored_deathlinks_key{self.team}_{self.slot}"
             self.set_notify(self.stored_deathlinks_key)
@@ -155,6 +160,11 @@ class VotipelagoContext(CommonContext):
             self.victory = True
 
     def on_deathlink(self, data: typing.Dict[str, typing.Any]) -> None:
+        self.time_til_next_poll += float(self.death_link_time_stretch)
+        self.starting_deathlink_pool += self.death_link_add_to_pool
+        self.twitch_message_queue.append(f"Deathlink received. "
+                                         f"{self.death_link_time_stretch} seconds were added until the next poll. "
+                                         f"{self.death_link_add_to_pool} deathlinks were added to the option pool.")
         super(VotipelagoContext, self).on_deathlink(data)
 
     async def disconnect(self, allow_autoreconnect: bool = False):
@@ -326,6 +336,8 @@ async def twitch_loop(ctx: VotipelagoContext):
                         option_number += 1
 
                     await create_twitch_poll(ctx, item_choices, twitch, twitch_user)
+                    await send_quick_chats(ctx.twitch_message_queue, twitch_user, twitch)
+                    ctx.twitch_message_queue = []
                     await twitch.close()
                     ctx.time_til_next_poll = time.time() + ctx.time_between_polls
             else:
@@ -464,6 +476,17 @@ async def send_quick_chat(message: str, twitch_username: str, twitch: Twitch):
     await asyncio.sleep(10.0)
     chat.stop()
 
+async def send_quick_chats(messages: typing.List[str], twitch_username: str, twitch: Twitch):
+    if len(messages) != 0:
+        chat = await Chat(twitch)
+        chat.start()
+        async def on_chat_bot_ready(ready_event: EventData):
+            await ready_event.chat.join_room(twitch_username)
+            for message in messages:
+                await ready_event.chat.send_message(twitch_username, message)
+        chat.register_event(ChatEvent.READY, on_chat_bot_ready)
+        await asyncio.sleep(10.0)
+        chat.stop()
 
 def launch(*launch_args: str):
     async def main(args):

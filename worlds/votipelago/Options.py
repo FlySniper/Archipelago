@@ -99,6 +99,19 @@ class StartingDeathLinkPool(Range):
     range_end = 100
     default = 5
 
+class DeathLinkTimeStretch(Range):
+    """How much time in seconds receiving a death link adds until the next poll."""
+    display_name = "Death Link Time Stretch"
+    range_start = 0
+    range_end = 86400
+    default = 30
+
+class DeathLinkAddToPool(Range):
+    """How many death links are added to the pool when a death link is received."""
+    display_name = "Death Link Add To Pool"
+    range_start = 0
+    range_end = 5
+    default = 0
 
 votipelago_option_groups = [
         OptionGroup("Progression Options", [
@@ -121,6 +134,8 @@ votipelago_option_groups = [
         OptionGroup("Deathlink Options", [
             DeathLink,
             StartingDeathLinkPool,
+            DeathLinkTimeStretch,
+            DeathLinkAddToPool,
         ]),
 
 ]
@@ -139,5 +154,7 @@ class VotipelagoOptions(PerGameCommonOptions):
     number_of_choices: NumberOfChoices
     goal: Goal
     starting_deathlink_pool: StartingDeathLinkPool
+    death_link_time_stretch: DeathLinkTimeStretch
+    death_link_add_to_pool: DeathLinkAddToPool
     death_link: DeathLink
     start_inventory_from_pool: StartInventoryPool
