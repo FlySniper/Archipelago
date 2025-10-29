@@ -168,7 +168,7 @@ class VotipelagoContext(CommonContext):
         Utils.async_start(self.send_msgs(message), name="Notify stored Deathlinks")
         self.twitch_message_queue.append(f"Deathlink received. "
                                          f"{self.death_link_time_stretch} seconds were added until the next poll. "
-                                         f"{self.death_link_add_to_pool} deathlinks were added to the option pool.")
+                                         f"{self.death_link_add_to_pool} deathlink(s) were added to the option pool.")
         super(VotipelagoContext, self).on_deathlink(data)
 
     async def disconnect(self, allow_autoreconnect: bool = False):
@@ -293,8 +293,6 @@ async def twitch_loop(ctx: VotipelagoContext):
                         token, refresh_token = await auth.authenticate()
                         await twitch.set_user_authentication(token, target_scope, refresh_token)
                         twitch_user = await first(twitch.get_users(logins=ctx.twitch_username_text))
-                        await send_quick_chats(ctx.twitch_message_queue, twitch_user, twitch)
-                        ctx.twitch_message_queue = []
                     except (TwitchAPIException, UnauthorizedException,
                             MissingScopeException, TwitchAuthorizationException,
                             TwitchBackendException, ValueError) as e:
@@ -306,6 +304,9 @@ async def twitch_loop(ctx: VotipelagoContext):
                         await twitch.close()
                         vpelago_logger.error("Twitch User Not Found")
                         continue
+                if twitch is not None and ctx.twitch_username_text is not None and ctx.twitch_username_text != "":
+                    await send_quick_chats(ctx.twitch_message_queue, ctx.twitch_username_text, twitch)
+                    ctx.twitch_message_queue = []
                 if ctx.time_til_next_poll < time.time() and len(ctx.missing_locations) > 0:
                     number_of_keys = 0
                     for item in ctx.items_received:
