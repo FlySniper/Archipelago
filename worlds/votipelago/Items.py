@@ -7,6 +7,7 @@ PROGRESSION = ItemClassification.progression
 PROGRESSION_SKIP_BALANCING = ItemClassification.progression_skip_balancing
 USEFUL = ItemClassification.useful
 FILLER = ItemClassification.filler
+TRAP = ItemClassification.trap
 
 
 class ItemData(typing.NamedTuple):
@@ -32,6 +33,11 @@ item_table: Dict[str, ItemData] = {
 
     # Filler Items
     "Minor Time Skip": ItemData(12, FILLER),
+
+    # Traps
+    "Major Time Stretch": ItemData(13, TRAP),
+
+    "Minor Time Stretch": ItemData(14, TRAP),
 
     # Event Items
     "Votipelago Victory": ItemData(None, PROGRESSION)

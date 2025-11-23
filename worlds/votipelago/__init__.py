@@ -54,10 +54,16 @@ class VotipelagoWorld(World):
             "time_between_polls": self.options.time_between_polls.value,
             "minor_time_skip": self.options.minor_time_skip.value,
             "major_time_skip": self.options.major_time_skip.value,
-            "minor_major_ratio": self.options.minor_major_ratio.value,
+            "minor_percentage": self.options.minor_percentage.value,
+            "major_percentage": self.options.major_percentage.value,
+            "minor_time_stretch": self.options.minor_time_stretch.value,
+            "major_time_stretch": self.options.major_time_stretch.value,
+            "minor_trap_percentage": self.options.minor_trap_percentage.value,
+            "major_trap_percentage": self.options.major_trap_percentage.value,
             "channel_point_voting": self.options.channel_point_voting.value,
             "channel_points_per_extra_vote": self.options.channel_points_per_extra_vote.value,
             "number_of_choices": self.options.number_of_choices.value,
+            "new_poll_message": self.options.new_poll_message.value,
             "starting_deathlink_pool": self.options.starting_deathlink_pool.value if has_death_link else 0,
             "death_link_time_stretch": self.options.death_link_time_stretch.value if has_death_link else 0,
             "death_link_add_to_pool": self.options.death_link_add_to_pool.value if has_death_link else 0,
@@ -93,15 +99,39 @@ class VotipelagoWorld(World):
         # Matching number of unfilled locations with filler items
         total_locations = (self.options.poll_keys.value + 1) * self.options.locations_per_key
         locations_remaining = total_locations - len(pool)
-        minor_time_skip_weight = self.options.minor_major_ratio
-        major_time_skip_weight = 100 - self.options.minor_major_ratio
+        minor_time_skip_weight = self.options.minor_percentage
+        major_time_skip_weight = self.options.major_percentage
+        minor_time_stretch_weight = self.options.minor_trap_percentage
+        major_time_stretch_weight = self.options.major_trap_percentage
         while locations_remaining > 0:
-            if minor_time_skip_weight >= major_time_skip_weight:
+            if minor_time_skip_weight >= max([major_time_skip_weight,
+                                              minor_time_stretch_weight,
+                                              major_time_stretch_weight]):
                 pool.append(VotipelagoItem("Minor Time Skip", self.player))
-                major_time_skip_weight += (100 - self.options.minor_major_ratio)
-            else:
+                major_time_skip_weight += self.options.major_percentage
+                minor_time_stretch_weight += self.options.minor_trap_percentage
+                major_time_stretch_weight += self.options.major_trap_percentage
+            elif major_time_skip_weight >= max([minor_time_skip_weight,
+                                              minor_time_stretch_weight,
+                                              major_time_stretch_weight]):
                 pool.append(VotipelagoItem("Major Time Skip", self.player))
-                minor_time_skip_weight += self.options.minor_major_ratio
+                minor_time_skip_weight += self.options.minor_percentage
+                minor_time_stretch_weight += self.options.minor_trap_percentage
+                major_time_stretch_weight += self.options.major_trap_percentage
+            elif minor_time_stretch_weight >= max([minor_time_skip_weight,
+                                              major_time_skip_weight,
+                                              major_time_stretch_weight]):
+                pool.append(VotipelagoItem("Minor Time Stretch", self.player))
+                minor_time_skip_weight += self.options.minor_percentage
+                major_time_skip_weight += self.options.major_percentage
+                major_time_stretch_weight += self.options.major_trap_percentage
+            elif major_time_stretch_weight >= max([minor_time_skip_weight,
+                                              major_time_skip_weight,
+                                              minor_time_stretch_weight]):
+                pool.append(VotipelagoItem("Major Time Stretch", self.player))
+                minor_time_skip_weight += self.options.minor_percentage
+                major_time_skip_weight += self.options.major_percentage
+                minor_time_stretch_weight += self.options.minor_trap_percentage
             locations_remaining -= 1
 
         self.multiworld.itempool += pool

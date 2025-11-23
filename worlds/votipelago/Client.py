@@ -51,10 +51,16 @@ class VotipelagoContext(CommonContext):
     time_between_polls: int
     minor_time_skip: int
     major_time_skip: int
-    minor_major_ratio: int
+    minor_time_stretch: int
+    major_time_stretch: int
+    minor_percentage: int
+    major_percentage: int
+    minor_trap_percentage: int
+    major_trap_percentage: int
     poll_length: int
     channel_point_voting: bool
     channel_points_per_extra_vote: int
+    new_poll_message: str
     number_of_choices: int
     goal: int
     starting_deathlink_pool: int
@@ -96,11 +102,20 @@ class VotipelagoContext(CommonContext):
             self.time_between_polls = self.slot_data.get("time_between_polls", 0)
             self.minor_time_skip = self.slot_data.get("minor_time_skip", 0)
             self.major_time_skip = self.slot_data.get("major_time_skip", 0)
-            self.minor_major_ratio = self.slot_data.get("minor_major_ratio", 0)
+            self.minor_time_stretch = self.slot_data.get("minor_time_stretch", 0)
+            self.major_time_stretch = self.slot_data.get("major_time_stretch", 0)
+            self.minor_percentage = self.slot_data.get("minor_percentage", 0)
+            self.major_percentage = self.slot_data.get("major_percentage", 0)
+            self.minor_trap_percentage = self.slot_data.get("minor_trap_percentage", 0)
+            self.major_trap_percentage = self.slot_data.get("major_trap_percentage", 0)
             self.poll_length = self.slot_data.get("poll_length", 60)
             self.channel_point_voting = self.slot_data.get("channel_point_voting", False)
             self.channel_points_per_extra_vote = self.slot_data.get("channel_points_per_extra_vote", 0)
             self.number_of_choices = self.slot_data.get("number_of_choices", 0)
+            tmp_poll_message = self.slot_data.get("new_poll_message", "")
+            if isinstance(tmp_poll_message, int):
+                tmp_poll_message = ""
+            self.new_poll_message = tmp_poll_message
             self.goal = self.slot_data.get("goal", 0)
             self.has_death_link = self.slot_data.get("death_link", False)
             self.starting_deathlink_pool = self.slot_data.get("starting_deathlink_pool", 0)
@@ -128,6 +143,10 @@ class VotipelagoContext(CommonContext):
                     self.time_til_next_poll -= self.major_time_skip
                 if network_item.item == item_table["Minor Time Skip"].code:
                     self.time_til_next_poll -= self.minor_time_skip
+                if network_item.item == item_table["Major Time Stretch"].code:
+                    self.time_til_next_poll += self.major_time_stretch
+                if network_item.item == item_table["Minor Time Stretch"].code:
+                    self.time_til_next_poll += self.minor_time_stretch
             self.check_victory()
 
     def check_victory(self):
@@ -446,12 +465,14 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
         # twitch.create_poll has thrown some undocumented exceptions, let's catch them here.
         await create_text_poll(ctx, item_choices, twitch)
         return
-    await send_quick_chat("A New Multiworld Poll is here!", ctx.twitch_username_text, twitch)
+    if ctx.new_poll_message is not None and ctx.new_poll_message != "":
+        await send_quick_chat(ctx.new_poll_message, ctx.twitch_username_text, twitch)
     while ctx.twitch_bot_running and poll is not None and poll.status.value == PollStatus.ACTIVE.value:
         try:
             poll = await first(twitch.get_polls(twitch_user.id, poll.id, first=1))
         except Exception as e:
             logging.error(f"Unable to get poll {e}")
+            break
         await asyncio.sleep(1.0)
     if poll is not None and poll.status.value == PollStatus.COMPLETED.value:
         highest_choice = poll.choices[0]

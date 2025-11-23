@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Choice, Range, PerGameCommonOptions, StartInventoryPool, OptionGroup, Toggle, DeathLink
+from Options import Choice, Range, PerGameCommonOptions, StartInventoryPool, OptionGroup, Toggle, DeathLink, TextChoice
 
 
 class PollKeys(Range):
@@ -50,14 +50,54 @@ class MajorTimeSkip(Range):
     range_end = 86400
     default = 300
 
-class MinorMajorRatio(Range):
-    """The percent of minor time skip items in the pool. The rest of the items are filled with major time skips.
-    The higher the number the more minor times are in the pool.
-    The lower the number the more major times are in the pool."""
-    display_name = "Minor/Major Time Skip Ratio"
+
+class MinorTimeStretch(Range):
+    """When found, lengthens the time until the next poll by these many seconds."""
+    display_name = "Minor Time Stretch"
+    range_start = 0
+    range_end = 600
+    default = 30
+
+
+class MajorTimeStretch(Range):
+    """When found, lengthens the time until the next poll by these many seconds."""
+    display_name = "Major Time Stretch"
+    range_start = 0
+    range_end = 86400
+    default = 300
+
+class MinorPercentage(Range):
+    """The percent of minor time skip items in the pool.
+    The higher the number the more minor time skips are in the pool."""
+    display_name = "Minor Time Skip Percentage"
     range_start = 0
     range_end = 100
     default = 90
+
+class MajorPercentage(Range):
+    """The percent of major time skip items in the pool.
+    The higher the number the more major time skips are in the pool."""
+    display_name = "Major Time Skip Percentage"
+    range_start = 0
+    range_end = 100
+    default = 10
+
+
+class MinorTrapPercentage(Range):
+    """The percent of minor time stretch items in the pool.
+    The higher the number the more minor time stretches are in the pool."""
+    display_name = "Minor Time Stretch Percentage"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+class MajorTrapPercentage(Range):
+    """The percent of major time stretch items in the pool.
+    The higher the number the more major time stretches are in the pool."""
+    display_name = "Major Time Stretch Percentage"
+    range_start = 0
+    range_end = 100
+    default = 0
 
 
 class NumberOfChoices(Range):
@@ -82,6 +122,13 @@ class ChannelPointsPerExtraVote(Range):
     range_start = 0
     range_end = 1000000
     default = 100
+
+
+class NewPollMessage(TextChoice):
+    """The message displayed in the chat when a new poll is created.
+    Leave blank for no message."""
+    display_name = "New Poll Message"
+    default = ""
 
 
 class Goal(Choice):
@@ -114,7 +161,7 @@ class DeathLinkAddToPool(Range):
     """
     display_name = "Death Links to Add to Pool"
     range_start = 0
-    range_end = 5
+    range_end = 2
     default = 0
 
 votipelago_option_groups = [
@@ -127,13 +174,21 @@ votipelago_option_groups = [
         OptionGroup("Filler Options", [
             MinorTimeSkip,
             MajorTimeSkip,
-            MinorMajorRatio,
+            MinorPercentage,
+            MajorPercentage
+        ]),
+        OptionGroup("Trap Options", [
+            MinorTimeStretch,
+            MajorTimeStretch,
+            MinorTrapPercentage,
+            MajorTrapPercentage
         ]),
         OptionGroup("Bot Options", [
             PollLength,
             ChannelPointVoting,
             ChannelPointsPerExtraVote,
             NumberOfChoices,
+            NewPollMessage,
         ]),
         OptionGroup("Deathlink Options", [
             DeathLink,
@@ -151,13 +206,19 @@ class VotipelagoOptions(PerGameCommonOptions):
     time_between_polls: TimeBetweenPolls
     minor_time_skip: MinorTimeSkip
     major_time_skip: MajorTimeSkip
-    minor_major_ratio: MinorMajorRatio
+    minor_percentage: MinorPercentage
+    major_percentage: MajorPercentage
+    minor_time_stretch: MinorTimeStretch
+    major_time_stretch: MajorTimeStretch
+    minor_trap_percentage: MinorTrapPercentage
+    major_trap_percentage: MajorTrapPercentage
     poll_length: PollLength
     channel_point_voting: ChannelPointVoting
     channel_points_per_extra_vote: ChannelPointsPerExtraVote
     number_of_choices: NumberOfChoices
     goal: Goal
     starting_deathlink_pool: StartingDeathLinkPool
+    new_poll_message: NewPollMessage
     death_link_time_stretch: DeathLinkTimeStretch
     death_link_add_to_pool: DeathLinkAddToPool
     death_link: DeathLink
