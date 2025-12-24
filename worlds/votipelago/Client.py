@@ -74,6 +74,7 @@ class VotipelagoContext(CommonContext):
     victory: bool = False
     stored_deathlinks_key: str = ""
     twitch_message_queue: typing.List[str] = []
+    force_end_poll: bool = False
 
 
     twitch_username_text: str = ""
@@ -96,6 +97,7 @@ class VotipelagoContext(CommonContext):
         if cmd in {"Connected"}:
             self.victory = False
             self.finished_game = False
+            self.force_end_poll = False
             self.slot_data = args["slot_data"]
             self.poll_keys = self.slot_data.get("poll_keys", 1)
             self.locations_per_key = self.slot_data.get("locations_per_key", 3)
@@ -198,6 +200,10 @@ class VotipelagoContext(CommonContext):
         vpelago_logger.info("Stopping Twitch Bot (May wait until the current poll is done)")
         self.twitch_bot_running = False
 
+    def force_terminate_poll(self):
+        vpelago_logger.info("Forcing poll termination")
+        self.force_end_poll = True
+
     def run_gui(self):
         """Import kivy UI system and start running it as self.ui_task."""
         from kvui import GameManager
@@ -208,6 +214,15 @@ class VotipelagoContext(CommonContext):
         from kivy.uix.boxlayout import BoxLayout
         from kivy.uix.textinput import TextInput
         import pkgutil
+
+        class ControlLayout(BoxLayout):
+            pass
+
+        class ForcePoll(Button):
+            pass
+
+        class ForceTerminatePoll(Button):
+            pass
 
         class LoginLayout(BoxLayout):
             pass
@@ -249,12 +264,23 @@ class VotipelagoContext(CommonContext):
 
             def build(self):
                 container = super().build()
+                self.add_client_tab("Votipelago Controls", self.build_controls())
                 self.add_client_tab("Votipelago Settings", self.build_login())
                 return container
 
+            def build_controls(self) -> ControlLayout:
+                control_layout = ControlLayout(orientation="vertical")
+                force_poll = ForcePoll()
+                force_poll.bind(on_press=lambda instance: self.force_start_poll())
+                control_layout.add_widget(force_poll)
+                force_terminate_poll = ForceTerminatePoll()
+                force_terminate_poll.bind(on_press=lambda instance: self.ctx.force_terminate_poll())
+                control_layout.add_widget(force_terminate_poll)
+
+                return control_layout
             def build_login(self) -> LoginLayout:
+                login_layout = LoginLayout(orientation="vertical")
                 try:
-                    login_layout = LoginLayout(orientation="vertical")
                     login_layout.add_widget(TwitchUserNameLabel(text="Twitch Username"))
                     self.twitch_username = TwitchUserName(text=Utils.persistent_load().get("votipelago", {})
                                                           .get("twitch_username", ""))
@@ -273,9 +299,9 @@ class VotipelagoContext(CommonContext):
                     app_stop.bind(on_press=lambda instance: self.ctx.stop_bot())
                     login_layout.add_widget(app_stop)
                     self.update_login_tab()
-                    return login_layout
                 except Exception as e:
                     print(e)
+                return login_layout
 
             def start_bot(self):
                 vpelago_logger.info("Starting Twitch Bot")
@@ -289,6 +315,10 @@ class VotipelagoContext(CommonContext):
 
             def update_login_tab(self):
                 pass
+
+            def force_start_poll(self):
+                vpelago_logger.info("New poll started by force")
+                self.ctx.time_til_next_poll = 0
 
         self.ui = VotipelagoManager(self)
         data = pkgutil.get_data(VotipelagoWorld.__module__, "Votipelago.kv").decode()
@@ -407,9 +437,16 @@ async def create_text_poll(ctx: VotipelagoContext,
     chat.register_event(ChatEvent.READY, on_chat_bot_ready)
     chat.register_command("apvote", ap_chat_bot_command)
     chat.start()
-    while ctx.twitch_bot_running and poll_end_time > time.time():
+    ctx.force_end_poll = False
+    while ctx.twitch_bot_running and poll_end_time > time.time() and not ctx.force_end_poll:
         await asyncio.sleep(1.0)
 
+    if ctx.force_end_poll:
+        ctx.force_end_poll = False
+        vpelago_logger.info("Poll forcefully terminated with no sent items.")
+        await chat.send_message(ctx.twitch_username_text, "Poll forcefully terminated with no sent items.")
+        chat.stop()
+        return
     winning_option = 1
     highest_number_of_votes = 0
     for i in range(1, len(item_choices) + 1):
@@ -467,13 +504,18 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
         return
     if ctx.new_poll_message is not None and ctx.new_poll_message != "":
         await send_quick_chat(ctx.new_poll_message, ctx.twitch_username_text, twitch)
-    while ctx.twitch_bot_running and poll is not None and poll.status.value == PollStatus.ACTIVE.value:
+    ctx.force_end_poll = False
+    while (ctx.twitch_bot_running and
+           poll is not None and
+           poll.status.value == PollStatus.ACTIVE.value and
+           not ctx.force_end_poll):
         try:
             poll = await first(twitch.get_polls(twitch_user.id, poll.id, first=1))
         except Exception as e:
             logging.error(f"Unable to get poll {e}")
             break
         await asyncio.sleep(1.0)
+    ctx.force_end_poll = False
     if poll is not None and poll.status.value == PollStatus.COMPLETED.value:
         highest_choice = poll.choices[0]
         for choice in poll.choices:
@@ -489,6 +531,9 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
                 await ctx.send_msgs(message)
         except ValueError:
             pass
+    elif poll is not None and poll.status.value == PollStatus.ACTIVE.value:
+        await twitch.end_poll(twitch_user.id, poll.id, PollStatus.TERMINATED)
+        vpelago_logger.info(f"Poll forcefully terminated with no sent items")
     else:
         if poll is None:
             vpelago_logger.error("Poll is None type!")

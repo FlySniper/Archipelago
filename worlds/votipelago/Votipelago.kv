@@ -54,3 +54,22 @@
     pos_hint: {"center_x": 0.5, "center_y": 0.5}
     adaptive_size: True
 
+<ControlLayout>:
+    orientation: 'vertical'
+    size: root.width, root.height
+    padding: 50
+    spacing: 20
+    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+    adaptive_size: True
+
+<ForcePoll>:
+    id: force_poll
+    text: "Force Start Poll"
+    width: "200dp"
+    pos_hint: {"center_x": 0.5}
+
+<ForceTerminatePoll>:
+    id: force_terminate_poll
+    text: "Force Terminate Poll"
+    width: "200dp"
+    pos_hint: {"center_x": 0.5}
