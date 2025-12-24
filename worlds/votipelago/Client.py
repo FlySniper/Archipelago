@@ -75,6 +75,7 @@ class VotipelagoContext(CommonContext):
     stored_deathlinks_key: str = ""
     twitch_message_queue: typing.List[str] = []
     force_end_poll: bool = False
+    clear_all_death_links: bool = False
 
 
     twitch_username_text: str = ""
@@ -98,6 +99,7 @@ class VotipelagoContext(CommonContext):
             self.victory = False
             self.finished_game = False
             self.force_end_poll = False
+            self.clear_all_death_links = False
             self.slot_data = args["slot_data"]
             self.poll_keys = self.slot_data.get("poll_keys", 1)
             self.locations_per_key = self.slot_data.get("locations_per_key", 3)
@@ -204,6 +206,9 @@ class VotipelagoContext(CommonContext):
         vpelago_logger.info("Forcing poll termination")
         self.force_end_poll = True
 
+    def clear_deathlinks(self):
+        self.clear_all_death_links = True
+
     def run_gui(self):
         """Import kivy UI system and start running it as self.ui_task."""
         from kvui import GameManager
@@ -222,6 +227,9 @@ class VotipelagoContext(CommonContext):
             pass
 
         class ForceTerminatePoll(Button):
+            pass
+
+        class ClearDeathLinks(Button):
             pass
 
         class LoginLayout(BoxLayout):
@@ -276,6 +284,9 @@ class VotipelagoContext(CommonContext):
                 force_terminate_poll = ForceTerminatePoll()
                 force_terminate_poll.bind(on_press=lambda instance: self.ctx.force_terminate_poll())
                 control_layout.add_widget(force_terminate_poll)
+                clear_death_links = ClearDeathLinks()
+                clear_death_links.bind(on_press=lambda instance: self.ctx.clear_deathlinks())
+                control_layout.add_widget(clear_death_links)
 
                 return control_layout
             def build_login(self) -> LoginLayout:
@@ -394,6 +405,14 @@ async def twitch_loop(ctx: VotipelagoContext):
                     await create_twitch_poll(ctx, item_choices, twitch, twitch_user)
                     await twitch.close()
                     ctx.time_til_next_poll = time.time() + ctx.time_between_polls
+                if ctx.clear_all_death_links:
+                    ctx.clear_all_death_links = False
+                    message = [{"cmd": 'Set', "key": ctx.stored_deathlinks_key,
+                                "default": 0,
+                                "want_reply": True,
+                                "operations": [{"operation": "replace", "value": 0}]}]
+                    Utils.async_start(ctx.send_msgs(message), name="Notify stored Deathlinks")
+                    ctx.twitch_message_queue.append("Deathlink options cleared.")
             else:
                 twitch = None
                 ctx.time_til_next_poll = 0
