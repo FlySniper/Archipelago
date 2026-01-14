@@ -249,6 +249,9 @@
 # Zillion
 /worlds/zillion/ @beauxq
 
+# Votipelago
+/worlds/votipelago @FlySniper
+
 ## Active Unmaintained Worlds
 
 # The following worlds in this repo are currently unmaintained, but currently still work in core. If any update breaks

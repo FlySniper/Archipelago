@@ -7,6 +7,7 @@ import typing
 from random import Random
 
 import certifi
+from discord import Widget
 from twitchAPI.chat import Chat, EventData, ChatCommand  # type: ignore
 from twitchAPI.helper import first
 from twitchAPI.oauth import UserAuthenticator
@@ -75,6 +76,7 @@ class VotipelagoContext(CommonContext):
     stored_deathlinks_key: str = ""
     twitch_message_queue: typing.List[str] = []
     force_end_poll: bool = False
+    force_end_poll_option: int = -1
     clear_all_death_links: bool = False
 
 
@@ -202,8 +204,9 @@ class VotipelagoContext(CommonContext):
         vpelago_logger.info("Stopping Twitch Bot (May wait until the current poll is done)")
         self.twitch_bot_running = False
 
-    def force_terminate_poll(self):
+    def force_terminate_poll(self, option: int = -1):
         vpelago_logger.info("Forcing poll termination")
+        self.force_end_poll_option = option
         self.force_end_poll = True
 
     def clear_deathlinks(self):
@@ -219,6 +222,24 @@ class VotipelagoContext(CommonContext):
         from kivy.uix.boxlayout import BoxLayout
         from kivy.uix.textinput import TextInput
         import pkgutil
+
+        class ForceTerminateOptionLayout(BoxLayout):
+            pass
+
+        class ForceTerminatePollOption1(Button):
+            pass
+
+        class ForceTerminatePollOption2(Button):
+            pass
+
+        class ForceTerminatePollOption3(Button):
+            pass
+
+        class ForceTerminatePollOption4(Button):
+            pass
+
+        class ForceTerminatePollOption5(Button):
+            pass
 
         class ControlLayout(BoxLayout):
             pass
@@ -287,6 +308,23 @@ class VotipelagoContext(CommonContext):
                 clear_death_links = ClearDeathLinks()
                 clear_death_links.bind(on_press=lambda instance: self.ctx.clear_deathlinks())
                 control_layout.add_widget(clear_death_links)
+                force_terminate_option_layout = ForceTerminateOptionLayout(orientation="horizontal")
+                control_layout.add_widget(force_terminate_option_layout)
+                force_terminate_option_1 = ForceTerminatePollOption1()
+                force_terminate_option_1.bind(on_press=lambda instance: self.ctx.force_terminate_poll(0))
+                force_terminate_option_layout.add_widget(force_terminate_option_1)
+                force_terminate_option_2 = ForceTerminatePollOption2()
+                force_terminate_option_2.bind(on_press=lambda instance: self.ctx.force_terminate_poll(1))
+                force_terminate_option_layout.add_widget(force_terminate_option_2)
+                force_terminate_option_3 = ForceTerminatePollOption3()
+                force_terminate_option_3.bind(on_press=lambda instance: self.ctx.force_terminate_poll(2))
+                force_terminate_option_layout.add_widget(force_terminate_option_3)
+                force_terminate_option_4 = ForceTerminatePollOption4()
+                force_terminate_option_4.bind(on_press=lambda instance: self.ctx.force_terminate_poll(3))
+                force_terminate_option_layout.add_widget(force_terminate_option_4)
+                force_terminate_option_5 = ForceTerminatePollOption5()
+                force_terminate_option_5.bind(on_press=lambda instance: self.ctx.force_terminate_poll(4))
+                force_terminate_option_layout.add_widget(force_terminate_option_5)
 
                 return control_layout
             def build_login(self) -> LoginLayout:
@@ -456,18 +494,26 @@ async def create_text_poll(ctx: VotipelagoContext,
     chat.register_event(ChatEvent.READY, on_chat_bot_ready)
     chat.register_command("apvote", ap_chat_bot_command)
     chat.start()
+    ctx.force_end_poll_option = -1
     ctx.force_end_poll = False
     while ctx.twitch_bot_running and poll_end_time > time.time() and not ctx.force_end_poll:
         await asyncio.sleep(1.0)
 
-    if ctx.force_end_poll:
+    if ctx.force_end_poll and ctx.force_end_poll_option == -1:
+        ctx.force_end_poll_option = -1
         ctx.force_end_poll = False
         vpelago_logger.info("Poll forcefully terminated with no sent items.")
         await chat.send_message(ctx.twitch_username_text, "Poll forcefully terminated with no sent items.")
         chat.stop()
         return
-    winning_option = 1
-    highest_number_of_votes = 0
+    if ctx.force_end_poll_option == -1:
+        winning_option = 1
+        highest_number_of_votes = 0
+    else:
+        winning_option = ctx.force_end_poll_option + 1
+        highest_number_of_votes = 999999999999
+        await chat.send_message(ctx.twitch_username_text,
+                                f"Poll forcefully terminated with option {winning_option} sent.")
     for i in range(1, len(item_choices) + 1):
         votes = len(ctx.chat_votes[i])
         if votes > highest_number_of_votes:
@@ -523,6 +569,7 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
         return
     if ctx.new_poll_message is not None and ctx.new_poll_message != "":
         await send_quick_chat(ctx.new_poll_message, ctx.twitch_username_text, twitch)
+    ctx.force_end_poll_option = -1
     ctx.force_end_poll = False
     while (ctx.twitch_bot_running and
            poll is not None and
@@ -534,6 +581,7 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
             logging.error(f"Unable to get poll {e}")
             break
         await asyncio.sleep(1.0)
+    ctx.force_end_poll_option = -1
     ctx.force_end_poll = False
     if poll is not None and poll.status.value == PollStatus.COMPLETED.value:
         highest_choice = poll.choices[0]
@@ -552,7 +600,13 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
             pass
     elif poll is not None and poll.status.value == PollStatus.ACTIVE.value:
         await twitch.end_poll(twitch_user.id, poll.id, PollStatus.TERMINATED)
-        vpelago_logger.info(f"Poll forcefully terminated with no sent items")
+        if ctx.force_end_poll_option == -1:
+            vpelago_logger.info("Poll forcefully terminated with no sent items")
+        else:
+            location = item_choices[ctx.force_end_poll_option].location
+            message = [{"cmd": 'LocationChecks', "locations": [location]}]
+            await ctx.send_msgs(message)
+            vpelago_logger.info(f"Forcefully sent option {ctx.force_end_poll_option + 1}. Poll terminated.")
     else:
         if poll is None:
             vpelago_logger.error("Poll is None type!")
