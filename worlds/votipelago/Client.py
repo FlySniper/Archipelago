@@ -506,7 +506,7 @@ async def create_text_poll(ctx: VotipelagoContext,
         await chat.send_message(ctx.twitch_username_text, "Poll forcefully terminated with no sent items.")
         chat.stop()
         return
-    if ctx.force_end_poll_option == -1:
+    if ctx.force_end_poll_option == -1 or ctx.force_end_poll_option >= len(item_choices):
         winning_option = 1
         highest_number_of_votes = 0
     else:
@@ -600,7 +600,7 @@ async def create_twitch_poll(ctx: VotipelagoContext, item_choices: list[PollOpti
             pass
     elif poll is not None and poll.status.value == PollStatus.ACTIVE.value:
         await twitch.end_poll(twitch_user.id, poll.id, PollStatus.TERMINATED)
-        if ctx.force_end_poll_option == -1:
+        if ctx.force_end_poll_option == -1 or ctx.force_end_poll_option >= len(item_choices):
             vpelago_logger.info("Poll forcefully terminated with no sent items")
         else:
             location = item_choices[ctx.force_end_poll_option].location
