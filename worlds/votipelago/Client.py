@@ -1,13 +1,11 @@
 import asyncio
 import logging
-import os
 import random
 import time
 import typing
 from random import Random
 
-import certifi
-from discord import Widget
+
 from twitchAPI.chat import Chat, EventData, ChatCommand  # type: ignore
 from twitchAPI.helper import first
 from twitchAPI.oauth import UserAuthenticator
